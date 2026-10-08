@@ -313,11 +313,34 @@ test('AI credentials are encrypted, workspace scoped and absent from browser res
       provider: 'AI',
     });
     assert.equal(unseal(row.encryptedKey, f.config.encryptionKey), 'private-test-provider-key');
+    const rechecked = await f.platform.configureAI(f.user, {
+      provider: 'gemini',
+      apiKey: '',
+      model: 'test-model',
+      researchModel: 'gemini-3.1-pro-preview',
+      researchThinking: 'high',
+      grounding: false,
+    });
+    assert.equal(rechecked.researchModel, 'gemini-3.1-pro-preview');
+    await assert.rejects(
+      f.platform.configureAI(
+        { ...f.user, businessId: crypto.randomUUID() },
+        {
+          provider: 'gemini',
+          apiKey: '',
+          model: 'test-model',
+          researchModel: 'gemini-3.1-pro-preview',
+        },
+      ),
+      { code: 'AI_KEY_REQUIRED' },
+    );
     assert.ok(
       !JSON.stringify(await f.platform.overview(f.user)).includes('private-test-provider-key'),
     );
     const llm = await workspaceLLM(f.platform, f.user.businessId);
     assert.equal(llm.config.llmKey, 'private-test-provider-key');
+    assert.equal(llm.config.researchModel, 'gemini-3.1-pro-preview');
+    assert.equal(llm.config.researchThinking, 'high');
     await assert.rejects(workspaceLLM(f.platform, crypto.randomUUID()), {
       code: 'AI_NOT_CONFIGURED',
     });

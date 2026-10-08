@@ -22,6 +22,13 @@ export function loadConfig(env = process.env) {
   if (mode === 'live' && !/^v\d+\.\d+$/.test(env.META_API_VERSION || ''))
     throw new Error('Set META_API_VERSION explicitly for live mode');
   const origin = env.APP_ORIGIN || 'http://localhost:5173';
+  const basePath = (env.APP_BASE_PATH || '').replace(/\/$/, '');
+  if (basePath && !/^\/(?:[a-zA-Z0-9_-]+\/?)+$/.test(basePath))
+    throw new Error('APP_BASE_PATH must be a URL path such as /adpilot');
+  if (new URL(origin).pathname !== '/')
+    throw new Error(
+      'APP_ORIGIN must contain only the scheme and host; use APP_BASE_PATH for /adpilot',
+    );
   if (production && !origin.startsWith('https://'))
     throw new Error('Production requires an HTTPS APP_ORIGIN');
   if (
@@ -37,6 +44,7 @@ export function loadConfig(env = process.env) {
     production,
     port: Number(env.PORT || 4000),
     origin,
+    basePath,
     dataFile: path.resolve(env.DATA_FILE || '.data/demo.json'),
     mongoUri: env.MONGODB_URI,
     redisUrl: env.REDIS_URL,
@@ -50,6 +58,8 @@ export function loadConfig(env = process.env) {
     llmEndpoint: env.LLM_ENDPOINT,
     llmKey: env.LLM_API_KEY,
     llmModel: env.LLM_MODEL || 'gemini-3.1-flash-lite',
+    researchModel: env.LLM_RESEARCH_MODEL || 'gemini-3.8-flash',
+    researchThinking: env.LLM_RESEARCH_THINKING || 'high',
     geminiGrounding: env.GEMINI_SEARCH_GROUNDING === 'true',
     trustProxy: Number(env.TRUST_PROXY || 0),
     storageDriver: env.STORAGE_DRIVER || 'local',

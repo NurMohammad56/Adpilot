@@ -58,7 +58,10 @@ export function createApp(runtime) {
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     const supplied = req.headers['x-request-id'];
-    req.requestId = typeof supplied === 'string' && /^[a-f0-9-]{36}$/i.test(supplied) ? supplied : crypto.randomUUID();
+    req.requestId =
+      typeof supplied === 'string' && /^[a-f0-9-]{36}$/i.test(supplied)
+        ? supplied
+        : crypto.randomUUID();
     res.setHeader('X-Request-Id', req.requestId);
     next();
   });
@@ -161,7 +164,7 @@ export function createApp(runtime) {
       secure: config.production,
       sameSite: 'strict',
       maxAge: 12 * 3600000,
-      path: '/',
+      path: config.basePath ? `${config.basePath}/` : '/',
     });
     return res.json({ user: session.user });
   }
@@ -193,7 +196,12 @@ export function createApp(runtime) {
   });
   app.post('/api/auth/logout', async (req, res) => {
     await auth.logout(cookieToken(req));
-    res.clearCookie('adpilot_session', { path: '/' });
+    res.clearCookie('adpilot_session', {
+      path: config.basePath ? `${config.basePath}/` : '/',
+      secure: config.production,
+      httpOnly: true,
+      sameSite: 'strict',
+    });
     res.json({ success: true });
   });
   app.use('/api', async (req, res, next) => {
@@ -201,15 +209,13 @@ export function createApp(runtime) {
     if (!req.user)
       return res.status(401).json({ error: { code: 'AUTH_REQUIRED', message: 'Please sign in' } });
     if (req.headers['x-workspace-id'] && req.headers['x-workspace-id'] !== req.user.businessId)
-      return res
-        .status(409)
-        .json({
-          error: {
-            code: 'WORKSPACE_CHANGED',
-            message:
-              'The selected workspace changed in another tab. Reload before continuing; this request was stopped.',
-          },
-        });
+      return res.status(409).json({
+        error: {
+          code: 'WORKSPACE_CHANGED',
+          message:
+            'The selected workspace changed in another tab. Reload before continuing; this request was stopped.',
+        },
+      });
     next();
   });
   app.get('/api/auth/me', (req, res) =>
@@ -236,12 +242,18 @@ export function createApp(runtime) {
       z
         .object({
           provider: z.enum(['gemini', 'gateway']),
-          apiKey: z.string().min(10).max(4000),
+          apiKey: z.string().trim().min(10).max(4000).or(z.literal('')).optional(),
           model: z
             .string()
             .regex(/^[a-zA-Z0-9.-]+$/)
             .max(150),
           endpoint: z.string().url().optional(),
+          researchModel: z
+            .string()
+            .regex(/^[a-zA-Z0-9.-]+$/)
+            .max(150)
+            .optional(),
+          researchThinking: z.enum(['low', 'high']).default('high'),
           grounding: z.boolean().default(false),
         })
         .strict(),
@@ -317,7 +329,16 @@ export function createApp(runtime) {
     '/api/research/:id/run',
     parse(z.object({ instruction: z.string().max(5000).default('') }).strict()),
     async (req, res) =>
-      res.status(201).json(await research.research(req.user, req.params.id, req.input.instruction, req.headers['accept-language']?.startsWith('bn') ? 'bn' : 'en')),
+      res
+        .status(201)
+        .json(
+          await research.research(
+            req.user,
+            req.params.id,
+            req.input.instruction,
+            req.headers['accept-language']?.startsWith('bn') ? 'bn' : 'en',
+          ),
+        ),
   );
   app.post('/api/research/versions/:id/edit', parse(reportEditSchema), async (req, res) =>
     res.status(201).json(await research.edit(req.user, req.params.id, req.input)),
@@ -340,12 +361,28 @@ export function createApp(runtime) {
   app.post('/api/research/versions/:id/campaign', parse(servicePlanInput), async (req, res) =>
     res.status(201).json(await createServicePlan(platform, req.user, req.params.id, req.input)),
   );
-  app.post('/api/research/versions/:id/product-campaign', parse(z.object({}).strict()), async (req, res) => {
-    const source = await research.approved(req.user, req.params.id);
-    assert(source.project.kind === 'physical-product' && source.project.productId, 422, 'PRODUCT_LINK_REQUIRED', 'Link this physical-product research to a product before creating a campaign.');
-    assert(source.version.report.recommendation.country === 'BD', 422, 'PRODUCT_MARKET', 'The physical-product sales engine currently supports Bangladesh. Select and approve Bangladesh to continue.');
-    res.status(201).json(await platform.createPlan(req.user, source.project.productId, {}, null, source));
-  });
+  app.post(
+    '/api/research/versions/:id/product-campaign',
+    parse(z.object({}).strict()),
+    async (req, res) => {
+      const source = await research.approved(req.user, req.params.id);
+      assert(
+        source.project.kind === 'physical-product' && source.project.productId,
+        422,
+        'PRODUCT_LINK_REQUIRED',
+        'Link this physical-product research to a product before creating a campaign.',
+      );
+      assert(
+        source.version.report.recommendation.country === 'BD',
+        422,
+        'PRODUCT_MARKET',
+        'The physical-product sales engine currently supports Bangladesh. Select and approve Bangladesh to continue.',
+      );
+      res
+        .status(201)
+        .json(await platform.createPlan(req.user, source.project.productId, {}, null, source));
+    },
+  );
   app.put('/api/business', parse(businessSchema), async (req, res) =>
     res.json(await platform.updateBusiness(req.user, req.input)),
   );
@@ -502,10 +539,28 @@ export function createApp(runtime) {
     parse(
       z
         .object({
-          accessToken: z.string().trim().min(20, 'Paste a Meta API access token, not your login password.').max(4000).or(z.literal('')).optional(),
-          adAccountId: z.string().trim().regex(/^(act_)?\d+$/, 'Use the numeric ad account ID from Ads Manager, not an email address.'),
-          pageId: z.string().trim().regex(/^\d+$/, 'Use the Facebook Page numeric ID, not the Developer App ID.'),
-          pixelId: z.string().trim().regex(/^\d+$/, 'Use the numeric pixel or dataset ID from Events Manager.'),
+          accessToken: z
+            .string()
+            .trim()
+            .min(20, 'Paste a Meta API access token, not your login password.')
+            .max(4000)
+            .or(z.literal(''))
+            .optional(),
+          adAccountId: z
+            .string()
+            .trim()
+            .regex(
+              /^(act_)?\d+$/,
+              'Use the numeric ad account ID from Ads Manager, not an email address.',
+            ),
+          pageId: z
+            .string()
+            .trim()
+            .regex(/^\d+$/, 'Use the Facebook Page numeric ID, not the Developer App ID.'),
+          pixelId: z
+            .string()
+            .trim()
+            .regex(/^\d+$/, 'Use the numeric pixel or dataset ID from Events Manager.'),
           appSecret: z.string().min(16).max(300).optional().or(z.literal('')),
         })
         .strict(),

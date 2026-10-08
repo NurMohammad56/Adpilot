@@ -36,8 +36,16 @@ export class LLMService {
   }
   async generate(task, context, schema) {
     if (this.config.llmProvider === 'demo') return null;
-    if (this.config.llmProvider === 'gemini')
-      return new GeminiProvider(this.config).generate(task, context, schema);
+    if (this.config.llmProvider === 'gemini') {
+      const research = ['bangladesh-market-research', 'market-comparison'].includes(task);
+      return new GeminiProvider({
+        ...this.config,
+        llmModel: research
+          ? this.config.researchModel || this.config.llmModel
+          : this.config.llmModel,
+        thinkingLevel: research ? this.config.researchThinking || 'high' : 'low',
+      }).generate(task, context, schema);
+    }
     if (this.config.llmProvider !== 'gateway')
       throw new AppError(
         503,

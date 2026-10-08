@@ -1,35 +1,31 @@
-﻿# Verification record
+# Verification record
 
-Validated on 8 October 2026 in the supplied Windows workspace, Node 22.17.0.
+Validated on 8 October 2026: local Node 22.17.0; Ubuntu 24.04 VPS with Node 22.23.3 in Docker. Production login and campaign review now pass. Full Gemini 3.8 research acceptance remains blocked by provider availability.
 
-| Check                                                  | Result                                                                                                    |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| JavaScript syntax                                      | Passed                                                                                                    |
-| Node economics/service/API/security/MCP/provider tests | 56 passed, including linked BD research, saved-token rechecks, search-outage fallback, COD sensitivity, small budgets and research, workspace isolation, private uploads and signed S3 requests                |
-| Mongo replica-set integration                          | Passed using an isolated real MongoDB 7.0.24 replica set                                                  |
-| Browser desktop and mobile workflows                   | 6 passed, including Bangla enum/percentage preservation, draft navigation, mobile readability and actual image/video uploads, iterative research and separate service/product approvals |
-| Real Redis/BullMQ integration                          | Previously passed against isolated local Redis 5.0.14.1; test instance shut down                          |
-| Dependency audit                                       | 0 vulnerabilities                                                                                         |
-| Vite production build                                  | Passed                                                                                                    |
-| Live MongoDB Atlas                                     | Authentication, replica-set capability, initial administrator registration and integration writes passed  |
-| Live Meta reads                                        | Active BDT account, Page, supplied pixel and Dhaka city lookup passed                                     |
-| Meta token lifecycle                                   | Exchange passed; expiration December 7, 2026; token encrypted in Mongo                                    |
-| Native Gemini                                          | Copy and market research passed with Gemini 3.1 Flash Lite; three copy languages validated                |
-| Native Gemini international research                   | Passed structured service comparison for Bangladesh, United States and United Kingdom                     |
-| Workspace-scoped live credentials                      | Initial Meta app secret and AI key encrypted in Mongo; new workspaces do not inherit provider credentials |
-| Private local media                                    | File signature validation, workspace ownership, byte ranges and checksum checks passed                    |
-| S3-compatible adapter                                  | Signed wire and real private R2 PUT/GET/range/DELETE passed; authenticated API upload/download/range and anonymous rejection passed                             |
-| Meta image/video adapter                               | Mocked upload/country/event/cover/checkpoint requests passed; video failure blocks activation             |
-| Gemini Google Search                                   | Supplied account returned quota errors; disabled locally                                                  |
-| Upstash REST                                           | Authentication and PING passed; REST cannot run BullMQ                                                    |
-| Upstash TCP/TLS                                        | Pending REDIS_URL; background jobs explicitly disabled                                                    |
-| Local live browser login                               | Passed; Accounts/Media/Research UI and APIs plus stored-token re-verification checked; public responses contain no supplied secrets         |
-| Paid Meta actions                                      | Not performed; LIVE_EXECUTION_ENABLED=false                                                               |
-| Public deployment                                      | Pending hosting/provider/domain details                                                                   |
-| Docker                                                 | Manifest parsed earlier; daemon unavailable, container startup not executed                               |
+| Check | Result |
+| --- | --- |
+| JavaScript checks, production build | Previously passed; application source was unchanged during this live verification |
+| Backend economics/API/security/MCP/provider tests | 64 previously passed, including model-preserving overload retries, immediate daily-quota failure, response repair, provenance and subpath cookies/media |
+| Browser regression suite | Seven previously passed scenarios |
+| Atlas from VPS | All three replica-set hosts connected over verified TLS 1.3 after the VPS IP was allowed |
+| Public API and login | HTTPS health, real administrator sign-in, secure subpath session cookie and workspace overview passed |
+| Live browser | Real sign-in, Accounts, Media library and Research studio rendered; saved test report rendered on desktop and mobile without JavaScript errors or horizontal overflow |
+| Redis and worker | API/Redis healthy; one registered BullMQ worker and hourly/daily schedulers verified; zero failed jobs. Earlier private Redis deduplication/retry also passed |
+| R2 through public API | Real image upload, authenticated download, byte-range response and anonymous 401 passed; test object removed |
+| Workspace AI key | New local `.env` key differed from the saved encrypted workspace key. New key verified and saved through the authenticated live Accounts API |
+| Gemini model settings | Research remains `gemini-3.8-flash`, High thinking; copy remains `gemini-3.1-flash-lite`. No silent model downgrade |
+| Gemini native generation | New key returned HTTP 200 with valid JSON from Flash Lite. Complete saved 10-country research through the public API exhausted bounded retries with provider `UNAVAILABLE`/503. An independent small Flash High-thinking request also returned 503 and Google's high-demand message |
+| Research version review | Submit and approval passed using an explicitly marked manual verification fixture, not a Gemini-generated research report |
+| Campaign review | Fixture-linked service draft generated three real Flash Lite copy variants. Owned R2 media, country, BDT budget, validation, research bindings, submission, rejection, resubmission and separate approval passed |
+| MCP execution gate | Public execute route reached the stdio MCP/internal service and returned 409 `APPROVAL_REQUIRED` for the rejected test approval before any Meta mutation |
+| Live Meta reads | Connected ad account, Page and pixel re-verification passed |
+| Paid execution | Enabled in production configuration; no advertising mutation or paid campaign was attempted. Actual paid Meta acceptance remains untested |
+| Test cleanup | Only the isolated QA project, report, offer, plan, approval records and R2 image removed. Original research brief and workspace account settings preserved |
 
-Regression tests use isolated fixtures and mock provider credentials. Explicit operator smoke checks use the configured live providers. Gemini calls can incur provider charges; no advertising writes were attempted.
+The earlier Atlas blocker is resolved. The earlier 429 came from the previously saved workspace key; updating `.env` alone does not replace an existing workspace's encrypted Accounts key. The new key was synchronized securely through the live API. Its current research failure is Google's model high-demand response, not an Atlas or login failure. More retries or a new key cannot be assumed to resolve shared model capacity.
 
-Redis 5 is below BullMQ's recommended live minimum. Use Redis 6.2+ for deployment; Compose and CI use Redis 7.4. CI has not run on a remote runner in this session. Configuration guards require background jobs/Redis for production or paid execution.
+Google Search grounding remains disabled. Unsourced research stays labeled as hypotheses. The separate Google Deep Research agent is not integrated. Campaign review tests used a manual fixture to isolate campaign behavior from the unavailable research model; they do not establish that a full AI research-to-paid-ad run works.
 
-Private evidence is in the Git-ignored .data directory: connection-status.json, gemini-status.json, global-research-status.json, meta-token-status.json, storage-status.json, live-media-status.json, live-status.json, live-workspace.png and mobile-bangla.png. Administrator credentials and local secrets are Git-ignored. Mongo isolation and simultaneous research-version writes also passed in the replica-set test; the older research result cannot overwrite a concurrently saved newer version.
+Research re-verification on 8 October 2026 at 12:48–12:50 UTC ran the original saved custom-ecommerce brief through the public production API with all ten countries and Gemini 3.8 Flash High thinking. The provider again returned `UNAVAILABLE`/503 after bounded retries; the application returned its explicit provider error. Verified that the original project revision, current-version pointer and report history were unchanged by failure. An independent request to the stable Google `v1` route also returned the same high-demand 503. Flash Lite still generated valid native JSON. No replacement model was selected and no synthetic report was saved as a successful research result.
+
+Private evidence is in Git-ignored `.data`: `production-status.json`, `live-acceptance-status.json`, `new-gemini-capacity.json`, `live-research-verification.json`, `stable-route-status.json`, `live-acceptance-research.png`, and earlier provider/storage/browser records. The authenticated public research check is reproducible with `node .data/verify-research-live.js`; a successful run saves a new draft report to the original brief and checks strict validation, integrity, persistence and browser rendering. Do not publish administrator credentials or private artifacts.

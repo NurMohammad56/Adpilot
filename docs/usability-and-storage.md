@@ -32,10 +32,14 @@ Research বা brief পরিবর্তিত হলে পুরোনো r
 
 ## ব্যর্থতা ও বর্তমান সীমা
 
+Research model ও copy model আলাদা করে Accounts-এ বেছে নেওয়া যায়; research thinking effort **High** বা **Low** নির্বাচন করা যায়। Default research model `gemini-3.8-flash` এবং High thinking; copy model `gemini-3.1-flash-lite`। Saved Gemini key খালি রেখে model settings পুনরায় save/recheck করা যায়। এই key-তে 3 Flash এবং Flash Lite-এর High-thinking generation পরীক্ষা সফল; 3.1 Pro generation quota error দিয়েছে। শক্তিশালী model বেছে নেওয়া মানেই তার generation quota পাওয়া নয়।
+
+Google-এর **Deep Research agent** একটি পৃথক Interactions/background API; সেটি এই release-এ যুক্ত করা হয়নি। High-thinking structured country research-কে ওই agent বলে দাবি করা হচ্ছে না। [Google Deep Research documentation](https://ai.google.dev/gemini-api/docs/deep-research), [thinking configuration](https://ai.google.dev/gemini-api/docs/thinking)।
+
 Connection সমস্যা হলে form draft থাকে। Read request সীমিত retry পায়; submitted campaign action স্বয়ংক্রিয় replay হয় না। Meta partial creation/checkpoints, budget reservations, transaction, hash bindings ও reconciliation guards আছে। এগুলো ব্যর্থতার প্রভাব কমায়; বাইরের API বা hosting কখনো ব্যর্থ হবে না—এমন নিশ্চয়তা নেই।
 
 Google Search quota exhausted হলে enabled grounding চেষ্টা থেকে ungrounded report তৈরি হতে পারে, তবে missing retrieval ও unverified hypotheses স্পষ্টভাবে চিহ্নিত থাকবে। Invalid API key উপেক্ষা করা হয় না। এই workspace-এ Search grounding বর্তমানে disabled।
 
-R2 configuration সম্পন্ন। Native Redis `rediss://...` URL এবং public hosting/domain এখনও বাকি। Paid Meta execution ও background jobs বন্ধ আছে; production/paid mode Redis ছাড়া চালু হবে না।
+Live site: https://fahimstack.tech/adpilot/ । Atlas IP access ঠিক হওয়ার পর login, API, Redis worker ও R2 media যাচাই সফল। নতুন Gemini key encrypted workspace Accounts-এ সংরক্ষিত হয়েছে; শুধু `.env` বদলালে পুরোনো workspace key বদলায় না। নতুন key দিয়ে Flash Lite response সফল, কিন্তু Gemini 3.8 High ছোট request-এও Google high-demand 503 দিচ্ছে। তাই পূর্ণ AI research এখনও live acceptance পাস করেনি। Campaign draft ও approval যাচাই explicit manual test report দিয়ে সফল; paid ad চালানো হয়নি। বিস্তারিত: [deployment guide](deployment.md) এবং [verification record](verification.md)।
 
 Operator checks: `node scripts/smoke-storage.js`, `node scripts/smoke-media-live.js`, `node scripts/smoke-live.js`. প্রথম দুইটি নিজস্ব অস্থায়ী probe পরিষ্কার করে; শেষটি configured Meta connection read-verify করে। Regression/browser tests পৃথক demo data ও local files ব্যবহার করে।

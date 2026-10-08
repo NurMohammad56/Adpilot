@@ -14,6 +14,8 @@ export async function workspaceLLM(platform, businessId) {
     llmProvider: row.aiProvider,
     llmEndpoint: row.endpoint,
     llmModel: row.model,
+    researchModel: row.researchModel || platform.config.researchModel || row.model,
+    researchThinking: row.researchThinking || 'high',
     llmKey: unseal(row.encryptedKey, platform.config.encryptionKey),
     geminiGrounding: row.grounding,
   });
@@ -24,6 +26,8 @@ export function publicAI(row) {
         configured: true,
         provider: row.aiProvider,
         model: row.model,
+        researchModel: row.researchModel,
+        researchThinking: row.researchThinking || 'high',
         grounding: row.grounding,
         verifiedAt: row.verifiedAt,
       }
@@ -42,6 +46,17 @@ export async function configureAI(platform, user, input) {
     'DEMO_MODE',
     'Demo workspaces use simulated providers',
   );
+  const previous = await platform.store.find('integrations', {
+    businessId: user.businessId,
+    provider: 'AI',
+  });
+  assert(
+    input.apiKey || (previous?.encryptedKey && previous.aiProvider === input.provider),
+    422,
+    'AI_KEY_REQUIRED',
+    'Provide an API key to connect this AI provider.',
+  );
+  const apiKey = input.apiKey || unseal(previous.encryptedKey, platform.config.encryptionKey);
   const endpoint =
     input.provider === 'gemini'
       ? 'https://generativelanguage.googleapis.com/v1beta'
@@ -56,13 +71,18 @@ export async function configureAI(platform, user, input) {
     );
   }
   if (input.provider === 'gemini') {
-    const response = await fetch(`${endpoint}/models/${input.model}`, {
-      headers: { 'x-goog-api-key': input.apiKey },
-      signal: AbortSignal.timeout(15000),
-    }).catch(() => {
-      throw new AppError(502, 'AI_UNAVAILABLE', 'Could not verify the AI provider');
-    });
-    assert(response.ok, 422, 'AI_CREDENTIALS', 'API key or selected model could not be verified');
+    for (const model of new Set([
+      input.model,
+      input.researchModel || platform.config.researchModel || input.model,
+    ])) {
+      const response = await fetch(`${endpoint}/models/${model}`, {
+        headers: { 'x-goog-api-key': apiKey },
+        signal: AbortSignal.timeout(15000),
+      }).catch(() => {
+        throw new AppError(502, 'AI_UNAVAILABLE', 'Could not verify the AI provider');
+      });
+      assert(response.ok, 422, 'AI_CREDENTIALS', 'API key or selected model could not be verified');
+    }
   }
   return platform.store.transaction(async () => {
     const existing = await platform.store.find('integrations', {
@@ -75,7 +95,11 @@ export async function configureAI(platform, user, input) {
       aiProvider: input.provider,
       endpoint,
       model: input.model,
-      encryptedKey: seal(input.apiKey, platform.config.encryptionKey),
+      researchModel: input.researchModel || platform.config.researchModel || input.model,
+      researchThinking: input.researchThinking || 'high',
+      encryptedKey: input.apiKey
+        ? seal(apiKey, platform.config.encryptionKey)
+        : previous.encryptedKey,
       grounding: input.grounding,
       verifiedAt: now(),
     };

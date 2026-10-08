@@ -42,7 +42,8 @@ await request('/integrations/meta', 'POST', {
   adAccountId: overview.integration.adAccountId,
   pageId: overview.integration.pageId,
   pixelId: overview.integration.pixelId,
-  accessToken: '', appSecret: '',
+  accessToken: '',
+  appSecret: '',
 });
 const workspaces = await request('/workspaces');
 assert.ok(

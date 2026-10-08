@@ -1,4 +1,6 @@
 FROM node:22-bookworm-slim AS build
+ARG APP_BASE_PATH=""
+ENV APP_BASE_PATH=$APP_BASE_PATH
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund

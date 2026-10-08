@@ -102,6 +102,8 @@ Private Cloudflare R2 is the configured storage backend for this local live work
 
 Optional Gemini Search retrieval failures caused by quota/transient connectivity can produce a clearly marked supplied-evidence report; invalid credentials still fail. Retrieval status never upgrades the model's output into verified evidence.
 
+Workspace AI configuration separates copy and research models and low/high research thinking. Gemini 3 uses `thinkingLevel`; supported 2.5 models use a bounded thinking budget. High-thinking output reserves enough tokens for reasoning plus the structured report. Provider processing is bounded to 170 seconds per adapter instance, with redacted quota errors and no automatic switch to another model. Saved keys can be rechecked without resubmission; changing provider requires its own key. The separate Deep Research Interactions agent is outside this adapter.
+
 Mongo must be a replica set/sharded deployment with majority writes. Redis/BullMQ runs insights, analysis, research refresh, reports, expiry and reminder jobs. Only read operations receive automatic retry; action recovery needs reconciliation. Session cookies use Secure in production, with configured same-origin mutation protection and an exact reverse-proxy trust setting.
 
 Service/account credentials, HTTPS termination, Meta app review, valid targeting keys, real image URLs, conversion tracking, backup restore drills, account delivery behavior, and controlled live acceptance remain operator prerequisites. The app cannot supply credentials, validate an unconnected real account, or promise Meta's delivered daily spending behavior.

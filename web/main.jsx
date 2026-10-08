@@ -47,7 +47,7 @@ import {
 import './styles.css';
 import { ActionForm, ActionSummary } from './ActionForm.jsx';
 import { Accounts, MediaLibrary, MediaPicker, ResearchDesk } from './WorkspaceTools.jsx';
-import { api, selectApiWorkspace } from './api.js';
+import { api, selectApiWorkspace, mediaUrl } from './api.js';
 import { LanguageSwitch, useLanguage, getLanguage, translateText } from './i18n.js';
 import { useDraft } from './use-draft.js';
 import './usability.css';
@@ -65,7 +65,11 @@ const taka = (value, compact = false) =>
         notation: compact ? 'compact' : 'standard',
       }).format(value);
 const num = (value) =>
-  value == null ? '—' : new Intl.NumberFormat(getLanguage() === 'bn' ? 'bn-BD' : 'en-BD', { maximumFractionDigits: 2 }).format(value);
+  value == null
+    ? '—'
+    : new Intl.NumberFormat(getLanguage() === 'bn' ? 'bn-BD' : 'en-BD', {
+        maximumFractionDigits: 2,
+      }).format(value);
 const date = (value) =>
   new Date(value).toLocaleString(getLanguage() === 'bn' ? 'bn-BD' : 'en-GB', {
     timeZone: 'Asia/Dhaka',
@@ -846,7 +850,17 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
         <Badge tone="amber">{plan.confidence} confidence</Badge>
         <span className="muted">Version {plan.version}</span>
       </div>
-      {plan.researchProjectId && <div className="notice"><span>This campaign is linked to an approved research decision. Further research requires a fresh decision and campaign approval.</span><button className="button secondary" onClick={() => onResearch(plan.researchProjectId)}>Open source research</button></div>}
+      {plan.researchProjectId && (
+        <div className="notice">
+          <span>
+            This campaign is linked to an approved research decision. Further research requires a
+            fresh decision and campaign approval.
+          </span>
+          <button className="button secondary" onClick={() => onResearch(plan.researchProjectId)}>
+            Open source research
+          </button>
+        </div>
+      )}
       {approval && approval.action !== 'launch_campaign' && (
         <div className="notice">
           <ClipboardCheck size={16} />
@@ -1069,13 +1083,22 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                     </div>
                   </dl>
                   <p className="small muted">{p.formula}</p>
-                  {p.failureScenarios?.length > 0 && <div className="notice"><div>
-                    <strong>COD return-rate sensitivity</strong>
-                    {p.failureScenarios.map(scenario => <p key={scenario.failureRate}>
-                      {Math.round(scenario.failureRate * 100)}% failed orders: allowable ad cost {taka(scenario.allowableCPA)}
-                    </p>)}
-                    <small>These are cost scenarios, not forecasts of campaign performance.</small>
-                  </div></div>}
+                  {p.failureScenarios?.length > 0 && (
+                    <div className="notice">
+                      <div>
+                        <strong>COD return-rate sensitivity</strong>
+                        {p.failureScenarios.map((scenario) => (
+                          <p key={scenario.failureRate}>
+                            {Math.round(scenario.failureRate * 100)}% failed orders: allowable ad
+                            cost {taka(scenario.allowableCPA)}
+                          </p>
+                        ))}
+                        <small>
+                          These are cost scenarios, not forecasts of campaign performance.
+                        </small>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <h3>Campaign structure</h3>
@@ -1111,7 +1134,11 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                       <dd>{plan.ads[0]?.cta?.replaceAll('_', ' ') || 'SHOP NOW'}</dd>
                     </div>
                     <div>
-                      <dt>{plan.conversionEvent === 'LEAD' ? 'Planning lead count' : 'Planning purchase count'}</dt>
+                      <dt>
+                        {plan.conversionEvent === 'LEAD'
+                          ? 'Planning lead count'
+                          : 'Planning purchase count'}
+                      </dt>
                       <dd>
                         {b.plannedAcquisitions == null
                           ? 'Not estimated'
@@ -1234,13 +1261,9 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                   <div className="creative-image">
                     {ad.mediaAssetId ? (
                       ad.mediaType === 'video' ? (
-                        <video
-                          src={`/api/media/${ad.mediaAssetId}/content`}
-                          controls
-                          preload="metadata"
-                        />
+                        <video src={mediaUrl(ad.mediaAssetId)} controls preload="metadata" />
                       ) : (
-                        <img src={`/api/media/${ad.mediaAssetId}/content`} alt={ad.headline} />
+                        <img src={mediaUrl(ad.mediaAssetId)} alt={ad.headline} />
                       )
                     ) : ad.imageUrl ? (
                       <img src={ad.imageUrl} alt={`Product creative for ${ad.headline}`} />
@@ -1741,7 +1764,9 @@ function Settings({ data, run, refresh, busy, setPage }) {
               <p className="settings-description">
                 Credentials are encrypted at rest and kept server-side.
               </p>
-              <button className="button secondary" onClick={() => setPage("Accounts")}>Open account connections</button>
+              <button className="button secondary" onClick={() => setPage('Accounts')}>
+                Open account connections
+              </button>
               <h3 className="form-section">Resolve targeting locations</h3>
               <form
                 onSubmit={(event) => {
@@ -2007,10 +2032,15 @@ function App() {
         error.details?.errors?.join(' ') ||
         (error.details?.fieldErrors
           ? Object.entries(error.details.fieldErrors)
-              .map(([key, values]) => `${translateText(key)}: ${values.map(translateText).join(', ')}`)
+              .map(
+                ([key, values]) => `${translateText(key)}: ${values.map(translateText).join(', ')}`,
+              )
               .join('; ')
           : '');
-      setToast({ text: `${translateText(error.message)}${detail ? ` — ${detail}` : ''}`, error: true });
+      setToast({
+        text: `${translateText(error.message)}${detail ? ` — ${detail}` : ''}`,
+        error: true,
+      });
     } finally {
       setBusy(false);
     }
@@ -2207,7 +2237,9 @@ function App() {
                 onChange={(e) => setPage(e.target.value)}
               >
                 {[...navItems.map((n) => n.label), 'Settings'].map((label) => (
-                  <option key={label} value={label}>{label}</option>
+                  <option key={label} value={label}>
+                    {label}
+                  </option>
                 ))}
               </select>
               <button
@@ -2373,15 +2405,20 @@ function App() {
           </main>
         </div>
       ) : (
-        <><div className="login-language"><LanguageSwitch /></div><Login
-          mode={mode}
-          busy={busy}
-          run={run}
-          onLogin={async () => {
-            await refresh();
-            setPage('Overview');
-          }}
-        /></>
+        <>
+          <div className="login-language">
+            <LanguageSwitch />
+          </div>
+          <Login
+            mode={mode}
+            busy={busy}
+            run={run}
+            onLogin={async () => {
+              await refresh();
+              setPage('Overview');
+            }}
+          />
+        </>
       )}
       {modal && data && (
         <Modal
@@ -2457,7 +2494,11 @@ function App() {
               busy={busy}
               decide={decide}
               execute={execute}
-              onResearch={projectId => { sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, projectId); setModal(null); setPage('Research studio'); }}
+              onResearch={(projectId) => {
+                sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, projectId);
+                setModal(null);
+                setPage('Research studio');
+              }}
               submit={(plan) =>
                 run(async () => {
                   const approval = await api(`/plans/${plan.id}/submit`, 'POST', {});

@@ -1,9 +1,22 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 const bn = JSON.parse(fs.readFileSync(new URL('../web/locales/bn.json', import.meta.url), 'utf8'));
-test('Bangla controls preserve product enum values, percentage inputs and workspace drafts', async ({ page }) => {
+test('login and registration fit narrow English and Bangla screens', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: /New here/ }).click();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'বাংলায় দেখুন', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'bn');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test('Bangla controls preserve product enum values, percentage inputs and workspace drafts', async ({
+  page,
+}) => {
   const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
+  page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await page.getByRole('button', { name: 'Explore demo workspace' }).click();
   await page.getByRole('button', { name: 'Accounts', exact: true }).click();
@@ -15,7 +28,9 @@ test('Bangla controls preserve product enum values, percentage inputs and worksp
   await page.getByLabel('Product name', { exact: true }).fill('Overview');
   await page.getByLabel('Category / niche', { exact: true }).selectOption('Other');
   await page.getByLabel('Your custom category').fill('Custom printed accessories');
-  await page.getByLabel('Description', { exact: true }).fill('A custom printed accessory for everyday use.');
+  await page
+    .getByLabel('Description', { exact: true })
+    .fill('A custom printed accessory for everyday use.');
   await page.getByLabel('Expected failed / returned orders (%)', { exact: true }).fill('12');
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('button', { name: 'Add product', exact: true }).click();
@@ -28,8 +43,13 @@ test('Bangla controls preserve product enum values, percentage inputs and worksp
   await expect(page.getByLabel(bn['Product name'], { exact: true })).toHaveValue('Overview');
   await page.getByLabel(bn['Payment method'], { exact: true }).selectOption('prepaid');
   await page.getByLabel(bn['Desired profit margin (%)'], { exact: true }).fill('25');
-  const response = page.waitForResponse(result => result.url().endsWith('/api/products') && result.request().method() === 'POST');
-  await page.getByRole('dialog').getByRole('button', { name: bn['Add product'], exact: true }).click();
+  const response = page.waitForResponse(
+    (result) => result.url().endsWith('/api/products') && result.request().method() === 'POST',
+  );
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: bn['Add product'], exact: true })
+    .click();
   const saved = await (await response).json();
   expect(saved.category).toBe('Custom printed accessories');
   expect(saved.name).toBe('Overview');
@@ -44,7 +64,9 @@ test('Bangla controls preserve product enum values, percentage inputs and worksp
   await expect(page.getByRole('heading', { name: 'Products & economics.' })).toBeVisible();
   expect(errors).toEqual([]);
 });
-test('research example and unfinished brief survive navigation and mobile Bangla has no horizontal overflow', async ({ page }) => {
+test('research example and unfinished brief survive navigation and mobile Bangla has no horizontal overflow', async ({
+  page,
+}) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Explore demo workspace' }).click();
   await page.getByRole('button', { name: 'Research studio', exact: true }).click();
@@ -53,11 +75,19 @@ test('research example and unfinished brief survive navigation and mobile Bangla
   await page.getByRole('button', { name: 'Products', exact: true }).click();
   await page.getByRole('button', { name: 'Research studio', exact: true }).click();
   await expect(page.getByLabel('Offer / project name')).toHaveValue('My custom ecommerce offer');
-  await expect(page.getByLabel('What do you sell, and what problem does it solve?')).toHaveValue(/Custom ecommerce/);
+  await expect(page.getByLabel('What do you sell, and what problem does it solve?')).toHaveValue(
+    /Custom ecommerce/,
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole('button', { name: 'বাংলায় দেখুন' }).click();
-  await expect(page.getByLabel(bn['Offer / project name'])).toHaveValue('My custom ecommerce offer');
-  const dimensions = await page.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: innerWidth, font: getComputedStyle(document.querySelector('input')).fontSize }));
+  await expect(page.getByLabel(bn['Offer / project name'])).toHaveValue(
+    'My custom ecommerce offer',
+  );
+  const dimensions = await page.evaluate(() => ({
+    width: document.documentElement.scrollWidth,
+    viewport: innerWidth,
+    font: getComputedStyle(document.querySelector('input')).fontSize,
+  }));
   expect(dimensions.width).toBeLessThanOrEqual(dimensions.viewport);
   expect(parseFloat(dimensions.font)).toBeGreaterThanOrEqual(16);
   await page.screenshot({ path: '.data/mobile-bangla.png', fullPage: true });

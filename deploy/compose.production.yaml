@@ -1,0 +1,65 @@
+name: adpilot
+services:
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    env_file: /srv/adpilot/shared/production.env
+    command:
+      [
+        'sh',
+        '-c',
+        'exec redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction --requirepass "$$ADPILOT_REDIS_PASSWORD"',
+      ]
+    volumes:
+      - /srv/adpilot/shared/redis:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH=$$ADPILOT_REDIS_PASSWORD redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [backend]
+  api:
+    image: adpilot-app:latest
+    build:
+      context: ..
+      args:
+        APP_BASE_PATH: /adpilot
+    restart: unless-stopped
+    env_file: /srv/adpilot/shared/production.env
+    ports: ['127.0.0.1:4015:4000']
+    depends_on:
+      redis:
+        condition: service_healthy
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    logging:
+      options: { max-size: '10m', max-file: '3' }
+    networks: [backend]
+  worker:
+    image: adpilot-app:latest
+    command: ['node', 'src/workers/index.js']
+    restart: unless-stopped
+    env_file: /srv/adpilot/shared/production.env
+    depends_on:
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    healthcheck:
+      disable: true
+    logging:
+      options: { max-size: '10m', max-file: '3' }
+    networks: [backend]
+networks:
+  backend:
+    driver: bridge

@@ -213,7 +213,7 @@ export class ResearchWorkbench {
         responseLanguage: language === 'bn' ? 'Bangla' : 'English',
         evidence: project.evidence,
         rules:
-          'Write human-readable analysis in responseLanguage while preserving country codes and structured field names. Compare only the supplied countries. Explain B2B or consumer segments, competition, buying readiness, language, practical sales barriers and test design. Do not invent demand, CPC, budgets, conversion rates, rankings, verified sources or guaranteed outcomes. A country recommendation is a hypothesis, not approval to publish.',
+          'Write human-readable analysis in responseLanguage while preserving country codes and structured field names. Compare only the supplied countries. Investigate actual buyer segments and problem urgency, alternatives and competition, buying readiness, language, payment and sales barriers, delivery capacity and local requirements. Explicitly examine counter-evidence and why this offer could fail in each market. Identify evidence gaps and what would change the recommendation. For B2B services include decision makers, buying cycle, trust signals and a measurable interview/qualified-lead validation plan. For physical products include COD, failed deliveries and fulfillment. Use previousReport and instruction to build on prior analysis. Do not invent demand, CPC, budgets, conversion rates, rankings, verified sources or guaranteed outcomes. A country recommendation is a hypothesis, not approval to publish.',
       },
       comparisonSchema,
     );

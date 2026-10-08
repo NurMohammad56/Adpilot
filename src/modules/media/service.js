@@ -18,7 +18,10 @@ export class MediaService {
   }
   public(row) {
     const { storageKey, ...safe } = row;
-    return { ...safe, contentUrl: `/api/media/${row.id}/content` };
+    return {
+      ...safe,
+      contentUrl: `${this.platform.config.basePath || ''}/api/media/${row.id}/content`,
+    };
   }
   async upload(user, file) {
     let saved;

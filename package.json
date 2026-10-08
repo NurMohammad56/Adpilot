@@ -1,0 +1,60 @@
+{
+  "name": "bd-ads-studio",
+  "version": "1.0.0",
+  "private": true,
+  "overrides": {
+    "shell-quote": "1.12.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "node --watch src/server.js",
+    "dev:web": "vite --host 127.0.0.1",
+    "start": "node src/server.js",
+    "worker": "node src/workers/index.js",
+    "mcp": "node src/mcp/server.js",
+    "build": "vite build",
+    "test": "node --test --test-concurrency=1 tests/*.test.js",
+    "test:e2e": "playwright test",
+    "test:redis": "node --test tests/redis.integration.js",
+    "check": "node scripts/check.js",
+    "setup:check": "node scripts/check-connections.js",
+    "setup:bootstrap": "node scripts/bootstrap-live.js",
+    "setup:gemini": "node scripts/smoke-gemini.js",
+    "format": "prettier --write src web tests e2e scripts docs *.json *.js *.yaml .github/workflows/*.yml",
+    "verify": "npm run check && npm test && npm run build"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1147.0",
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
+    "@fontsource/noto-sans-bengali": "^5.3.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "bullmq": "^5.71.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "file-type": "^22.1.1",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.9.3",
+    "lucide-react": "^0.468.0",
+    "mongoose": "^9.3.1",
+    "multer": "^2.4.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^3.25.76",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.1",
+    "mongodb-memory-server": "^11.3.0",
+    "prettier": "^3.9.9",
+    "supertest": "^7.2.2",
+    "vite": "^6.4.1"
+  }
+}

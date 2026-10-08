@@ -1,0 +1,761 @@
+﻿AI-Powered Facebook Ads Automation Platform
+Phase 1 — Bangladesh Market | Facebook/Instagram Ads | Human Approval
+
+
+1. Executive Summary
+The goal of Phase 1 is to build an AI-assisted advertising platform focused exclusively on the Bangladesh market and Meta/Facebook advertising. The system will research the market, analyze a product and its actual cost, recommend a selling price, estimate an appropriate advertising budget, recommend target locations and audiences, generate campaign strategy and creatives, create the campaign through the Meta Marketing API, monitor performance, and recommend optimization actions.
+No high-risk advertising action should happen autonomously in Phase 1. Every campaign launch, budget change, important targeting change, and optimization action must pass through a human approval step.
+2. Phase 1 Scope
+* Platform: Meta Ads only — Facebook and Instagram through Meta Marketing API.
+* Market: Bangladesh only.
+* Primary goal: product sales/conversions.
+* Human approval: mandatory before campaign launch and sensitive changes.
+* AI responsibilities: research, analysis, pricing recommendation, budget recommendation, audience/geo recommendation, copy/creative strategy, performance analysis, optimization recommendations.
+* Backend: Node.js + Express.js.
+* Language: JavaScript / ES Modules.
+* Database: MongoDB + Mongoose.
+* Background jobs: Redis + BullMQ.
+* AI layer: provider-agnostic LLM service.
+* Integration/action layer: MCP server connected to Meta Marketing API.
+* Frontend: React/Next.js dashboard can be used for administration and approvals.
+3. Non-Goals for Phase 1
+* Google Ads.
+* TikTok Ads.
+* LinkedIn Ads.
+* Automatic autonomous budget changes without approval.
+* Fully autonomous campaign publishing.
+* Multi-country optimization.
+* Complex multi-channel attribution.
+* Guaranteed sales/ROAS.
+4. Core Product Workflow
+USER INPUT
+  ↓
+Business/Product Profile
+  ↓
+Bangladesh Market Research
+  ↓
+Product Economics & Pricing Engine
+  ↓
+Audience + Location + Ad Budget Recommendation
+  ↓
+Campaign Strategy Engine
+  ↓
+Creative / Copy Engine
+  ↓
+Campaign Plan
+  ↓
+Validation + Risk Engine
+  ↓
+HUMAN APPROVAL
+  ↓
+MCP Server
+  ↓
+Meta Marketing API
+  ↓
+Facebook / Instagram Campaign
+  ↓
+Performance Data Collection
+  ↓
+Analytics Engine
+  ↓
+Optimization Recommendation Engine
+  ↓
+HUMAN APPROVAL
+  ↓
+MCP Action
+  ↓
+Performance Loop
+5. High-Level Architecture
+                         ┌─────────────────────────┐
+                        │       ADMIN / USER      │
+                        │      React / Next.js    │
+                        └────────────┬────────────┘
+                                     │
+                                     ▼
+                        ┌─────────────────────────┐
+                        │      Node.js API        │
+                        │       Express.js        │
+                        └────────────┬────────────┘
+                                     │
+                   ┌─────────────────┼─────────────────┐
+                   ▼                 ▼                 ▼
+            Product Service    Research Service   Campaign Service
+                   │                 │                 │
+                   └─────────────────┼─────────────────┘
+                                     ▼
+                          ┌────────────────────┐
+                          │ AI ORCHESTRATOR    │
+                          └─────────┬──────────┘
+                                    │
+             ┌──────────────────────┼──────────────────────┐
+             ▼                      ▼                      ▼
+     Market Research        Pricing/Economics       Strategy Engine
+             │                      │                      │
+             └──────────────────────┼──────────────────────┘
+                                    ▼
+                          Creative / Copy Engine
+                                    │
+                                    ▼
+                          Campaign Plan Builder
+                                    │
+                                    ▼
+                        Validation + Risk Engine
+                                    │
+                                    ▼
+                          HUMAN APPROVAL GATE
+                                    │
+                                    ▼
+                               MCP SERVER
+                                    │
+                                    ▼
+                           META ADS SERVICE
+                                    │
+                                    ▼
+                         META MARKETING API
+                                    │
+                                    ▼
+                          FACEBOOK / INSTAGRAM
+                                    │
+                                    ▼
+                           PERFORMANCE DATA
+                                    │
+                                    ▼
+                           ANALYTICS ENGINE
+                                    │
+                                    ▼
+                        OPTIMIZATION ENGINE
+                                    │
+                                    ▼
+                        HUMAN APPROVAL GATE
+                                    │
+                                    └──────────→ MCP
+6. Product / Business Input
+The user should not need to manually define every advertising parameter. They provide business facts; the system derives recommendations.
+* Product name.
+* Product category/niche.
+* Product description.
+* Actual product cost.
+* Packaging cost.
+* Delivery/shipping cost.
+* COD/payment-related cost if applicable.
+* Other known operational cost.
+* Available inventory.
+* Business location.
+* Desired profit margin or minimum profit per order.
+* Optional selling price if the user already has one.
+* Website/product page or landing page URL, if available.
+* Available ad account and Facebook Page.
+* Total test budget or daily budget ceiling.
+* Campaign goal.
+7. Bangladesh Market Research Engine
+This engine is specifically designed for Bangladesh in Phase 1. It should produce structured research rather than only a text report.
+* Product category demand signals.
+* Bangladesh customer segments.
+* Potential buyer age groups.
+* Gender relevance.
+* Relevant cities/districts/areas.
+* Urban vs non-urban targeting recommendations.
+* Potential customer interests and behaviors available through Meta targeting.
+* Competitor positioning.
+* Common competitor price ranges when reliable data is available.
+* Common offers: free delivery, COD, discounts, bundles, etc.
+* Customer pain points and buying motivations.
+* Seasonality and event-related demand.
+* Recommended ad angles.
+* Market risks and assumptions.
+* Dhaka vs. other major cities and regions, including regional audience differences.
+* Local purchasing power by region and segment.
+* Facebook/Instagram market behavior in the category.
+* Delivery availability and delivery cost by area.
+* COD availability and expected COD behavior, including return and cancellation risk.
+* Local pricing strategy.
+* Bangla vs. English creative requirements, and Banglish communication where appropriate.
+* Named seasonal events: Eid, Ramadan, Pohela Boishakh, winter and summer demand, and other relevant events.
+* Local trends and buying patterns.
+* Final recommendation chain: region, audience, price, creative language, offer, advertising budget.
+* Detailed competitor analysis follows the Competitor Intelligence Engine (section 33).
+Important: research results must contain source, timestamp, confidence, and whether the information is observed, inferred, or AI-generated.
+8. Product Economics & Pricing Engine
+This is a core Phase 1 engine. The user provides actual costs; the engine estimates a commercially sensible selling price and advertising economics for Bangladesh.
+Example:
+
+Product Cost                 = ৳500
+Packaging                   = ৳50
+Delivery Cost               = ৳80
+Payment/COD Cost            = ৳20
+Other Variable Cost         = ৳30
+-----------------------------------
+Base Variable Cost          = ৳680
+
+Desired Profit              = ৳320
+Initial Selling Price       = ৳1,000
+
+Allowable Ad Cost / Order   = calculated from margin + target profit
+Target CPA                  = recommended
+Break-even CPA              = calculated
+Target ROAS                 = calculated
+* Calculate total variable cost.
+* Calculate break-even selling price.
+* Recommend selling-price range based on market research.
+* Calculate minimum acceptable profit.
+* Calculate break-even CPA.
+* Calculate target CPA.
+* Calculate target ROAS.
+* Recommend maximum sustainable ad spend per order.
+* Flag products where expected economics are weak.
+* Allow user override of AI pricing recommendation.
+* Do not simply accept the user's price: compare it with competitor price, customer purchasing power, product cost, desired margin, advertising cost, and market positioning. The user can still override the recommendation.
+* Provide a price range: minimum viable price, competitive price, recommended price, premium price, and promotional/test price.
+* Include payment fees and expected return/cancellation cost: Selling Price − Product Cost − Packaging − Delivery − Payment Fees − Expected Return/Cancellation Cost − Advertising Cost = Estimated Contribution Margin.
+* Identify when a product is not economically viable before recommending any campaign.
+The engine must never blindly optimize for sales volume. It must optimize against unit economics. A product generating many orders at a loss must be treated as a failed strategy.
+9. Advertising Budget Engine
+Budget recommendations should be derived from economics, test objectives, and available capital.
+* Calculate suggested test budget.
+* Set a hard maximum daily budget from user input.
+* Recommend campaign-level and ad-set-level budget.
+* Estimate number of test days.
+* Calculate maximum tolerable CPA.
+* Recommend when to pause a poor performer.
+* Recommend when an ad has enough data for a decision.
+* Never exceed user-defined budget ceilings without explicit approval.
+* Recommend a test budget, not an immediate large spend.
+* Structure each test plan as: recommended test budget, campaign duration, daily budget, number of ad sets, creative variations, expected data requirements, and decision point.
+* Explain why the budget was chosen (economics, target CPA, data needed for a decision), not only the amount.
+10. Location & Audience Engine
+* Recommend Bangladesh locations based on product suitability and available evidence.
+* Recommend Dhaka-only, major-city, nationwide, or segmented testing when appropriate.
+* Recommend age and gender only when justified.
+* Recommend Meta-supported interests/behaviors where available.
+* Avoid inventing Meta targeting options.
+* Keep recommended audience size and campaign objective aligned.
+* Record why a particular location/audience was recommended.
+* Allow the user to modify every recommendation before approval.
+* Profile each audience by age, gender, location, interests, behaviors, income or purchasing-power proxy, device/platform behavior, and B2B vs. B2C.
+* Identify customer pain points, buying motivations, objections, and awareness level.
+* Build audience segments: Primary Audience, Secondary Audience, Experimental Audience, and Retargeting Audience.
+11. Campaign Strategy Engine
+The engine converts research and economics into an executable campaign plan.
+* Campaign objective.
+* Conversion event.
+* Campaign structure.
+* Ad set structure.
+* Audience segments.
+* Location.
+* Budget.
+* Testing plan.
+* Creative angles.
+* Copy strategy.
+* CTA strategy.
+* Initial success/failure thresholds.
+* Optimization rules.
+* Placements.
+* Budget allocation across ad sets.
+* Ad copy and headlines.
+* Landing-page requirements.
+* Retargeting strategy.
+12. Creative & Copy Engine
+* Generate multiple hooks.
+* Generate primary text variations.
+* Generate headlines.
+* Generate CTA recommendations.
+* Generate creative concepts.
+* Generate UGC/video concepts.
+* Generate product-focused creative concepts.
+* Generate offer-focused concepts.
+* Generate variations for testing.
+* Store creative versions and performance history.
+Do not claim a creative will definitely convert. Store it as a hypothesis and evaluate it with real performance data.
+13. Campaign Plan Object
+{
+ businessId,
+ productId,
+ market: "BD",
+ platform: "META",
+ objective,
+ conversionEvent,
+ pricingRecommendation,
+ budgetRecommendation,
+ locationRecommendation,
+ audienceRecommendation,
+ creativeStrategy,
+ ads: [],
+ assumptions: [],
+ risks: [],
+ successCriteria: [],
+ requiresApproval: true
+}
+14. Human Approval Architecture
+Phase 1 must be approval-first.
+AI Recommendation
+     ↓
+Validation
+     ↓
+Risk Check
+     ↓
+Approval Request
+     ↓
+USER REVIEWS
+     ↓
+Approve / Reject / Edit
+     ↓
+MCP ACTION
+     ↓
+META API
+* Campaign launch requires approval.
+* New campaign budget requires approval.
+* Large budget increase requires approval.
+* Significant targeting changes require approval.
+* Creative replacement requires approval.
+* Campaign pause can be configured as approval-required in Phase 1.
+* Every approval/rejection/edit must be logged.
+* The UI must show AI reasoning, assumptions, expected impact, and risk before approval.
+* Approval outcomes: Approve executes the action through MCP; Reject or Edit sends the plan back for revision, followed by validation and risk check again.
+* Before execution the approval screen must show: selected market, reason for selection, target audience, product price, expected margin, estimated CAC, recommended budget, campaign structure, creative, expected outcomes, risks, and the AI confidence score.
+15. MCP Server Architecture
+MCP Server
+│
+├── Campaign Tools
+│   ├── create_campaign
+│   ├── update_campaign
+│   ├── pause_campaign
+│   └── resume_campaign
+│
+├── Ad Set Tools
+│   ├── create_ad_set
+│   ├── update_ad_set
+│   └── pause_ad_set
+│
+├── Ad Tools
+│   ├── create_ad
+│   ├── update_ad
+│   ├── pause_ad
+│   └── upload_creative
+│
+├── Budget Tools
+│   └── update_budget
+│
+└── Insights Tools
+   ├── get_campaign_insights
+   ├── get_ad_set_insights
+   └── get_ad_insights
+MCP is an action/interface layer, not the main business-logic layer. Pricing, strategy, validation, risk, and optimization logic should live in the application services.
+16. Meta Integration Layer
+AI / Application
+     ↓
+MCP
+     ↓
+Meta Ads Service
+     ↓
+Meta Marketing API
+
+Meta Ads Service responsibilities:
+- authentication/token management
+- ad account handling
+- Page handling
+- campaign creation
+- ad set creation
+- ad creation
+- creative upload
+- insights retrieval
+- error normalization
+- rate-limit handling
+- retry handling
+- API version compatibility
+17. Database Design
+users
+businesses
+products
+product_costs
+market_research_reports
+competitors
+audience_recommendations
+pricing_recommendations
+budget_recommendations
+campaign_strategies
+campaign_plans
+campaigns
+ad_sets
+ads
+creatives
+ad_performance
+optimization_recommendations
+approval_requests
+approval_actions
+ai_decisions
+integrations
+jobs
+audit_logs
+Important fields for AI decisions:
+ai_decisions:
+{
+ decisionType,
+ entityType,
+ entityId,
+ recommendation,
+ reason,
+ evidence,
+ assumptions,
+ confidence,
+ expectedImpact,
+ riskLevel,
+ requiresApproval,
+ approvedBy,
+ approvedAt,
+ executedAt
+}
+18. Background Jobs
+* Market research refresh.
+* Meta insights synchronization.
+* Campaign performance aggregation.
+* AI performance analysis.
+* Optimization recommendation generation.
+* Approval reminders.
+* Failed Meta API retry.
+* Daily/periodic reporting.
+Use Redis + BullMQ for asynchronous processing.
+19. Performance & Analytics Engine
+Track at minimum:
+* Spend.
+* Impressions.
+* Reach.
+* Clicks.
+* CTR.
+* CPC.
+* CPM.
+* Conversions.
+* CPA.
+* Revenue, when reliable purchase/revenue data is available.
+* ROAS.
+* Conversion rate.
+* Frequency.
+* Ad-level and ad-set-level performance.
+Performance data should be stored historically so the AI can compare periods, creatives, audiences, and experiments.
+20. Optimization Engine
+The optimization engine should generate recommendations, not directly execute them in Phase 1.
+Performance Data
+     ↓
+Metric Validation
+     ↓
+Statistical / Rule Analysis
+     ↓
+AI Interpretation
+     ↓
+Recommendation
+     ↓
+Risk Check
+     ↓
+Human Approval
+     ↓
+MCP Action
+* Pause poor-performing ads.
+* Recommend increasing budget for winners.
+* Recommend decreasing budget for weak ads.
+* Recommend new creative variations.
+* Recommend audience tests.
+* Recommend location tests.
+* Recommend offer tests.
+* Detect sudden performance deterioration.
+* Detect creative fatigue.
+* Detect spending without meaningful conversion.
+* Compare actual CPA with target CPA.
+* Compare actual ROAS with target ROAS.
+21. Optimization Guardrails
+* Never exceed account/user budget ceiling.
+* Never make a large budget jump automatically.
+* Never delete historical data.
+* Never change multiple major variables at once without labeling the experiment.
+* Require sufficient data before declaring an ad a winner/loser.
+* Do not optimize based only on CTR when the real goal is purchase.
+* Separate learning/testing decisions from scaling decisions.
+* Every optimization must have a reason and evidence.
+22. API / Module Structure
+src/
+├── config/
+├── modules/
+│   ├── auth/
+│   ├── users/
+│   ├── businesses/
+│   ├── products/
+│   ├── research/
+│   ├── pricing/
+│   ├── budgeting/
+│   ├── audiences/
+│   ├── strategies/
+│   ├── creatives/
+│   ├── campaigns/
+│   ├── analytics/
+│   ├── optimization/
+│   └── approvals/
+│
+├── integrations/
+│   └── meta/
+│
+├── ai/
+│   ├── orchestrator/
+│   ├── prompts/
+│   ├── research/
+│   ├── pricing/
+│   ├── strategy/
+│   ├── creative/
+│   └── optimization/
+│
+├── mcp/
+│   ├── server.js
+│   └── tools/
+│
+├── workers/
+├── middleware/
+├── utils/
+└── server.js
+23. Security Requirements
+* Encrypt Meta access tokens at rest.
+* Never expose Meta tokens to frontend.
+* Use environment variables/secrets management.
+* Use RBAC for admin/approver users.
+* Record every sensitive action in audit logs.
+* Validate all AI-generated actions before execution.
+* Use strict budget ceilings.
+* Use idempotency for Meta campaign actions where possible.
+* Protect approval endpoints.
+* Validate webhook authenticity if webhooks are used.
+24. Major Bottlenecks / Risks
+* Meta API permissions, app review, access tokens, rate limits, API changes, and account restrictions.
+* Reliable conversion/revenue data may be difficult without proper website/server-side tracking.
+* AI market research can be wrong or based on incomplete data.
+* Competitor pricing data may be unavailable, stale, or misleading.
+* Meta targeting options and availability can change.
+* Small-budget campaigns may not generate enough data for statistically reliable decisions.
+* Attribution can be imperfect; platform-reported conversions are not always equal to actual business revenue.
+* AI can overfit to short-term metrics such as CTR.
+* AI-generated creatives may look repetitive or fail to match local customer culture.
+* Pricing recommendations can be wrong if shipping, returns, COD failures, discounts, and operational costs are omitted.
+* A good advertising system cannot rescue a weak product, bad offer, poor landing page, or poor fulfillment.
+* API errors and partial failures can create duplicate or inconsistent campaigns if idempotency is not implemented.
+25. Most Important Bottleneck: Data Quality
+The quality of the AI system will be heavily dependent on the quality of inputs and outcome data. For Bangladesh e-commerce, the system should eventually capture confirmed orders, cancellations, returns, COD failures, delivery costs, and actual revenue rather than relying only on Meta-reported conversions.
+26. Future Optimization Areas
+* Automatic experiment allocation.
+* Bayesian/statistical testing for creative and audience decisions.
+* Dynamic budget allocation across winning ads.
+* Creative fatigue prediction.
+* Customer lifetime value (LTV) optimization.
+* Contribution-margin optimization instead of ROAS-only optimization.
+* Landing-page analysis.
+* Website conversion funnel analysis.
+* Server-side conversion tracking / Conversions API improvements.
+* Actual order-status integration with e-commerce backend.
+* Return/cancellation-aware optimization.
+* Seasonality prediction for Bangladesh.
+* More advanced competitor intelligence.
+* Automated creative generation with image/video models.
+* Multi-agent architecture if justified by scale.
+* Google/TikTok expansion after Meta system is stable.
+* Autonomous execution only after strong guardrails and confidence measurement.
+27. Recommended Phase 1 Development Order
+1. Set up Node.js/Express/MongoDB/Redis/BullMQ foundation.
+2. Implement authentication, business, product, and cost models.
+3. Implement product economics and pricing engine.
+4. Implement Bangladesh market research service and structured research storage.
+5. Implement audience/location recommendation engine.
+6. Implement campaign strategy engine.
+7. Implement AI copy/creative strategy engine.
+8. Implement campaign-plan validation and risk engine.
+9. Implement approval workflow and audit logs.
+10. Create Meta Developer App and integrate Meta Marketing API.
+11. Build Meta Ads service/adapter.
+12. Build MCP server and Meta action tools.
+13. Implement campaign creation flow with mandatory approval.
+14. Implement Meta insights synchronization.
+15. Implement analytics dashboard.
+16. Implement optimization recommendation engine.
+17. Connect optimization recommendations to approval workflow.
+18. Test with small controlled budgets before production use.
+28. Definition of Done — Phase 1
+* User can create a business/product profile.
+* User can enter actual product and operational costs.
+* System can calculate product economics.
+* System can research Bangladesh market and produce structured findings.
+* System can recommend selling price, target CPA, ad budget, audience, and locations.
+* System can generate campaign strategy and creative/copy variations.
+* System can validate campaign plan and show risks/assumptions.
+* User can approve/edit/reject the campaign.
+* Approved campaign can be created through Meta Marketing API via MCP.
+* System can retrieve campaign/ad performance.
+* AI can analyze performance and produce optimization recommendations.
+* User can approve/reject optimization actions.
+* Approved optimization can be executed through MCP.
+* Every sensitive action is logged.
+* Budget limits cannot be bypassed by AI.
+29. Market Modes
+The platform is designed around four research modes. Phase 1 runs only Local Business Mode for Bangladesh, as defined in sections 2 and 3. The other modes are specified here so that the data model, scoring, and engines can support them later without redesign. They are not Phase 1 deliverables.
+Global Market Mode
+The AI independently researches potential countries and markets for the given product or business, then compares them on:
+* Market demand.
+* Target audience size.
+* Purchasing power.
+* Consumer behavior.
+* Competition level and competitor pricing.
+* Estimated advertising cost (CPM, CPC, CTR where available).
+* Expected conversion rate.
+* Product/service margin.
+* Customer acquisition cost (CAC).
+* Fulfillment and shipping costs.
+* Payment methods.
+* Taxes and duties where relevant.
+* Market saturation.
+* Regulatory considerations.
+* Scalability potential.
+The mode produces three outputs:
+* A ranking of markets by Market Opportunity Score (section 31).
+* A recommendation of the best market or markets, with the reasons they were selected.
+* A list of markets that look attractive but should be avoided, with the risks explained.
+Specific Country Mode
+The user names a country, for example Bangladesh, United States, United Kingdom, UAE, or India. The AI researches only that country:
+* Local demand.
+* Audience.
+* Competitors.
+* Local pricing.
+* Advertising costs.
+* Purchasing power.
+* Customer behavior.
+* Relevant platforms.
+* Payment methods.
+* Fulfillment.
+* Market risks.
+* The AI must not switch to another country unless the user allows a comparison.
+* The system may optionally suggest: “This market may not be optimal. Would you like me to compare it with other markets?”
+Local Business Mode: Bangladesh
+This is the Phase 1 mode, designed for Bangladesh-based physical and local products and businesses. The research scope is defined in section 7, the location and audience logic in section 10, and the pricing and budget logic in sections 8 and 9. The mode's recommendation must follow this chain:
+Region → Audience → Price → Creative language → Offer → Advertising budget
+Software / SaaS Mode
+Software businesses use a different market-economics model from physical products. This mode applies to SaaS, mobile apps, web applications, developer tools, AI products, digital products, agency services, B2B and B2C software, and subscription businesses. The AI analyzes:
+* Target customer profile.
+* TAM / SAM / SOM where possible.
+* Subscription pricing and competitor pricing.
+* Free vs. paid model and trial strategy.
+* CAC, LTV, and LTV:CAC ratio.
+* Churn assumptions.
+* Monthly and annual recurring revenue potential.
+* Payback period.
+* Conversion rate assumptions.
+* Customer acquisition channels, advertising costs, and organic acquisition opportunities.
+* Geographic expansion opportunities.
+The recommendation must follow this chain. The economics model is defined in section 32.
+Market → Customer segment → Pricing → Acquisition channel → Budget → Expected economics
+30. Market Selection Engine
+The core intelligence layer follows the flow below. In Phase 1 the country branch is fixed to Bangladesh and the global comparison branch is disabled.
+PRODUCT / BUSINESS
+  ↓
+BUSINESS UNDERSTANDING
+  ↓
+MARKET RESEARCH ENGINE
+  ↓
+GLOBAL MODE: Country Discovery → Country Comparison
+  or
+COUNTRY MODE: Specific Country → Local Analysis
+  ↓
+MARKET SCORING
+  ↓
+MARKET RANKING
+  ↓
+BEST MARKET RECOMMENDATION
+  ↓
+AUDIENCE IDENTIFICATION
+  ↓
+PRICING STRATEGY
+  ↓
+AD COST ESTIMATION
+  ↓
+BUDGET PLANNING
+  ↓
+CREATIVE STRATEGY
+  ↓
+CAMPAIGN PLANNING
+  ↓
+HUMAN APPROVAL
+  ↓
+EXECUTION
+31. Market Scoring System
+Every researched market receives a Market Opportunity Score out of 100. The default weights are:
+* Demand: 20%.
+* Purchasing power: 15%.
+* Competition: 10%.
+* Advertising cost: 15%.
+* Profit margin: 15%.
+* Customer acquisition: 10%.
+* Fulfillment: 5%.
+* Market growth: 5%.
+* Risk: 5%.
+* Total: 100%.
+The weights must be dynamic and depend on the business type:
+* Physical product: fulfillment and COD become more important.
+* SaaS: CAC, LTV, churn, and purchasing power become more important.
+* Agency: B2B demand, competition, and client budget become more important.
+Store each score with its weights, component scores, confidence level, and data-quality labels (section 34) so that a ranking can be audited and reproduced. In Phase 1 the same scoring can be used to compare Bangladesh regions and segments, for example Dhaka against other cities.
+32. Software / SaaS Economics Engine
+Before recommending an advertising budget for a software business, the AI calculates customer contribution:
+Subscription Revenue
+  - Payment Fees
+  - Infrastructure Cost
+  - Support Cost
+  - CAC
+  = Customer Contribution
+* Calculate LTV, LTV:CAC ratio, payback period, and MRR/ARR potential from these figures and the churn assumption.
+* Flag the business as economically non-viable before recommending any campaign when customer contribution is negative or CAC cannot be recovered within an acceptable payback period.
+* Treat churn, conversion rate, and CAC as assumptions until real data exists, and label them according to section 34.
+33. Competitor Intelligence Engine
+The AI researches competitors and records:
+* Competitor names.
+* Products and services.
+* Pricing.
+* Offers.
+* Positioning.
+* Target audience.
+* Ad messaging.
+* Creative patterns.
+* Customer reviews, where available.
+* Strengths.
+* Weaknesses.
+* Market gaps.
+The output must answer one direct question: how should we differentiate? The answer feeds the pricing recommendation (section 8), the creative angles (section 12), and the offer. All competitor data carries the source, timestamp, and confidence fields required in section 7.
+34. Research Confidence & Data Quality
+Every recommendation must show a confidence level: High, Medium, or Low. The system must also label each piece of supporting data as one of:
+* Verified data.
+* Estimated data.
+* AI-generated assumptions.
+* Historical benchmarks.
+* Insufficient data.
+The system must never present an estimate as an exact fact. These labels extend the observed / inferred / AI-generated classification in section 7 and map to the evidence, assumptions, and confidence fields of ai_decisions (section 17).
+35. Recommendation Explanation Format
+Every major AI recommendation must be explainable, so that a human can make the decision instead of following the AI blindly. Each recommendation shows the recommendation with its score, the reasons for it, the risks, and the confidence level. Illustrative example:
+Recommended Market: UAE, Score 84/100
+Why:
+* High purchasing power.
+* Strong demand.
+* Good margin potential.
+* Suitable audience.
+* Strong digital adoption.
+Risks:
+* Higher advertising costs.
+* Strong competition.
+* Fulfillment cost needs validation.
+36. System Philosophy
+The user provides information about the product or business. The AI researches the market, identifies the most promising countries and customer segments, evaluates demand and competition, recommends pricing, estimates advertising costs, calculates basic economics, designs the campaign strategy, and presents everything for human approval. During Phase 1, the AI never executes a campaign without explicit human approval.
+Core principle:
+AI researches → AI analyzes → AI recommends → Human approves → System executes
+This is the working form of the principle in section 37.
+37. Practical Principle
+Do not build the first version as an AI that is allowed to do everything. Build an AI that can explain everything, recommend everything, prepare everything, and execute only what the human approves. This makes the first release safer, easier to debug, easier to evaluate, and much easier to improve.
+38. Future Product Direction
+Once the Meta/Bangladesh system proves that its recommendations improve real business outcomes, the same core can evolve into a broader AI marketing platform. The core business logic should remain platform-agnostic while Meta remains the only ad-channel adapter in Phase 1.
+Future:
+AI Marketing Core
+     │
+     ├── Meta Adapter      ← Phase 1
+     ├── Google Adapter    ← Future
+     ├── TikTok Adapter    ← Future
+     ├── Shopify Adapter   ← Future
+     ├── CRM Adapter       ← Future
+     └── Analytics Adapter← Future
+AI-Powered Facebook Ads Automation — Phase 1 Architecture

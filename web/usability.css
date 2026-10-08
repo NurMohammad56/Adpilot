@@ -1,0 +1,68 @@
+:root { font-size: 16px; --muted: #59685f; }
+body { line-height: 1.6; }
+html[lang="bn"] body, html[lang="bn"] h1, html[lang="bn"] h2, html[lang="bn"] h3 { font-family: 'Noto Sans Bengali', 'DM Sans', sans-serif; line-height: 1.8; }
+h1 { font-size: clamp(28px, 2.5vw, 36px); }
+h2 { font-size: 21px; line-height: 1.45; }
+h3 { font-size: 17px; }
+small, .small { font-size: 14px; }
+input:not([type="checkbox"]):not([type="radio"]), select { min-height: 46px; font-size: 16px; }
+textarea { font-size: 16px; min-height: 110px; }
+.button { min-height: 44px; padding: 11px 17px; font-size: 15px; white-space: normal; }
+.field > span { font-size: 15px; color: #344c3e; text-transform: none; font-weight: 600; }
+.field small { color: #5b6d60; font-size: 14px; line-height: 1.65; }
+.field { gap: 9px; margin-bottom: 22px; }
+.field-error { color: #a52f25 !important; font-size: 14px; font-weight: 500; }
+input[aria-invalid="true"] { border-color: #a52f25; background: #fff8f6; }
+.panel { border-radius: 12px; }
+.tools-panel h2, .settings-card h2 { font-size: 21px; }
+.tools-panel h3, .form-section { font-size: 18px; }
+.tools-columns { gap: 26px; }
+.tools-panel > p, .tools-heading p, .notice, .help-content, .settings-description { font-size: 16px; color: #536658; }
+.page-content { max-width: 1680px; }
+.tools-panel textarea { min-height: 120px; }
+.nav-item { font-size: 15px; min-height: 44px; }
+.sidebar { width: 260px; }
+.main { margin-left: 260px; width: calc(100% - 260px); }
+.sidebar nav { flex: 1; min-height: 150px; overflow-y: auto; }
+.sidebar-bottom { padding-top: 12px; flex-shrink: 0; }
+.sidebar-user small, .sidebar-user strong { font-size: 13px; }
+.mode-label { white-space: nowrap; }
+.topbar { height: auto; min-height: 84px; gap: 18px; padding-top: 12px; padding-bottom: 12px; }
+.topbar-right { flex-shrink: 0; }
+.language-switch { font-family: 'Noto Sans Bengali', sans-serif; min-width: 76px; }
+.login-language { position: absolute; top: 18px; right: 20px; z-index: 5; }
+.login-card { padding-top: 28px; }
+.form-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-section { margin-top: 28px; }
+.draft-note { color: #536658; font-size: 14px; padding: 12px 0; }
+.stepper { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 26px; padding: 18px; align-items: center; }
+.stepper > button { border: 1px solid #d7e2d9; padding: 12px 14px; background: #fff; border-radius: 8px; color: #304c3c; font-size: 14px; }
+.stepper > button.active { background: #edf6ef; border-color: #6f987b; }
+.stepper > strong { flex-basis: 100%; font-size: 16px; }
+.cost-preview { padding: 20px; background: #f1f6ee; border: 1px solid #dce6d7; border-radius: 10px; margin: 24px 0; }
+.cost-preview dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin: 0; }
+.cost-preview dd { margin: 0; font-weight: 600; text-align: right; }
+.cost-preview p { margin-bottom: 0; }
+.table-wrap { max-width: 100%; overflow-x: auto; }
+@media (max-height: 900px) and (min-width: 901px) { .control-card { display: none; } }
+@media (max-width: 1100px) { .mode-label, .topbar-divider { display: none; } .topbar { padding-left: 24px; padding-right: 24px; } }
+@media (max-width: 900px) { .sidebar { display: none; } .main { margin-left: 0; width: 100%; } }
+@media (max-width: 600px) {
+  .topbar { padding: 14px 18px; gap: 10px; }
+  .topbar-right { gap: 8px; }
+  .topbar-right > .user-avatar, .topbar-right > .notification-button { display: none; }
+  .search-box { min-width: 0; flex: 1; }
+  .search-box input { width: 100%; min-width: 0; font-size: 14px; }
+  .page-content { padding: 24px 18px; }
+  .tools-panel, .settings-card { padding: 22px 18px; }
+  .tools-columns, .form-grid, .form-grid.three, .review-columns { grid-template-columns: minmax(0, 1fr); }
+  .review-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modal { width: calc(100% - 24px); max-height: calc(100dvh - 24px); }
+  .modal-body { padding: 20px 18px; }
+  .tabs { flex-wrap: wrap; }
+  .cost-preview dl { grid-template-columns: 1fr; }
+  .cost-preview dd { text-align: left; margin-bottom: 8px; }
+  .stepper > button { flex: 1 1 40%; }
+  .connection-facts { grid-template-columns: 1fr; gap: 8px; }
+  .connection-facts dd { margin-bottom: 12px; }
+}

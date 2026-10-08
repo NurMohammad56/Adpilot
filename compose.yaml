@@ -1,0 +1,40 @@
+# Local development infrastructure only. Production needs authentication, TLS and managed backups.
+services:
+  mongo:
+    image: mongo:7.0.24
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all']
+    ports: ['127.0.0.1:27017:27017']
+    volumes: ['mongo_data:/data/db']
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+  mongo-init:
+    image: mongo:7.0.24
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint:
+      [
+        'mongosh',
+        '--host',
+        'mongo:27017',
+        '--quiet',
+        '--eval',
+        "try { rs.status() } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }",
+      ]
+    restart: 'no'
+  redis:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports: ['127.0.0.1:6379:6379']
+    volumes: ['redis_data:/data']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+volumes:
+  mongo_data:
+  redis_data:

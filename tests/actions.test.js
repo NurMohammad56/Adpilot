@@ -46,7 +46,7 @@ test('pausing preserves total spend-cap reservations for the business', async ()
     totalBudgetCeiling: 11000,
     deliveryRegions: ['Dhaka'],
   });
-  const first = await approved(f);
+  const first = await approved(f, { dailyBudget: 1000, durationDays: 7 });
   const result = await f.platform.executeApproved(first.approval.id, 'create_campaign');
   const pause = await f.platform.proposeAction(
     f.user,
@@ -57,7 +57,7 @@ test('pausing preserves total spend-cap reservations for the business', async ()
   );
   await f.platform.decide(f.user, pause.id, 'approve', 'Pause');
   await f.platform.executeApproved(pause.id, 'pause_campaign');
-  const next = await approved(f);
+  const next = await approved(f, { dailyBudget: 1000, durationDays: 7 });
   await assert.rejects(f.platform.executeApproved(next.approval.id, 'create_campaign'), {
     code: 'ACCOUNT_TOTAL_CEILING',
   });

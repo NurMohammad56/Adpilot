@@ -1,44 +1,11 @@
 import { z } from 'zod';
 import { assert, hash, now } from '../../utils/core.js';
 import { workspaceLLM } from '../../integrations/credentials.js';
-import { evidenceSchema } from '../schemas.js';
-export const countryNames = {
-  BD: 'Bangladesh',
-  US: 'United States',
-  GB: 'United Kingdom',
-  CA: 'Canada',
-  AU: 'Australia',
-  AE: 'United Arab Emirates',
-  SA: 'Saudi Arabia',
-  IN: 'India',
-  SG: 'Singapore',
-  MY: 'Malaysia',
-  DE: 'Germany',
-  FR: 'France',
-  NL: 'Netherlands',
-  NZ: 'New Zealand',
-  IE: 'Ireland',
-  SE: 'Sweden',
-  NO: 'Norway',
-  DK: 'Denmark',
-  JP: 'Japan',
-  KR: 'South Korea',
-  IT: 'Italy',
-  ES: 'Spain',
-  BR: 'Brazil',
-  MX: 'Mexico',
-  ZA: 'South Africa',
-  PK: 'Pakistan',
-  LK: 'Sri Lanka',
-  QA: 'Qatar',
-  KW: 'Kuwait',
-  BH: 'Bahrain',
-  OM: 'Oman',
-  ID: 'Indonesia',
-  PH: 'Philippines',
-  TH: 'Thailand',
-  VN: 'Vietnam',
-};
+import { evidenceSchema, retrievalSchema } from '../schemas.js';
+import { resolveLocations, regionalCoverage } from './locations.js';
+import { actualResults } from '../analytics/outcomes.js';
+import { countryNames } from './countries.js';
+export { countryNames } from './countries.js';
 export const countryCode = z.enum(Object.keys(countryNames));
 const words = z.string().trim().min(1).max(4000);
 export const projectSchema = z
@@ -54,6 +21,7 @@ export const projectSchema = z
       .max(10)
       .refine((values) => new Set(values).size === values.length),
     questions: z.string().max(5000).default(''),
+    candidateLocationIds: z.array(z.string().uuid()).max(8).optional(),
     evidence: z.array(evidenceSchema).max(30).default([]),
   })
   .strict();
@@ -78,15 +46,33 @@ export const comparisonSchema = z
   .object({
     summary: words,
     countries: z.array(marketSchema).min(1).max(10),
+    regions: z
+      .array(
+        z
+          .object({
+            locationId: z.string().uuid(),
+            opportunity: words,
+            buyerSegments: z.array(z.string().min(1).max(500)).max(10),
+            competition: words,
+            barriers: z.array(z.string().max(1000)).max(10),
+            testApproach: words,
+            evidenceGaps: z.array(z.string().max(1000)).max(10),
+          })
+          .strict(),
+      )
+      .max(8)
+      .optional(),
     findings: z.array(evidenceSchema).max(40),
     recommendation: z
       .object({
         country: countryCode.nullable(),
+        locationIds: z.array(z.string().uuid()).max(8).optional(),
         reason: words,
         nextSteps: z.array(z.string().max(1000)).max(12),
       })
       .strict(),
     openQuestions: z.array(z.string().max(1000)).max(15),
+    retrieval: retrievalSchema.optional(),
   })
   .strict();
 export const reportEditSchema = z
@@ -103,6 +89,12 @@ export class ResearchWorkbench {
     this.store = platform.store;
   }
   async create(user, input) {
+    await resolveLocations(
+      this.platform,
+      user,
+      input.candidateLocationIds,
+      input.candidateCountries,
+    );
     if (input.productId) await this.platform.owned('products', input.productId, user);
     return this.store.transaction(async () => {
       const project = await this.store.insert('research_projects', {
@@ -119,6 +111,12 @@ export class ResearchWorkbench {
     });
   }
   async update(user, projectId, input) {
+    await resolveLocations(
+      this.platform,
+      user,
+      input.candidateLocationIds,
+      input.candidateCountries,
+    );
     if (input.productId) await this.platform.owned('products', input.productId, user);
     return this.store.transaction(async () => {
       const project = await this.platform.owned('research_projects', projectId, user);
@@ -140,6 +138,20 @@ export class ResearchWorkbench {
     });
   }
   validateReport(project, output) {
+    assert(
+      regionalCoverage(output, project.candidateLocationIds || []),
+      422,
+      'RESEARCH_REGIONS',
+      'Research must compare each selected state, region or city exactly once',
+    );
+    const ids = output.recommendation.locationIds || [];
+    assert(
+      new Set(ids).size === ids.length &&
+        ids.every((id) => (project.candidateLocationIds || []).includes(id)),
+      422,
+      'RESEARCH_REGIONS',
+      'The regional decision must use locations from the research brief',
+    );
     const selected = output.countries.map((country) => country.country);
     assert(
       selected.length === project.candidateCountries.length &&
@@ -159,6 +171,22 @@ export class ResearchWorkbench {
   }
   async saveVersion(user, project, report, instruction, parent = null) {
     this.validateReport(project, report);
+    const locations = await resolveLocations(
+      this.platform,
+      user,
+      project.candidateLocationIds,
+      project.candidateCountries,
+    );
+    assert(
+      (report.recommendation.locationIds || []).every(
+        (id) =>
+          locations.find((location) => location.id === id)?.country ===
+          report.recommendation.country,
+      ),
+      422,
+      'RESEARCH_REGIONS',
+      'Choose regions within the selected test country',
+    );
     return this.store.transaction(async () => {
       const latest = await this.platform.owned('research_projects', project.id, user);
       assert(
@@ -204,14 +232,44 @@ export class ResearchWorkbench {
       ? await this.store.get('research_versions', project.currentVersionId)
       : null;
     const llm = await workspaceLLM(this.platform, user.businessId);
+    const locations = await resolveLocations(
+      this.platform,
+      user,
+      project.candidateLocationIds,
+      project.candidateCountries,
+    );
+    const plans = await this.store.list('campaign_plans', {
+      businessId: user.businessId,
+      researchProjectId: project.id,
+    });
+    const campaigns = (await this.store.list('campaigns', { businessId: user.businessId })).filter(
+      (campaign) => plans.some((plan) => plan.id === campaign.planId),
+    );
+    const measured = campaigns.length
+      ? await actualResults(this.platform, user, {
+          from: '2000-01-01',
+          to: new Date(Date.now() + 14 * 3600000).toISOString().slice(0, 10),
+        })
+      : null;
     const generated = await llm.generate(
       'market-comparison',
       {
-        project: briefOf(project),
+        project: { ...briefOf(project), candidateLocations: locations },
         previousReport: previous?.report,
         instruction,
         responseLanguage: language === 'bn' ? 'Bangla' : 'English',
+        regionalRules:
+          'Compare every candidateLocationId exactly once using the saved candidateLocations. Investigate buyer clusters, language, local alternatives, delivery/service coverage and evidence gaps at state/region/city level. Whole-country statistics do not prove regional demand. Never invent Meta location keys, local CPC, conversion estimates or population. Keep locationIds empty when evidence cannot justify narrowing. For small budgets recommend one offer and one ad set; avoid fragmenting spend across regions.',
         evidence: project.evidence,
+        actualBusinessResults: {
+          classification:
+            'User-recorded business outcomes and Meta campaign-level spend; completeness is not independently verified.',
+          campaigns: (measured?.results || []).filter((result) =>
+            campaigns.some((campaign) => campaign.id === result.campaignId),
+          ),
+          rules:
+            "Use only this project's observed outcomes as retrospective context. Do not infer regional conversion rates from country-wide results or treat platform attribution as confirmed sales. Missing values remain unknown.",
+        },
         rules:
           'Write human-readable analysis in responseLanguage while preserving country codes and structured field names. Compare only the supplied countries. Investigate actual buyer segments and problem urgency, alternatives and competition, buying readiness, language, payment and sales barriers, delivery capacity and local requirements. Explicitly examine counter-evidence and why this offer could fail in each market. Identify evidence gaps and what would change the recommendation. For B2B services include decision makers, buying cycle, trust signals and a measurable interview/qualified-lead validation plan. For physical products include COD, failed deliveries and fulfillment. Use previousReport and instruction to build on prior analysis. Do not invent demand, CPC, budgets, conversion rates, rankings, verified sources or guaranteed outcomes. A country recommendation is a hypothesis, not approval to publish.',
       },
@@ -235,6 +293,22 @@ export class ResearchWorkbench {
         confidence: 'Low',
       })),
       findings: project.evidence,
+      ...(locations.length
+        ? {
+            regions: locations.map((location) => ({
+              locationId: location.id,
+              opportunity: `Investigate the actual buyers for ${project.name} in ${location.name}, ${countryNames[location.country]}.`,
+              buyerSegments: [project.buyerProfile],
+              competition: 'Regional competitors have not been independently verified.',
+              barriers: ['Regional demand and acquisition cost are unknown.'],
+              testApproach:
+                'Validate buyer need and delivery coverage, then use one capped ad set with measured outcomes.',
+              evidenceGaps: [
+                'Dated regional sources and actual qualified customer outcomes are needed.',
+              ],
+            })),
+          }
+        : {}),
       recommendation: {
         country: null,
         reason:
@@ -253,7 +327,7 @@ export class ResearchWorkbench {
     report.findings = report.findings.map((item) => ({
       ...item,
       source:
-        allowed.has(item.source) || llm.config?.llmProvider === 'gemini'
+        allowed.has(item.source) || ['gemini', 'openai'].includes(llm.config?.llmProvider)
           ? item.source
           : 'ai-provider',
       confidence: 'Low',

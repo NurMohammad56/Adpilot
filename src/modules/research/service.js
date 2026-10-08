@@ -100,6 +100,7 @@ export async function researchProduct(product, business, evidence, competitors, 
     marketMode: 'LOCAL_BUSINESS',
     platform: 'META',
     generatedAt: now(),
+    ...(generated?.retrieval ? { retrieval: generated.retrieval } : {}),
     demo,
     summary:
       generated?.summary ||

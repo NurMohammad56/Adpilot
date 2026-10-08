@@ -74,8 +74,8 @@ test('parallel launch reservations cannot exceed the shared daily ceiling', asyn
     totalBudgetCeiling: 30000,
     deliveryRegions: ['Dhaka'],
   });
-  const a = await approved(f);
-  const b = await approved(f);
+  const a = await approved(f, { dailyBudget: 1000, durationDays: 7 });
+  const b = await approved(f, { dailyBudget: 1000, durationDays: 7 });
   const outcomes = await Promise.allSettled([
     f.platform.executeApproved(a.approval.id, 'create_campaign'),
     f.platform.executeApproved(b.approval.id, 'create_campaign'),

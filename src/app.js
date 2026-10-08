@@ -20,6 +20,18 @@ import os from 'node:os';
 import { pipeline } from 'node:stream/promises';
 import { projectSchema, reportEditSchema, countryNames } from './modules/research/workbench.js';
 import { servicePlanInput, createServicePlan } from './modules/campaigns/service-plan.js';
+import { createBudgetPresets } from './modules/campaigns/budget-presets.js';
+import { locationSearchSchema, searchLocations } from './modules/research/locations.js';
+import {
+  outcomeSchema,
+  periodSchema,
+  saveOutcome,
+  voidOutcome,
+  actualResults,
+  outcomeCsv,
+} from './modules/analytics/outcomes.js';
+import { accountSnapshot, latestAccountSnapshot } from './modules/analytics/account.js';
+import { operationLocks, redisRateStore } from './modules/auth/operation-lock.js';
 
 const parse = (schema) => (req, res, next) => {
   const result = schema.safeParse(req.body);
@@ -55,6 +67,7 @@ const cookieToken = (req) =>
 export function createApp(runtime) {
   const { config, store, platform, auth, jobs, media, research } = runtime;
   const app = express();
+  const exclusive = operationLocks(jobs?.connection);
   app.disable('x-powered-by');
   app.use((req, res, next) => {
     const supplied = req.headers['x-request-id'];
@@ -89,7 +102,13 @@ export function createApp(runtime) {
   });
   app.use(
     '/api',
-    rateLimit({ windowMs: 60000, limit: 180, standardHeaders: 'draft-8', legacyHeaders: false }),
+    rateLimit({
+      windowMs: 60000,
+      limit: 180,
+      standardHeaders: 'draft-8',
+      legacyHeaders: false,
+      ...(jobs?.connection ? { store: redisRateStore(jobs.connection, 'api') } : {}),
+    }),
   );
   app.get('/api/health', (req, res) =>
     res.json({
@@ -173,6 +192,7 @@ export function createApp(runtime) {
     limit: 30,
     standardHeaders: 'draft-8',
     legacyHeaders: false,
+    ...(jobs?.connection ? { store: redisRateStore(jobs.connection, 'auth') } : {}),
   });
   app.post('/api/auth/login', authLimit, parse(credentials), async (req, res) =>
     setSession(res, await auth.session(await auth.login(req.input.email, req.input.password))),
@@ -222,6 +242,11 @@ export function createApp(runtime) {
     res.json({ user: publicUser(req.user), mode: config.mode }),
   );
   app.get('/api/overview', async (req, res) => res.json(await platform.overview(req.user)));
+  const budgetPresets = createBudgetPresets();
+  app.get('/api/campaigns/budget-preset', async (req, res) => {
+    const integration = await platform.integration(req.user.businessId);
+    res.json(await budgetPresets.get(integration?.currency || 'BDT'));
+  });
   app.get('/api/workspaces', async (req, res) => res.json(await auth.workspaces(req.user)));
   app.post(
     '/api/workspaces',
@@ -241,7 +266,7 @@ export function createApp(runtime) {
     parse(
       z
         .object({
-          provider: z.enum(['gemini', 'gateway']),
+          provider: z.enum(['gemini', 'openai', 'gateway']),
           apiKey: z.string().trim().min(10).max(4000).or(z.literal('')).optional(),
           model: z
             .string()
@@ -307,6 +332,39 @@ export function createApp(runtime) {
     await pipeline(object.body, res);
   });
   app.get('/api/research/countries', (req, res) => res.json(countryNames));
+  app.get('/api/research/locations', async (req, res) =>
+    res.json(await store.list('targeting_locations', { businessId: req.user.businessId })),
+  );
+  app.post('/api/research/locations/search', parse(locationSearchSchema), async (req, res) => {
+    assert(countryNames[req.input.country], 422, 'LOCATION_COUNTRY', 'Choose a supported country');
+    res.json(await searchLocations(platform, req.user, req.input));
+  });
+  app.get('/api/operations/account', async (req, res) =>
+    res.json(await latestAccountSnapshot(platform, req.user)),
+  );
+  app.post('/api/operations/account/check', parse(z.object({}).strict()), async (req, res) =>
+    res.json(
+      await exclusive(`account:${req.user.businessId}`, () => accountSnapshot(platform, req.user)),
+    ),
+  );
+  app.post('/api/operations/outcomes', parse(outcomeSchema), async (req, res) =>
+    res.status(201).json(await saveOutcome(platform, req.user, req.input)),
+  );
+  app.post('/api/operations/outcomes/:id/void', parse(z.object({}).strict()), async (req, res) =>
+    res.json(await voidOutcome(platform, req.user, req.params.id)),
+  );
+  app.get('/api/operations/results', async (req, res) =>
+    res.json(await actualResults(platform, req.user, periodSchema.parse(req.query))),
+  );
+  app.get('/api/operations/outcomes.csv', async (req, res) => {
+    const results = await actualResults(platform, req.user, periodSchema.parse(req.query));
+    res
+      .set({
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="adpilot-outcomes.csv"',
+      })
+      .send('\uFEFF' + outcomeCsv(results.outcomes));
+  });
   app.get('/api/research', async (req, res) =>
     res.json(await store.list('research_projects', { businessId: req.user.businessId })),
   );
@@ -332,11 +390,13 @@ export function createApp(runtime) {
       res
         .status(201)
         .json(
-          await research.research(
-            req.user,
-            req.params.id,
-            req.input.instruction,
-            req.headers['accept-language']?.startsWith('bn') ? 'bn' : 'en',
+          await exclusive(`research:${req.user.businessId}:${req.params.id}`, () =>
+            research.research(
+              req.user,
+              req.params.id,
+              req.input.instruction,
+              req.headers['accept-language']?.startsWith('bn') ? 'bn' : 'en',
+            ),
           ),
         ),
   );

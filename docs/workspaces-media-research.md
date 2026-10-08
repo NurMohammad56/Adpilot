@@ -4,7 +4,7 @@ These features implement the user's expanded request after the original Banglade
 
 ## ব্যবহার করার নিয়ম
 
-1. **Accounts** খুলুন। নিজের ব্যবসা বা client-এর জন্য আলাদা workspace তৈরি করুন। সেই workspace-এ Meta ad account ID, Page ID, Pixel ID, access token এবং প্রয়োজন হলে app secret দিন। Gemini API key ও model দিন। Connection verification-এর পরে credentials encrypted অবস্থায় MongoDB-তে থাকে। অন্য workspace এই তথ্য ব্যবহার করতে পারে না।
+1. **Accounts** খুলুন। নিজের ব্যবসা বা client-এর জন্য আলাদা workspace তৈরি করুন। সেই workspace-এ Meta ad account ID, Page ID, Pixel ID, access token এবং প্রয়োজন হলে app secret দিন। OpenAI বা Gemini provider, API key এবং copy/research model বেছে নিন। Connection verification-এর পরে credentials encrypted অবস্থায় MongoDB-তে থাকে। অন্য workspace এই তথ্য ব্যবহার করতে পারে না।
 2. **Media library** থেকে ছবি বা ভিডিও আপলোড করুন। Campaign draft-এর creative editor-এ সেই ফাইল নির্বাচন করুন। ভিডিওর জন্য একটি uploaded image cover-ও নির্বাচন করুন।
 3. **Research**-এ project তৈরি করুন: কী বিক্রি করবেন, কার কাছে বিক্রি করবেন, সম্ভাব্য দেশ এবং কী জানতে চান লিখুন। Physical product, service ও software আলাদা brief হিসেবে নেওয়া যায়। আপনার custom ecommerce development উদাহরণটি **Service** হিসেবে দিন।
 4. প্রয়োজন হলে competitor page, buyer interview বা অন্য market observation-এর source ও তারিখ যুক্ত করুন। ৩৫ দেশের তালিকা থেকে একবারে সর্বোচ্চ ১০ দেশ তুলনা করুন।
@@ -27,7 +27,7 @@ Stored keys/tokens/app secrets never appear in overview responses. Blank passwor
 
 Reports compare exactly the countries in the current brief and store the brief revision/hash, report hash, instruction, parent version and human review decision. Concurrent updates cannot replace an unnoticed newer result. Mongo transactions and a unique `(projectId, number)` index enforce report history integrity.
 
-AI comparisons are qualitative hypotheses, not measured demand or certified country rankings. The app does not invent CPC, conversion rates, competitor prices or numeric opportunity scores. Gemini Google Search can retrieve references when configured, but the supplied account currently returns quota errors, so local grounding is disabled. Supply dated evidence for informed comparisons; approve only after reviewing assumptions.
+AI comparisons are qualitative hypotheses, not measured demand or certified country rankings. Unknown CPC, conversion rates and regional opportunity scores remain unknown. The active OpenAI Luna High connection retrieves live web citations and stores actual retrieval status. Gemini Google Search is an optional alternative with its own quota. Retrieved competitor prices need source/date and product-comparability review. Supply dated buyer evidence and approve only after reviewing assumptions and country-specific evidence gaps.
 
 Physical-product research can compare countries, but its automated purchase-cost/COD campaign workflow remains Bangladesh-specific. Service/software campaign drafts support the selected international test country. Website leads and purchases are implemented; instant forms, WhatsApp, registration goals, subscription LTV/churn, actual qualified-lead/sales ingestion and other ad platforms are outside this implementation. Lead insights keep revenue unknown. Each market/account still needs controlled Meta acceptance, including applicable disclosures and regulated-category requirements, before paid rollout.
 
@@ -75,6 +75,6 @@ See [the easy-use, Bangla and R2 guide](usability-and-storage.md) for the update
 
 ## Current live setup
 
-The built application runs locally at `http://localhost:4000` using Atlas, the verified initial Meta account and workspace Gemini configuration. Private administrator details are in `.data/initial-admin.txt`. Live advertising remains disabled. Upstash REST authentication passed, but BullMQ still requires the provider's native `rediss://...` connection string. Private Cloudflare R2 storage is configured and active; real authenticated upload/read/range/privacy checks passed. Public hosting/domain and the native Redis connection are still needed to deploy the whole stack. This setup has not launched a paid advertisement.
+The application is live at `https://fahimstack.tech/adpilot/`, with Atlas, the verified Meta connection, private Cloudflare R2, authenticated native Redis and BullMQ worker/schedulers. The active workspace uses OpenAI GPT-6 Luna High research reasoning and live web search. Private administrator details are in `.data/initial-admin.txt`. Paid execution is configured but requires the exact campaign's separate approval; no real paid advertisement was launched during setup or verification. See the current deployment and verification records.
 
 Backend tests exercise isolation, stale tabs, private file ranges, research version/approval invalidation, Mongo concurrency, S3 signed requests and Meta image/video request behavior. Browser tests exercise actual image/video upload, repeat research, decision editing/approval, service campaign revision and separate demo launch approval on desktop/mobile. Cloud S3 upload and live paid Meta video/country acceptance remain external checks.

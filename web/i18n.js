@@ -1,5 +1,7 @@
 import React, { useSyncExternalStore } from 'react';
-import translations from './locales/bn.json';
+import baseTranslations from './locales/bn.json';
+import operationsTranslations from './locales/operations-bn.json';
+const translations = { ...baseTranslations, ...operationsTranslations };
 
 const listeners = new Set();
 let language = 'en';

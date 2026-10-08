@@ -9,6 +9,8 @@ import { aggregatePerformance, calculateMetrics } from './analytics/engine.js';
 import { recommendOptimizations } from './optimization/engine.js';
 import { workspaceLLM, publicAI, configureAI } from '../integrations/credentials.js';
 import { createServicePlan } from './campaigns/service-plan.js';
+import { resolveLocations } from './research/locations.js';
+import { actualResults } from './analytics/outcomes.js';
 
 const canApprove = (user) => ['admin', 'approver'].includes(user.role);
 const integrationHash = (integration) =>
@@ -122,7 +124,12 @@ export class Platform {
         await this.store.find('integrations', { businessId: user.businessId, provider: 'AI' }),
       ),
       researchProjects: await this.store.list('research_projects', { businessId: user.businessId }),
-      storage: { driver: this.media.storage.driver, readyFiles: (await this.store.list('media_assets', { businessId: user.businessId, status: 'ready' })).length },
+      storage: {
+        driver: this.media.storage.driver,
+        readyFiles: (
+          await this.store.list('media_assets', { businessId: user.businessId, status: 'ready' })
+        ).length,
+      },
     };
   }
   async updateBusiness(user, input) {
@@ -144,7 +151,9 @@ export class Platform {
         'Existing campaigns reserve more than the proposed daily ceiling',
       );
       assert(
-        reservations.reduce((sum, c) => sum + c.totalBudget, 0) <= input.totalBudgetCeiling,
+        reservations
+          .filter((c) => c.status !== 'failed')
+          .reduce((sum, c) => sum + c.totalBudget, 0) <= input.totalBudgetCeiling,
         422,
         'BUDGET_RESERVED',
         'Existing campaigns reserve more than the proposed total ceiling',
@@ -158,7 +167,11 @@ export class Platform {
     });
   }
   async createProduct(user, input) {
-    if (input.mediaAssetId) await this.media.bind(user, { mediaAssetId: input.mediaAssetId, thumbnailAssetId: input.thumbnailAssetId });
+    if (input.mediaAssetId)
+      await this.media.bind(user, {
+        mediaAssetId: input.mediaAssetId,
+        thumbnailAssetId: input.thumbnailAssetId,
+      });
     return this.store.transaction(async () => {
       const product = await this.store.insert('products', {
         ...input,
@@ -177,7 +190,11 @@ export class Platform {
     });
   }
   async updateProduct(user, productId, input) {
-    if (input.mediaAssetId) await this.media.bind(user, { mediaAssetId: input.mediaAssetId, thumbnailAssetId: input.thumbnailAssetId });
+    if (input.mediaAssetId)
+      await this.media.bind(user, {
+        mediaAssetId: input.mediaAssetId,
+        thumbnailAssetId: input.thumbnailAssetId,
+      });
     return this.store.transaction(async () => {
       const previous = await this.owned('products', productId, user);
       const product = await this.store.update('products', productId, {
@@ -209,7 +226,8 @@ export class Platform {
     });
   }
   async createPlan(user, productId, overrides = {}, previous = null, sourceResearch = null) {
-    if (!sourceResearch && previous?.researchVersionId) sourceResearch = await this.research.approved(user, previous.researchVersionId);
+    if (!sourceResearch && previous?.researchVersionId)
+      sourceResearch = await this.research.approved(user, previous.researchVersionId);
     const llm = await workspaceLLM(this, user.businessId);
     const product = await this.owned('products', productId, user);
     const business = await this.store.get('businesses', user.businessId);
@@ -222,29 +240,63 @@ export class Platform {
       productId,
       businessId: user.businessId,
     });
-    if (sourceResearch) assert(sourceResearch.project.kind === 'physical-product' && sourceResearch.project.productId === productId && sourceResearch.version.report.recommendation.country === 'BD', 422, 'PRODUCT_RESEARCH', 'Approved research must refer to this product and select Bangladesh.');
+    if (sourceResearch)
+      assert(
+        sourceResearch.project.kind === 'physical-product' &&
+          sourceResearch.project.productId === productId &&
+          sourceResearch.version.report.recommendation.country === 'BD',
+        422,
+        'PRODUCT_RESEARCH',
+        'Approved research must refer to this product and select Bangladesh.',
+      );
     const sourceReport = sourceResearch?.version.report;
-    const report = sourceResearch ? {
-      market: 'BD', marketMode: 'LOCAL_BUSINESS', platform: 'META', generatedAt: now(), demo: this.config.mode === 'demo',
-      summary: sourceReport.summary, findings: sourceReport.findings, competitors,
-      sourcedPrices: competitors.filter(competitor => competitor.price > 0 && competitor.source && Date.parse(competitor.observedAt) <= Date.now() && Date.now() - Date.parse(competitor.observedAt) < 30 * 86400000).map(competitor => competitor.price),
-      competitorAnalysis: sourceReport.countries.find(country => country.country === 'BD')?.competition || '',
-      differentiation: sourceReport.recommendation.nextSteps, regionalScores: [],
-      risks: [...sourceReport.openQuestions, ...sourceReport.countries.flatMap(country => country.risks)], confidence: 'Low',
-    } : previous?.research ||
-      (await researchProduct(
-        product,
-        business,
-        evidence.map(
-          ({ id: ignored, businessId: b, productId: p, createdAt, updatedAt, type, ...e }) => e,
-        ),
-        competitors,
-        llm,
-        this.config.mode === 'demo',
-      ));
+    const report = sourceResearch
+      ? {
+          market: 'BD',
+          marketMode: 'LOCAL_BUSINESS',
+          platform: 'META',
+          generatedAt: now(),
+          demo: this.config.mode === 'demo',
+          summary: sourceReport.summary,
+          findings: sourceReport.findings,
+          competitors,
+          sourcedPrices: competitors
+            .filter(
+              (competitor) =>
+                competitor.price > 0 &&
+                competitor.source &&
+                Date.parse(competitor.observedAt) <= Date.now() &&
+                Date.now() - Date.parse(competitor.observedAt) < 30 * 86400000,
+            )
+            .map((competitor) => competitor.price),
+          competitorAnalysis:
+            sourceReport.countries.find((country) => country.country === 'BD')?.competition || '',
+          differentiation: sourceReport.recommendation.nextSteps,
+          regionalScores: [],
+          risks: [
+            ...sourceReport.openQuestions,
+            ...sourceReport.countries.flatMap((country) => country.risks),
+          ],
+          confidence: 'Low',
+        }
+      : previous?.research ||
+        (await researchProduct(
+          product,
+          business,
+          evidence.map(
+            ({ id: ignored, businessId: b, productId: p, createdAt, updatedAt, type, ...e }) => e,
+          ),
+          competitors,
+          llm,
+          this.config.mode === 'demo',
+        ));
     const economics = calculateEconomics(product, overrides.sellingPrice, report.sourcedPrices);
     const budget = recommendBudget(product, business, economics, overrides);
-    const audience = recommendAudience({ ...business, deliveryRegions: product.deliveryRegions || business.deliveryRegions }, report, overrides);
+    const audience = recommendAudience(
+      { ...business, deliveryRegions: product.deliveryRegions || business.deliveryRegions },
+      report,
+      overrides,
+    );
     const rawAds =
       overrides.ads || previous?.ads || (await generateCopy(product, economics, report, llm));
     const ads = await Promise.all(
@@ -310,8 +362,24 @@ export class Platform {
       requiresApproval: true,
       status: 'draft',
       createdBy: user.id,
-      ...(sourceResearch ? { researchProjectId: sourceResearch.project.id, researchVersionId: sourceResearch.version.id, researchDecisionHash: sourceResearch.version.reportHash } : {}),
+      ...(sourceResearch
+        ? {
+            researchProjectId: sourceResearch.project.id,
+            researchVersionId: sourceResearch.version.id,
+            researchDecisionHash: sourceResearch.version.reportHash,
+          }
+        : {}),
     };
+    if (sourceResearch?.version.report.recommendation.locationIds?.length) {
+      const geoTargets = await resolveLocations(
+        this,
+        user,
+        sourceResearch.version.report.recommendation.locationIds,
+        ['BD'],
+      );
+      plan.audienceRecommendation = { ...plan.audienceRecommendation, geoTargets };
+      plan.locationRecommendation.regions = geoTargets.map((target) => target.name);
+    }
     plan.validation = validatePlan(
       plan,
       product,
@@ -358,7 +426,7 @@ export class Platform {
       for (const [collection, value] of [
         ['pricing_recommendations', economics],
         ['budget_recommendations', budget],
-        ['audience_recommendations', audience],
+        ['audience_recommendations', plan.audienceRecommendation],
         ['campaign_strategies', plan.campaignStructure],
       ])
         await this.store.insert(collection, {
@@ -441,6 +509,18 @@ export class Platform {
     );
     if (plan.researchVersionId) {
       const { version } = await this.research.approved(user, plan.researchVersionId);
+      const targets = await resolveLocations(
+        this,
+        user,
+        version.report.recommendation.locationIds,
+        [plan.market],
+      );
+      assert(
+        hash(targets) === hash(plan.audienceRecommendation.geoTargets || []),
+        409,
+        'STALE_RESEARCH',
+        'Campaign regions must match the approved regional decision',
+      );
       assert(
         version.reportHash === plan.researchDecisionHash,
         409,
@@ -599,6 +679,12 @@ export class Platform {
       'Campaign changed since this action was proposed',
     );
     if (approval.action === 'update_budget') {
+      assert(
+        approval.snapshot.budgetRecommendation.deliveryMode !== 'lifetime',
+        422,
+        'LIFETIME_BUDGET_LOCKED',
+        'This test uses a fixed total lifetime budget. Pause it and create a separately approved test to change the budget.',
+      );
       const daily = approval.payload.dailyBudget;
       assert(
         Number.isFinite(daily) &&
@@ -610,6 +696,26 @@ export class Platform {
       );
     }
     if (approval.action === 'update_targeting') {
+      const approvedTargets = approval.snapshot.audienceRecommendation.geoTargets || [];
+      if (approvedTargets.length) {
+        const actual = approval.payload.geoTargets || [];
+        assert(
+          actual.length &&
+            actual.every((target) =>
+              approvedTargets.some((approved) => hash(approved) === hash(target)),
+            ) &&
+            new Set(actual.map((target) => target.id)).size === actual.length,
+          422,
+          'TARGETING_INVALID',
+          'Regional changes must stay within the approved regional decision',
+        );
+      } else
+        assert(
+          !approval.payload.geoTargets?.length,
+          422,
+          'TARGETING_INVALID',
+          'Regional research approval is required',
+        );
       const { locations, ageMin, ageMax } = approval.payload;
       assert(
         ageMin <= ageMax && ageMin >= 18 && ageMax <= 65,
@@ -682,6 +788,31 @@ export class Platform {
       payload = { ...payload, creative: await this.media.bind(user, payload.creative) };
     const campaign = await this.owned('campaigns', campaignId, user);
     const plan = await this.owned('campaign_plans', campaign.planId, user);
+    if (action === 'update_targeting' && plan.audienceRecommendation.geoTargets?.length) {
+      const ids =
+        payload.locationIds || plan.audienceRecommendation.geoTargets.map((target) => target.id);
+      const allowed = plan.audienceRecommendation.geoTargets;
+      assert(
+        ids.length &&
+          new Set(ids).size === ids.length &&
+          ids.every((id) => allowed.some((target) => target.id === id)),
+        422,
+        'TARGETING_INVALID',
+        'Choose only regions from the approved campaign; widening requires a new research decision',
+      );
+      payload = {
+        ...payload,
+        locationIds: ids,
+        geoTargets: ids.map((id) => allowed.find((target) => target.id === id)),
+      };
+    } else if (action === 'update_targeting') {
+      assert(
+        !payload.locationIds?.length && !payload.geoTargets,
+        422,
+        'TARGETING_INVALID',
+        'Regional targeting needs an approved regional research decision',
+      );
+    }
     assert(
       [
         'pause_campaign',
@@ -742,7 +873,9 @@ export class Platform {
         approval.status === 'approved',
         409,
         'APPROVAL_REQUIRED',
-        'A valid human approval is required before execution',
+        ['failed', 'needs_reconciliation', 'executing'].includes(approval.status)
+          ? 'This approval has already been used. Check the execution result before requesting a new approval.'
+          : 'A valid human approval is required before execution',
       );
       assert(
         Date.parse(approval.expiresAt) > Date.now(),
@@ -817,7 +950,10 @@ export class Platform {
           'Combined campaign budgets exceed the business daily ceiling',
         );
         assert(
-          reservations.reduce((sum, c) => sum + c.totalBudget, 0) + totalBudget <=
+          reservations
+            .filter((c) => c.status !== 'failed')
+            .reduce((sum, c) => sum + c.totalBudget, 0) +
+            totalBudget <=
             business.totalBudgetCeiling,
           422,
           'ACCOUNT_TOTAL_CEILING',
@@ -838,6 +974,7 @@ export class Platform {
           status: 'provisioning',
           dailyBudget,
           totalBudget,
+          budgetDelivery: approval.snapshot.budgetRecommendation.deliveryMode || 'daily',
           steps: {},
           demo: this.config.mode === 'demo',
         });
@@ -946,6 +1083,7 @@ export class Platform {
             ? {
                 metaCampaignId: result.campaignId,
                 metaAdSetId: result.adSetId,
+                ...(result.startTime ? { startTime: result.startTime } : {}),
                 endTime:
                   result.endTime ||
                   new Date(
@@ -1008,18 +1146,40 @@ export class Platform {
       });
     } catch (error) {
       await this.store.transaction(async () => {
+        const current = await this.store.get('campaigns', campaign.id);
+        const noRemoteMutation =
+          approval.action === 'launch_campaign' &&
+          error.details?.noRemoteMutation === true &&
+          !Object.keys(current.steps || {}).length;
+        const status = noRemoteMutation ? 'failed' : 'needs_reconciliation';
+        const executionError = {
+          code: error.code || 'ACTION_FAILED',
+          message: error.message || 'Action failed',
+          metaCode: error.details?.metaCode,
+          subcode: error.details?.subcode,
+          traceId: error.details?.traceId,
+          title: error.details?.title,
+          operation: error.details?.operation,
+          noRemoteMutation,
+        };
         await this.store.update('campaigns', campaign.id, {
-          status: 'needs_reconciliation',
+          status,
           errorCode: error.code || 'ACTION_FAILED',
+          executionError,
         });
         await this.store.update('approval_requests', approval.id, {
-          status: 'needs_reconciliation',
+          status,
           errorCode: error.code || 'ACTION_FAILED',
+          executionError,
         });
-        await this.audit(actor, 'execution.needs_reconciliation', approval.id, {
+        if (noRemoteMutation)
+          await this.store.update('campaign_plans', approval.planId, { status: 'failed' });
+        await this.audit(actor, `execution.${status}`, approval.id, {
           campaignId: campaign.id,
-          errorCode: error.code || 'ACTION_FAILED',
-          message: 'Do not retry a mutation before verifying its remote outcome.',
+          ...executionError,
+          recovery: noRemoteMutation
+            ? 'Review a new plan version and obtain a new approval.'
+            : 'Do not retry a mutation before verifying its remote outcome.',
         });
       });
       throw error;
@@ -1064,13 +1224,31 @@ export class Platform {
       await this.store.list('ad_performance', { campaignId, businessId: user.businessId })
     ).filter((r) => r.level === 'campaign');
     const metrics = aggregatePerformance(rows);
-    const recommendations = recommendOptimizations(campaign, plan, metrics, rows);
+    const measured = await actualResults(this, user, {
+      from: '2000-01-01',
+      to: new Date(Date.now() + 14 * 3600000).toISOString().slice(0, 10),
+    });
+    const actual = measured.results.find((result) => result.campaignId === campaign.id);
+    const scalingReady = actual?.confirmedSales >= 20 && actual.contributionAfterAds > 0;
+    const recommendations = recommendOptimizations(campaign, plan, metrics, rows).filter(
+      (recommendation) =>
+        recommendation.action !== 'update_budget' ||
+        recommendation.payload.dailyBudget <= campaign.dailyBudget ||
+        scalingReady,
+    );
     return this.store.transaction(async () => {
       const existing = await this.store.list('optimization_recommendations', {
         campaignId,
         status: 'proposed',
       });
       const saved = [];
+      if (!scalingReady)
+        for (const row of existing) {
+          if (row.action === 'update_budget' && row.payload.dailyBudget > campaign.dailyBudget)
+            await this.store.update('optimization_recommendations', row.id, {
+              status: 'superseded',
+            });
+        }
       for (const recommendation of recommendations) {
         if (existing.some((row) => row.action === recommendation.action)) continue;
         saved.push(
@@ -1084,6 +1262,8 @@ export class Platform {
       }
       await this.audit(user, 'optimization.analyzed', campaignId, {
         metrics,
+        actualResults: actual,
+        scalingReady,
         recommendations: saved.length,
       });
       return {
@@ -1109,16 +1289,27 @@ export class Platform {
       'Switch to live mode before configuring real Meta credentials',
     );
     const savedConnection = await this.integration(user.businessId);
-    assert(input.accessToken || savedConnection?.encryptedToken, 422, 'TOKEN_REQUIRED', 'Paste a Meta API access token to connect this workspace.', { fieldErrors: { accessToken: ['A Meta API access token is required.'] } });
+    assert(
+      input.accessToken || savedConnection?.encryptedToken,
+      422,
+      'TOKEN_REQUIRED',
+      'Paste a Meta API access token to connect this workspace.',
+      { fieldErrors: { accessToken: ['A Meta API access token is required.'] } },
+    );
     const integration = {
       businessId: user.businessId,
       provider: 'META',
       adAccountId: input.adAccountId.replace(/^act_/, ''),
       pageId: input.pageId,
       pixelId: input.pixelId,
-      encryptedToken: input.accessToken ? seal(input.accessToken, this.config.encryptionKey) : savedConnection.encryptedToken,
-      encryptedAppSecret: input.appSecret ? seal(input.appSecret, this.config.encryptionKey)
-        : input.accessToken ? null : savedConnection?.encryptedAppSecret || null,
+      encryptedToken: input.accessToken
+        ? seal(input.accessToken, this.config.encryptionKey)
+        : savedConnection.encryptedToken,
+      encryptedAppSecret: input.appSecret
+        ? seal(input.appSecret, this.config.encryptionKey)
+        : input.accessToken
+          ? null
+          : savedConnection?.encryptedAppSecret || null,
       locationMap: {},
     };
     const verified = await this.meta.verify(integration);

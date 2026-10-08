@@ -3,6 +3,7 @@ import { assert, hash, id, money } from '../../utils/core.js';
 import { workspaceLLM } from '../../integrations/credentials.js';
 import { copyOutputSchema } from '../../ai/provider.js';
 import { businessPolicyHash, planFingerprint, validatePlan } from './validation.js';
+import { resolveLocations } from '../research/locations.js';
 export const servicePlanInput = z
   .object({
     goal: z.enum(['leads', 'purchases']),
@@ -12,8 +13,8 @@ export const servicePlanInput = z
       .max(1000)
       .refine((url) => url.startsWith('https://')),
     price: z.number().positive().max(1e8).nullable(),
-    deliveryCost: z.number().min(0).max(1e8),
-    requiredProfit: z.number().min(0).max(1e8),
+    deliveryCost: z.number().min(0).max(1e8).nullable(),
+    requiredProfit: z.number().min(0).max(1e8).nullable(),
     leadCloseRate: z.number().positive().max(1).nullable(),
     dailyBudget: z.number().positive().max(1e8),
     durationDays: z.number().int().min(1).max(30),
@@ -46,10 +47,22 @@ export async function createServicePlan(platform, user, versionId, input, previo
   const business = await platform.store.get('businesses', user.businessId);
   const integration = await platform.integration(user.businessId);
   const country = version.report.recommendation.country;
+  const geoTargets = await resolveLocations(
+    platform,
+    user,
+    version.report.recommendation.locationIds,
+    [country],
+  );
   const offerPrevious = previous ? await platform.owned('offers', previous.productId, user) : null;
   const daily = input.dailyBudget;
   const duration = input.durationDays;
   const price = input.price;
+  assert(
+    price === null || (input.deliveryCost !== null && input.requiredProfit !== null),
+    422,
+    'SERVICE_ECONOMICS',
+    'Enter real delivery cost and required profit with a project price, or keep project pricing unknown',
+  );
   const contribution =
     price === null ? null : money(price - input.deliveryCost - input.requiredProfit);
   const targetCPA =
@@ -83,6 +96,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
     revision: (offerPrevious?.revision || 0) + 1,
   };
   const risks = [
+    'A single ad set uses the approved total lifetime budget. Daily spend may vary; the daily amount is a planning average, not a daily spending limit. Taxes and payment fees are additional.',
     'Country comparison and campaign outcomes are hypotheses; review current evidence.',
     ...(targetCPA === null
       ? [
@@ -122,6 +136,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
       'Use actual service delivery cost and required profit. A lead target additionally needs a measured lead-to-sale rate. Missing values stay unknown; the test budget is a human-selected limit.',
   };
   const budget = {
+    deliveryMode: 'lifetime',
     dailyBudget: daily,
     durationDays: duration,
     totalBudget: money(daily * duration),
@@ -140,6 +155,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
           offer: project.description,
           buyerProfile: project.buyerProfile,
           country,
+          targetLocations: geoTargets,
           goal: input.goal,
           price,
           currency: integration?.currency || 'BDT',
@@ -205,7 +221,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
     if (previous) {
       const current = await platform.owned('campaign_plans', previous.id, user);
       assert(
-        ['draft', 'pending_approval', 'rejected'].includes(current.status),
+        ['draft', 'pending_approval', 'rejected', 'failed'].includes(current.status),
         409,
         'PLAN_LOCKED',
         'Approved campaign plans cannot be edited',
@@ -242,6 +258,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
       budgetRecommendation: budget,
       audienceRecommendation: {
         locations: [country],
+        ...(geoTargets.length ? { geoTargets } : {}),
         ageMin: input.ageMin || 18,
         ageMax: input.ageMax || 65,
         interests: [],
@@ -251,7 +268,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
         confidence: 'Low',
       },
       locationRecommendation: {
-        regions: [country],
+        regions: geoTargets.length ? geoTargets.map((target) => target.name) : [country],
         confidence: 'Low',
         reason: version.report.recommendation.reason,
       },

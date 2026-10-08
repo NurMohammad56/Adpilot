@@ -6,8 +6,170 @@ import { LLMService, copyOutputSchema, researchOutputSchema } from '../src/ai/pr
 import { LiveMetaAdapter } from '../src/integrations/meta/adapter.js';
 import { seal } from '../src/utils/core.js';
 import { AppError } from '../src/utils/core.js';
+import { comparisonSchema } from '../src/modules/research/workbench.js';
 
 const config = { llmKey: 'test-secret-key', llmModel: 'gemini-2.5-flash' };
+const marketFixture = (countries, recommendation = countries[0]) => ({
+  summary: 'Country hypotheses require current market evidence.',
+  countries: countries.map((country) => ({
+    country,
+    opportunity: 'Interview prospective buyers.',
+    buyerSegments: ['Retail business owners'],
+    competition: 'Unknown; collect dated sources.',
+    languages: ['English'],
+    advantages: ['Test the stated buyer problem'],
+    risks: ['Market demand is unverified'],
+    testApproach: 'Measure qualified interest before a commercial decision.',
+    confidence: 'Low',
+  })),
+  findings: [],
+  recommendation: { country: recommendation, reason: 'A test hypothesis only.', nextSteps: [] },
+  openQuestions: ['Which buyers have confirmed the problem?'],
+});
+
+test('Gemini repairs missing regional comparisons without inventing location keys or changing its thinking level', async () => {
+  const locationId = crypto.randomUUID();
+  let calls = 0;
+  await mockFetch(
+    async (url, options) => {
+      const body = JSON.parse(options.body);
+      assert.equal(body.generationConfig.thinkingConfig.thinkingLevel, 'HIGH');
+      assert.deepEqual(
+        body.generationConfig.responseJsonSchema.properties.regions.items.properties.locationId
+          .enum,
+        [locationId],
+      );
+      const result = marketFixture(['US', 'GB']);
+      result.regions =
+        ++calls === 1
+          ? []
+          : [
+              {
+                locationId,
+                opportunity: 'Interview California retailers',
+                buyerSegments: ['Retail operators'],
+                competition: 'Inspect local alternatives',
+                barriers: ['Unknown buying readiness'],
+                testApproach: 'Validate qualified enquiries',
+                evidenceGaps: ['Buyer interviews'],
+              },
+            ];
+      result.recommendation.locationIds = [locationId];
+      return response(result);
+    },
+    async () => {
+      const result = await new GeminiProvider({
+        ...config,
+        llmModel: 'gemini-3-flash-preview',
+        thinkingLevel: 'high',
+      }).generate(
+        'market-comparison',
+        {
+          project: {
+            candidateCountries: ['US', 'GB'],
+            candidateLocationIds: [locationId],
+            candidateLocations: [{ id: locationId, country: 'US', name: 'California' }],
+          },
+        },
+        comparisonSchema,
+      );
+      assert.equal(calls, 2);
+      assert.equal(result.regions[0].locationId, locationId);
+    },
+  );
+});
+
+test('Gemini 3 Flash High repairs omitted, duplicated and substituted candidate countries', async () => {
+  for (const badCountries of [['US'], ['US', 'US'], ['US', 'CA']]) {
+    let calls = 0;
+    await mockFetch(
+      async (url, options) => {
+        calls++;
+        assert.match(url, /gemini-3-flash-preview/);
+        const body = JSON.parse(options.body);
+        assert.equal(body.generationConfig.thinkingConfig.thinkingLevel, 'HIGH');
+        assert.equal(body.generationConfig.responseJsonSchema.properties.countries.minItems, 2);
+        assert.equal(body.generationConfig.responseJsonSchema.properties.countries.maxItems, 2);
+        assert.deepEqual(
+          body.generationConfig.responseJsonSchema.properties.countries.items.properties.country
+            .enum,
+          ['US', 'GB'],
+        );
+        const prompt = JSON.parse(body.contents[0].parts[0].text);
+        if (calls === 2)
+          assert(prompt.validationIssues.some((issue) => issue.path === 'countries'));
+        return response(marketFixture(calls === 1 ? badCountries : ['US', 'GB']));
+      },
+      async () => {
+        const output = await new GeminiProvider({
+          ...config,
+          llmModel: 'gemini-3-flash-preview',
+          thinkingLevel: 'high',
+        }).generate(
+          'market-comparison',
+          { project: { candidateCountries: ['US', 'GB'] }, evidence: [] },
+          comparisonSchema,
+        );
+        assert.deepEqual(
+          output.countries.map((item) => item.country),
+          ['US', 'GB'],
+        );
+        assert.equal(calls, 2);
+      },
+    );
+  }
+});
+
+test('persistent missing countries fail after one repair instead of saving an incomplete report', async () => {
+  let calls = 0;
+  await mockFetch(
+    async () => {
+      calls++;
+      return response(marketFixture(['US']));
+    },
+    async () => {
+      await assert.rejects(
+        new GeminiProvider({
+          ...config,
+          llmModel: 'gemini-3-flash-preview',
+          thinkingLevel: 'high',
+        }).generate(
+          'market-comparison',
+          { project: { candidateCountries: ['US', 'GB'] }, evidence: [] },
+          comparisonSchema,
+        ),
+        (error) =>
+          error.code === 'LLM_OUTPUT' &&
+          error.details.invalidFields.some((issue) => issue.field === 'countries'),
+      );
+    },
+  );
+  assert.equal(calls, 2);
+});
+
+test('a recommendation outside candidate countries is repaired without changing the selected model', async () => {
+  let calls = 0;
+  await mockFetch(
+    async (url) => {
+      calls++;
+      assert.match(url, /gemini-3-flash-preview/);
+      return response(marketFixture(['US', 'GB'], calls === 1 ? 'CA' : 'GB'));
+    },
+    async () => {
+      const output = await new GeminiProvider({
+        ...config,
+        llmModel: 'gemini-3-flash-preview',
+        thinkingLevel: 'high',
+      }).generate(
+        'market-comparison',
+        { project: { candidateCountries: ['US', 'GB'] }, evidence: [] },
+        comparisonSchema,
+      );
+      assert.equal(output.recommendation.country, 'GB');
+      assert.equal(calls, 2);
+    },
+  );
+});
 test('research uses its stronger model and high thinking while copy keeps its faster model', async () => {
   const urls = [],
     efforts = [];

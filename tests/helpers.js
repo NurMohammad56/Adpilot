@@ -45,8 +45,8 @@ export async function fixture(options = {}) {
   const product = await runtime.platform.createProduct(user, structuredClone(productInput));
   return { ...runtime, user, product };
 }
-export async function approved(f) {
-  const plan = await f.platform.createPlan(f.user, f.product.id);
+export async function approved(f, overrides = {}) {
+  const plan = await f.platform.createPlan(f.user, f.product.id, overrides);
   const approval = await f.platform.submitPlan(f.user, plan.id);
   await f.platform.decide(f.user, approval.id, 'approve', 'Human approval in the test harness');
   return { plan, approval: await f.store.get('approval_requests', approval.id) };

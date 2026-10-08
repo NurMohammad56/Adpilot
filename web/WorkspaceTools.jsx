@@ -12,55 +12,28 @@ import {
 } from 'lucide-react';
 import './workspace-tools.css';
 import { MetaConnection } from './MetaConnection.jsx';
+import { AIConnection, ResearchRetrieval } from './AIConnection.jsx';
 import { useDraft } from './use-draft.js';
 import { getLanguage } from './i18n.js';
 import { uploadMedia } from './api.js';
-const Field = ({ label, children, hint }) => (
-  <label className="field">
-    <span>{label}</span>
-    {React.isValidElement(children) && ['input', 'textarea', 'select'].includes(children.type)
-      ? React.cloneElement(children, { 'aria-label': label })
-      : children}
-    {hint && <small>{hint}</small>}
-  </label>
-);
-const Countries = {
-  BD: 'Bangladesh',
-  US: 'United States',
-  GB: 'United Kingdom',
-  CA: 'Canada',
-  AU: 'Australia',
-  AE: 'United Arab Emirates',
-  SA: 'Saudi Arabia',
-  IN: 'India',
-  SG: 'Singapore',
-  MY: 'Malaysia',
-  DE: 'Germany',
-  FR: 'France',
-  NL: 'Netherlands',
-  NZ: 'New Zealand',
-  IE: 'Ireland',
-  SE: 'Sweden',
-  NO: 'Norway',
-  DK: 'Denmark',
-  JP: 'Japan',
-  KR: 'South Korea',
-  IT: 'Italy',
-  ES: 'Spain',
-  BR: 'Brazil',
-  MX: 'Mexico',
-  ZA: 'South Africa',
-  PK: 'Pakistan',
-  LK: 'Sri Lanka',
-  QA: 'Qatar',
-  KW: 'Kuwait',
-  BH: 'Bahrain',
-  OM: 'Oman',
-  ID: 'Indonesia',
-  PH: 'Philippines',
-  TH: 'Thailand',
-  VN: 'Vietnam',
-};
+import { CampaignSetup } from './CampaignSetup.jsx';
+import { CampaignField } from './FieldHelp.jsx';
+import { RegionPicker } from './RegionPicker.jsx';
+const Field = ({ label, children, hint, help }) =>
+  help ? (
+    <CampaignField label={label} help={help} hint={hint}>
+      {children}
+    </CampaignField>
+  ) : (
+    <label className="field">
+      <span>{label}</span>
+      {React.isValidElement(children) && ['input', 'textarea', 'select'].includes(children.type)
+        ? React.cloneElement(children, { 'aria-label': label })
+        : children}
+      {hint && <small>{hint}</small>}
+    </label>
+  );
+import { countryNames as Countries } from '../src/modules/research/countries.js';
 const Heading = ({ title, children }) => (
   <div className="tools-heading">
     <span className="eyebrow">YOUR WORKSPACE</span>
@@ -157,6 +130,10 @@ export function Accounts({ data, api, run, refresh, busy, onSwitch }) {
                   ? `${data.aiIntegration.provider} · ${data.aiIntegration.model}`
                   : 'Connect your own AI key'}
             </dd>
+            <dt>Research model</dt>
+            <dd>{data.aiIntegration?.researchModel || 'Not connected'}</dd>
+            <dt>Research thinking effort</dt>
+            <dd>{data.aiIntegration?.researchThinking || 'high'}</dd>
           </dl>
           <div className="notice">
             <ShieldCheck size={19} />
@@ -173,104 +150,7 @@ export function Accounts({ data, api, run, refresh, busy, onSwitch }) {
       ) : (
         <div className="tools-columns">
           <MetaConnection data={data} api={api} run={run} refresh={refresh} busy={busy} />
-          <article className="panel tools-panel">
-            <h2>Your AI provider</h2>
-            <p>
-              Research and ad copy use this workspace’s key. The key is never shared with Meta or
-              another workspace.
-            </p>
-            <div className="notice">
-              A thinking model improves analysis, but cannot replace current sources. This app uses
-              structured Gemini research; Google's separate Deep Research agent is not connected.
-            </div>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const values = Object.fromEntries(new FormData(form));
-                run(async () => {
-                  await api('/integrations/ai', 'POST', {
-                    provider: 'gemini',
-                    apiKey: values.apiKey,
-                    model: values.model,
-                    researchModel: values.researchModel,
-                    researchThinking: values.researchThinking,
-                    grounding: values.grounding === 'on',
-                  });
-                  form.reset();
-                  await refresh();
-                }, 'AI key and model verified for this workspace.');
-              }}
-            >
-              <Field label="Provider">
-                <input value="Google Gemini" readOnly />
-              </Field>
-              <Field label="Gemini copy model">
-                <input
-                  name="model"
-                  defaultValue={data.aiIntegration?.model || 'gemini-3.1-flash-lite'}
-                  required
-                  disabled={!admin}
-                />
-              </Field>
-              <Field
-                label="Research model"
-                hint="Research uses a separate thinking model. Pro access depends on your provider quota/billing. Model discovery does not guarantee generation quota."
-              >
-                <input
-                  name="researchModel"
-                  list="research-models"
-                  defaultValue={data.aiIntegration?.researchModel || 'gemini-3.8-flash'}
-                  required
-                  disabled={!admin}
-                />
-                <datalist id="research-models">
-                  <option value="gemini-3.1-pro-preview" />
-                  <option value="gemini-3.8-flash" />
-                  <option value="gemini-3-flash-preview" />
-                  <option value="gemini-3.1-flash-lite" />
-                </datalist>
-              </Field>
-              <Field label="Research thinking effort">
-                <select
-                  name="researchThinking"
-                  defaultValue={data.aiIntegration?.researchThinking || 'high'}
-                  disabled={!admin}
-                >
-                  <option value="high">High / thorough analysis</option>
-                  <option value="low">Low / faster analysis</option>
-                </select>
-              </Field>
-              <Field
-                label="Gemini API key"
-                hint="Leave empty to recheck the saved key and change models in this workspace."
-              >
-                <input
-                  name="apiKey"
-                  type="password"
-                  required={!data.aiIntegration.configured}
-                  autoComplete="new-password"
-                  disabled={!admin}
-                />
-              </Field>
-              <label className="tools-check">
-                <input
-                  type="checkbox"
-                  name="grounding"
-                  defaultChecked={data.aiIntegration?.grounding || false}
-                  disabled={!admin}
-                />
-                Retrieve live sources with Google Search
-              </label>
-              <p className="small muted">
-                Search requires provider quota. Without it, research uses your supplied evidence and
-                clearly labeled assumptions.
-              </p>
-              <button className="button primary" disabled={busy || !admin}>
-                Verify & save AI provider
-              </button>
-            </form>
-          </article>
+          <AIConnection data={data} api={api} run={run} refresh={refresh} busy={busy} />
         </div>
       )}
     </>
@@ -288,8 +168,11 @@ export function MediaPicker({ api, value, thumbnail, onChange }) {
   const selected = assets.find((asset) => asset.id === value);
   return (
     <div className="media-picker">
-      <label className="field">
-        <span>Upload a creative here</span>
+      <CampaignField
+        label="Upload a creative here"
+        help="Upload a real image or video showing your service or product. Images can be JPEG, PNG or WebP, up to 10 MB. Videos can be MP4 or WebM, up to 50 MB."
+        hint="Upload directly without leaving this form. Images: 10 MB. Videos: 50 MB."
+      >
         <input
           aria-label="Upload a creative here"
           type="file"
@@ -311,20 +194,22 @@ export function MediaPicker({ api, value, thumbnail, onChange }) {
             }
           }}
         />
-        <small>Upload directly without leaving this form. Images: 10 MB. Videos: 50 MB.</small>
-      </label>
+      </CampaignField>
       {uploading && <p role="status">Uploading your private creative…</p>}
       {error && (
         <p className="field-error" role="alert">
           {error}
         </p>
       )}
-      <Field label="Uploaded image or video">
+      <Field
+        label="Uploaded image or video"
+        help="Choose a file from this workspace media library. It will be used in your ad. Uploading a file does not publish an ad."
+      >
         <select
           value={value || ''}
           onChange={(event) => onChange(event.target.value || null, null)}
         >
-          <option value="">Use the image URL / choose later</option>
+          <option value="">Choose an uploaded image or video</option>
           {assets.map((asset) => (
             <option key={asset.id} value={asset.id}>
               {asset.name} · {asset.type}
@@ -342,7 +227,10 @@ export function MediaPicker({ api, value, thumbnail, onChange }) {
         </div>
       )}
       {selected?.type === 'video' && (
-        <Field label="Video cover image">
+        <Field
+          label="Video cover image"
+          help="Choose a still image to show before your video plays. An uploaded video needs a cover image before the campaign can be approved."
+        >
           <select
             value={thumbnail || ''}
             required
@@ -453,6 +341,7 @@ export function MediaLibrary({ data, api, run, busy }) {
   );
 }
 const emptyBrief = {
+  candidateLocationIds: [],
   name: '',
   kind: 'service',
   description: '',
@@ -463,6 +352,13 @@ const emptyBrief = {
   productId: null,
 };
 export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
+  const [locations, setLocations] = useState([]);
+  const [countryQuery, setCountryQuery] = useState('');
+  const mergeLocations = (rows) =>
+    setLocations((current) => [
+      ...current.filter((row) => !rows.some((next) => next.id === row.id)),
+      ...rows,
+    ]);
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
   const [briefDrafts, setBriefDrafts] = useDraft(
@@ -499,16 +395,21 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
       goal: 'leads',
       landingUrl: '',
       price: '',
-      deliveryCost: '0',
-      requiredProfit: '0',
+      deliveryCost: '',
+      requiredProfit: '',
       leadCloseRate: '',
-      dailyBudget: '100',
+      dailyBudget: '',
       durationDays: '7',
-      testBudgetCeiling: '1000',
+      testBudgetCeiling: '',
+      budgetPreference: 'starter',
+      manualCeiling: false,
+      budgetCurrency: data.integration.currency || 'BDT',
+      economicsMode: 'unknown',
       acknowledgeUnknownCPA: false,
     },
   );
   const loadProjects = async () => {
+    setLocations(await api('/research/locations'));
     const values = await api('/research');
     setProjects(values);
     return values;
@@ -545,6 +446,17 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
   const version = versions.find((item) => item.id === versionId);
   const current = version?.id === project?.currentVersionId;
   const canApprove = ['admin', 'approver'].includes(data.user.role);
+  function openDecisionEditor() {
+    if (!decision.summary && !decision.reason)
+      setDecision({
+        summary: version.report.summary,
+        country: version.report.recommendation.country || '',
+        locationIds: version.report.recommendation.locationIds || [],
+        reason: version.report.recommendation.reason,
+        note: '',
+      });
+    setEditing(true);
+  }
   return (
     <>
       <Heading title="Research studio">
@@ -570,6 +482,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
             <button
               key={item.id}
               className={`research-project ${project?.id === item.id ? 'selected' : ''}`}
+              disabled={busy}
               onClick={() => run(() => select(item))}
             >
               <strong>{item.name}</strong>
@@ -722,8 +635,24 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                   />
                 </Field>
                 <Field label="Countries to compare (up to 10)">
+                  <input
+                    aria-label="Search countries"
+                    placeholder="Search countries by name or code"
+                    value={countryQuery}
+                    onChange={(event) => setCountryQuery(event.target.value)}
+                  />
                   <div className="country-options">
-                    {Object.entries(Countries).map(([code, name]) => (
+                    {[
+                      ...new Set([
+                        ...brief.candidateCountries,
+                        ...Object.entries(Countries)
+                          .filter(([code, name]) =>
+                            `${code} ${name}`.toLowerCase().includes(countryQuery.toLowerCase()),
+                          )
+                          .slice(0, 32)
+                          .map(([code]) => code),
+                      ]),
+                    ].map((code) => (
                       <label key={code}>
                         <input
                           type="checkbox"
@@ -738,14 +667,30 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                               candidateCountries: event.target.checked
                                 ? [...brief.candidateCountries, code]
                                 : brief.candidateCountries.filter((value) => value !== code),
+                              candidateLocationIds: (brief.candidateLocationIds || []).filter(
+                                (id) =>
+                                  event.target.checked ||
+                                  locations.find((row) => row.id === id)?.country !== code,
+                              ),
                             })
                           }
                         />
-                        {name}
+                        {Countries[code]}
                       </label>
                     ))}
                   </div>
                 </Field>
+                <RegionPicker
+                  countries={brief.candidateCountries}
+                  countryNames={Countries}
+                  selected={brief.candidateLocationIds || []}
+                  locations={locations}
+                  onLocations={mergeLocations}
+                  onChange={(candidateLocationIds) => setBrief({ ...brief, candidateLocationIds })}
+                  api={api}
+                  run={run}
+                  busy={busy}
+                />
                 <Field label="Questions and constraints">
                   <textarea
                     value={brief.questions}
@@ -842,6 +787,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                     </div>
                     <p className="small muted">{version.instruction}</p>
                     <p>{version.report.summary}</p>
+                    <ResearchRetrieval retrieval={version.report.retrieval} />
                     <div className="notice">
                       AI findings are hypotheses with low confidence. No reliable CPC, demand score
                       or acquisition forecast is invented.
@@ -882,6 +828,44 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                       </article>
                     ))}
                   </div>
+                  {(version.report.regions || []).length > 0 && (
+                    <article className="panel tools-panel">
+                      <h2>State & region comparison</h2>
+                      {version.report.regions.map((region) => {
+                        const location = locations.find((row) => row.id === region.locationId);
+                        return (
+                          <section className="research-evidence" key={region.locationId}>
+                            <h3>
+                              {location?.name || region.locationId} · {Countries[location?.country]}
+                            </h3>
+                            <p>{region.opportunity}</p>
+                            <h3>Buyer segments</h3>
+                            <ul>
+                              {region.buyerSegments.map((text, index) => (
+                                <li key={index}>{text}</li>
+                              ))}
+                            </ul>
+                            <h3>Competition</h3>
+                            <p>{region.competition}</p>
+                            <h3>Risks & barriers</h3>
+                            <ul>
+                              {region.barriers.map((text, index) => (
+                                <li key={index}>{text}</li>
+                              ))}
+                            </ul>
+                            <h3>Test approach</h3>
+                            <p>{region.testApproach}</p>
+                            <h3>Evidence gaps</h3>
+                            <ul>
+                              {region.evidenceGaps.map((text, index) => (
+                                <li key={index}>{text}</li>
+                              ))}
+                            </ul>
+                          </section>
+                        );
+                      })}
+                    </article>
+                  )}
                   <article className="panel tools-panel">
                     <h2>Evidence & open questions</h2>
                     {version.report.findings.map((finding, index) => (
@@ -908,6 +892,12 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                   </article>
                   <article className="panel tools-panel">
                     <h2>Your test-market decision</h2>
+                    {current && !version.report.recommendation.country && (
+                      <p className="notice" id="research-review-guidance">
+                        No country is selected. Choose a test country and explain your decision,
+                        save a new version, then request review. You can also continue researching.
+                      </p>
+                    )}
                     {editing ? (
                       <form
                         onSubmit={(event) => {
@@ -918,6 +908,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                               recommendation: {
                                 ...version.report.recommendation,
                                 country: decision.country || null,
+                                locationIds: decision.locationIds || [],
                                 reason: decision.reason,
                               },
                               note: decision.note,
@@ -937,9 +928,14 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                         </Field>
                         <Field label="Test country">
                           <select
+                            autoFocus={!decision.country}
                             value={decision.country}
                             onChange={(event) =>
-                              setDecision({ ...decision, country: event.target.value })
+                              setDecision({
+                                ...decision,
+                                country: event.target.value,
+                                locationIds: [],
+                              })
                             }
                           >
                             <option value="">Evidence is not sufficient yet</option>
@@ -950,6 +946,44 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                             ))}
                           </select>
                         </Field>
+                        {(project.candidateLocationIds || []).length > 0 && (
+                          <section className="region-picker">
+                            <h3>Approved targeting areas</h3>
+                            <p>
+                              Choose researched areas within the selected country. Leave all
+                              unchecked for the whole country. Selected areas share one ad set and
+                              one budget.
+                            </p>
+                            <div className="country-options">
+                              {locations
+                                .filter(
+                                  (location) =>
+                                    project.candidateLocationIds.includes(location.id) &&
+                                    location.country === decision.country,
+                                )
+                                .map((location) => (
+                                  <label key={location.id}>
+                                    <input
+                                      type="checkbox"
+                                      aria-label={`Target ${location.name}`}
+                                      checked={(decision.locationIds || []).includes(location.id)}
+                                      onChange={(event) =>
+                                        setDecision({
+                                          ...decision,
+                                          locationIds: event.target.checked
+                                            ? [...(decision.locationIds || []), location.id]
+                                            : (decision.locationIds || []).filter(
+                                                (id) => id !== location.id,
+                                              ),
+                                        })
+                                      }
+                                    />
+                                    {location.name}
+                                  </label>
+                                ))}
+                            </div>
+                          </section>
+                        )}
                         <Field label="Why this country / what remains uncertain?">
                           <textarea
                             required
@@ -972,6 +1006,14 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                         <button className="button primary" disabled={busy}>
                           Save new decision version
                         </button>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          disabled={busy}
+                          onClick={() => setEditing(false)}
+                        >
+                          Cancel
+                        </button>
                       </form>
                     ) : (
                       <>
@@ -981,6 +1023,14 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                             : 'No country selected yet'}
                         </h3>
                         <p>{version.report.recommendation.reason}</p>
+                        {!!version.report.recommendation.locationIds?.length && (
+                          <p className="notice">
+                            Target areas:{' '}
+                            {version.report.recommendation.locationIds
+                              .map((id) => locations.find((row) => row.id === id)?.name || id)
+                              .join(', ')}
+                          </p>
+                        )}
                         <ul>
                           {version.report.recommendation.nextSteps.map((text, index) => (
                             <li key={index}>{text}</li>
@@ -990,16 +1040,8 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                           {current && (
                             <button
                               className="button secondary"
-                              onClick={() => {
-                                if (!decision.summary && !decision.reason)
-                                  setDecision({
-                                    summary: version.report.summary,
-                                    country: version.report.recommendation.country || '',
-                                    reason: version.report.recommendation.reason,
-                                    note: '',
-                                  });
-                                setEditing(true);
-                              }}
+                              disabled={busy}
+                              onClick={openDecisionEditor}
                             >
                               Edit decision in a new version
                             </button>
@@ -1007,13 +1049,22 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                           {current && version.status === 'draft' && (
                             <button
                               className="button primary"
-                              disabled={busy || !version.report.recommendation.country}
-                              onClick={() =>
+                              disabled={busy}
+                              aria-describedby={
+                                !version.report.recommendation.country
+                                  ? 'research-review-guidance'
+                                  : undefined
+                              }
+                              onClick={() => {
+                                if (!version.report.recommendation.country) {
+                                  openDecisionEditor();
+                                  return;
+                                }
                                 run(async () => {
                                   await api(`/research/versions/${version.id}/submit`, 'POST', {});
                                   await reload(project.id);
-                                }, 'Research decision submitted for human review.')
-                              }
+                                }, 'Research decision submitted for human review.');
+                              }}
                             >
                               Request decision review
                             </button>
@@ -1101,125 +1152,33 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                     )}
                   </article>
                   {campaign && current && version.status === 'approved' && (
-                    <article className="panel tools-panel">
-                      <h2>Service / software campaign draft</h2>
-                      <p>
-                        Target market: {Countries[version.report.recommendation.country]}. All
-                        amounts use {data.integration.currency || 'BDT'}, the ad account’s budget
-                        currency.
-                      </p>
-                      <form
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          const values = Object.fromEntries(new FormData(event.currentTarget));
-                          run(async () => {
-                            const plan = await api(
-                              `/research/versions/${version.id}/campaign`,
-                              'POST',
-                              {
-                                goal: values.goal,
-                                landingUrl: values.landingUrl,
-                                price: values.price ? Number(values.price) : null,
-                                deliveryCost: Number(values.deliveryCost),
-                                requiredProfit: Number(values.requiredProfit),
-                                leadCloseRate: values.leadCloseRate
-                                  ? Number(values.leadCloseRate) / 100
-                                  : null,
-                                dailyBudget: Number(values.dailyBudget),
-                                durationDays: Number(values.durationDays),
-                                testBudgetCeiling: Number(values.testBudgetCeiling),
-                                acknowledgeUnknownCPA: values.acknowledgeUnknownCPA === 'on',
-                                ...media,
-                              },
-                            );
-                            await refresh();
-                            onPlan(plan);
-                          }, 'Campaign draft created. Review its copy, media, budgets and validation before requesting launch approval.');
-                        }}
-                      >
-                        <Field label="Campaign goal">
-                          <select
-                            name="goal"
-                            value={campaignFields.goal}
-                            onChange={(event) =>
-                              setCampaignFields({ ...campaignFields, goal: event.target.value })
-                            }
-                          >
-                            <option value="leads">Website leads / client enquiries</option>
-                            <option value="purchases">Website purchase / paid subscription</option>
-                          </select>
-                        </Field>
-                        <Field label="HTTPS offer / contact page">
-                          <input
-                            name="landingUrl"
-                            type="url"
-                            required
-                            placeholder="https://your-business.com/custom-ecommerce"
-                            value={campaignFields.landingUrl}
-                            onChange={(event) =>
-                              setCampaignFields({
-                                ...campaignFields,
-                                landingUrl: event.target.value,
-                              })
-                            }
-                          />
-                        </Field>
-                        <div className="form-grid">
-                          {[
-                            ['price', 'Price per sale / project (leave empty if unknown)', ''],
-                            ['deliveryCost', 'Actual service delivery cost', '0'],
-                            ['requiredProfit', 'Required profit per sale / project', '0'],
-                            ['leadCloseRate', 'Measured lead-to-sale rate % (optional)', ''],
-                            ['dailyBudget', 'Daily test budget', '100'],
-                            ['durationDays', 'Test duration in days', '7'],
-                            ['testBudgetCeiling', 'Total test spending ceiling', '1000'],
-                          ].map(([key, label, value]) => (
-                            <Field key={key} label={label}>
-                              <input
-                                name={key}
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={campaignFields[key] ?? value}
-                                onChange={(event) =>
-                                  setCampaignFields({
-                                    ...campaignFields,
-                                    [key]: event.target.value,
-                                  })
-                                }
-                                required={!['price', 'leadCloseRate'].includes(key)}
-                              />
-                            </Field>
-                          ))}
-                        </div>
-                        <MediaPicker
-                          api={api}
-                          value={media.mediaAssetId}
-                          thumbnail={media.thumbnailAssetId}
-                          onChange={(mediaAssetId, thumbnailAssetId) =>
-                            setMedia({ mediaAssetId, thumbnailAssetId })
-                          }
-                        />
-                        <label className="tools-check">
-                          <input
-                            type="checkbox"
-                            name="acknowledgeUnknownCPA"
-                            checked={campaignFields.acknowledgeUnknownCPA}
-                            onChange={(event) =>
-                              setCampaignFields({
-                                ...campaignFields,
-                                acknowledgeUnknownCPA: event.target.checked,
-                              })
-                            }
-                          />
-                          I understand that missing conversion economics make this a capped
-                          discovery test, not a scaling recommendation.
-                        </label>
-                        <button className="button primary" disabled={busy || !media.mediaAssetId}>
-                          Generate campaign draft for review
-                        </button>
-                      </form>
-                    </article>
+                    <CampaignSetup
+                      key={version.id}
+                      data={data}
+                      project={project}
+                      version={version}
+                      countryName={Countries[version.report.recommendation.country]}
+                      targetNames={(version.report.recommendation.locationIds || []).map(
+                        (id) => locations.find((row) => row.id === id)?.name || id,
+                      )}
+                      fields={campaignFields}
+                      setFields={setCampaignFields}
+                      api={api}
+                      run={run}
+                      busy={busy}
+                      media={media}
+                      refresh={refresh}
+                      onPlan={onPlan}
+                    >
+                      <MediaPicker
+                        api={api}
+                        value={media.mediaAssetId}
+                        thumbnail={media.thumbnailAssetId}
+                        onChange={(mediaAssetId, thumbnailAssetId) =>
+                          setMedia({ mediaAssetId, thumbnailAssetId })
+                        }
+                      />
+                    </CampaignSetup>
                   )}
                 </>
               )}

@@ -18,6 +18,7 @@ export async function workspaceLLM(platform, businessId) {
     researchThinking: row.researchThinking || 'high',
     llmKey: unseal(row.encryptedKey, platform.config.encryptionKey),
     geminiGrounding: row.grounding,
+    searchGrounding: row.grounding,
   });
 }
 export function publicAI(row) {
@@ -57,10 +58,15 @@ export async function configureAI(platform, user, input) {
     'Provide an API key to connect this AI provider.',
   );
   const apiKey = input.apiKey || unseal(previous.encryptedKey, platform.config.encryptionKey);
+  const researchModel =
+    input.researchModel ||
+    (input.provider === 'openai' ? input.model : platform.config.researchModel || input.model);
   const endpoint =
     input.provider === 'gemini'
       ? 'https://generativelanguage.googleapis.com/v1beta'
-      : input.endpoint;
+      : input.provider === 'openai'
+        ? 'https://api.openai.com/v1'
+        : input.endpoint;
   if (input.provider === 'gateway') {
     const url = new URL(endpoint);
     assert(
@@ -70,13 +76,13 @@ export async function configureAI(platform, user, input) {
       'The deployment administrator must allow this gateway hostname',
     );
   }
-  if (input.provider === 'gemini') {
-    for (const model of new Set([
-      input.model,
-      input.researchModel || platform.config.researchModel || input.model,
-    ])) {
+  if (['gemini', 'openai'].includes(input.provider)) {
+    for (const model of new Set([input.model, researchModel])) {
       const response = await fetch(`${endpoint}/models/${model}`, {
-        headers: { 'x-goog-api-key': apiKey },
+        headers:
+          input.provider === 'openai'
+            ? { authorization: `Bearer ${apiKey}` }
+            : { 'x-goog-api-key': apiKey },
         signal: AbortSignal.timeout(15000),
       }).catch(() => {
         throw new AppError(502, 'AI_UNAVAILABLE', 'Could not verify the AI provider');
@@ -95,7 +101,7 @@ export async function configureAI(platform, user, input) {
       aiProvider: input.provider,
       endpoint,
       model: input.model,
-      researchModel: input.researchModel || platform.config.researchModel || input.model,
+      researchModel,
       researchThinking: input.researchThinking || 'high',
       encryptedKey: input.apiKey
         ? seal(apiKey, platform.config.encryptionKey)

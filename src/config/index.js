@@ -57,10 +57,14 @@ export function loadConfig(env = process.env) {
     llmProvider: env.LLM_PROVIDER || 'demo',
     llmEndpoint: env.LLM_ENDPOINT,
     llmKey: env.LLM_API_KEY,
-    llmModel: env.LLM_MODEL || 'gemini-3.1-flash-lite',
-    researchModel: env.LLM_RESEARCH_MODEL || 'gemini-3.8-flash',
+    llmModel:
+      env.LLM_MODEL || (env.LLM_PROVIDER === 'openai' ? 'gpt-6-luna' : 'gemini-3.1-flash-lite'),
+    researchModel:
+      env.LLM_RESEARCH_MODEL ||
+      (env.LLM_PROVIDER === 'openai' ? 'gpt-6-luna' : 'gemini-3-flash-preview'),
     researchThinking: env.LLM_RESEARCH_THINKING || 'high',
     geminiGrounding: env.GEMINI_SEARCH_GROUNDING === 'true',
+    searchGrounding: (env.LLM_SEARCH_GROUNDING ?? env.GEMINI_SEARCH_GROUNDING) === 'true',
     trustProxy: Number(env.TRUST_PROXY || 0),
     storageDriver: env.STORAGE_DRIVER || 'local',
     storagePath: path.resolve(env.STORAGE_PATH || '.data/uploads'),

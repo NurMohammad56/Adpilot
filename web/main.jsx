@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ResearchRetrieval } from './AIConnection.jsx';
 import { createRoot } from 'react-dom/client';
 import '@fontsource/dm-sans/latin-400.css';
 import '@fontsource/dm-sans/latin-500.css';
@@ -53,6 +54,7 @@ import { useDraft } from './use-draft.js';
 import './usability.css';
 import { GuidedProduct } from './GuidedProduct.jsx';
 import { WorkflowGuide } from './WorkflowGuide.jsx';
+import { AdControlCenter } from './AdControlCenter.jsx';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -87,6 +89,7 @@ const navItems = [
   { label: 'Campaign plans', icon: FileText },
   { label: 'Approvals', icon: ClipboardCheck },
   { label: 'Performance', icon: BarChart3 },
+  { label: 'Ad control center', icon: Activity },
   { label: 'Optimization', icon: Sparkles },
   { label: 'Audit log', icon: Clock3 },
 ];
@@ -838,8 +841,9 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
   const a = plan.audienceRecommendation;
   const permitted = ['admin', 'approver'].includes(data.user.role);
   const canEdit =
-    ['draft', 'pending_approval', 'rejected'].includes(plan.status) &&
-    (!approval || approval.status === 'pending');
+    (['draft', 'pending_approval', 'rejected'].includes(plan.status) ||
+      (plan.status === 'failed' && plan.kind === 'service')) &&
+    (!approval || ['pending', 'failed'].includes(approval.status));
   return (
     <>
       <div className="review-summary">
@@ -850,6 +854,30 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
         <Badge tone="amber">{plan.confidence} confidence</Badge>
         <span className="muted">Version {plan.version}</span>
       </div>
+      {['failed', 'needs_reconciliation', 'executing'].includes(approval?.status) && (
+        <div className="notice" role="alert">
+          <ShieldCheck size={18} />
+          <div>
+            <strong>
+              {approval.status === 'failed'
+                ? 'Campaign was not created'
+                : 'Execution needs verification'}
+            </strong>
+            {approval.executionError?.message && <p>{approval.executionError.message}</p>}
+            {approval.executionError?.metaCode && (
+              <small>
+                Meta code {approval.executionError.metaCode}
+                {approval.executionError.subcode ? ` / ${approval.executionError.subcode}` : ''}
+              </small>
+            )}
+            <p>
+              {approval.status === 'failed'
+                ? 'No remote campaign was created and the reserved budget was released. Edit and review a new version before requesting a new approval.'
+                : 'This approval cannot be executed again. Check the account inventory and remote outcome before creating another campaign.'}
+            </p>
+          </div>
+        </div>
+      )}
       {plan.researchProjectId && (
         <div className="notice">
           <span>
@@ -913,7 +941,20 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                   type={f.type}
                   required={!(plan.kind === 'service' && f.key === 'sellingPrice')}
                   value={changes[f.key] ?? ''}
-                  min={f.type === 'number' ? 1 : undefined}
+                  min={
+                    f.type === 'number'
+                      ? ['sellingPrice', 'dailyBudget'].includes(f.key)
+                        ? 0.01
+                        : 1
+                      : undefined
+                  }
+                  step={
+                    f.type === 'number'
+                      ? ['sellingPrice', 'dailyBudget'].includes(f.key)
+                        ? '0.01'
+                        : '1'
+                      : undefined
+                  }
                   onChange={(e) =>
                     setChanges({
                       ...changes,
@@ -1037,6 +1078,12 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                   </div>
                 ))}
               </div>
+              {b.deliveryMode === 'lifetime' && (
+                <div className="notice">
+                  <ShieldCheck size={18} />
+                  <p>{`Fixed total lifetime budget: ${taka(b.totalBudget)} over ${b.durationDays} days. Planning average: ${taka(b.dailyBudget)}/day. Meta may spend different amounts each day. Taxes and payment fees are additional. Budget changes require a new approved test.`}</p>
+                </div>
+              )}
               <div className="review-columns">
                 <div>
                   <h3>Product economics</h3>
@@ -1105,7 +1152,10 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                   <dl className="detail-list">
                     <div>
                       <dt>Configured daily budget</dt>
-                      <dd>{taka(b.dailyBudget)}</dd>
+                      <dd>
+                        {taka(b.dailyBudget)}
+                        {b.deliveryMode === 'lifetime' ? ' · Planning average' : ''}
+                      </dd>
                     </div>
                     <div>
                       <dt>Test duration</dt>
@@ -1198,6 +1248,7 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                   <p>{plan.research.summary}</p>
                 </div>
               </div>
+              <ResearchRetrieval retrieval={plan.research.retrieval} />
               <h3 className="form-section">Evidence and assumptions</h3>
               {plan.research.findings.map((finding, i) => (
                 <article className="evidence-card" key={i}>
@@ -1330,7 +1381,9 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                   disabled={busy}
                   onClick={() => setEditing(true)}
                 >
-                  Edit & revalidate
+                  {approval?.status === 'failed'
+                    ? 'Prepare a new plan version'
+                    : 'Edit & revalidate'}
                 </button>
               )}
               {!approval && ['draft', 'rejected'].includes(plan.status) && (
@@ -1413,7 +1466,9 @@ function Performance({ data, busy, sync, analyze, action, propose }) {
               <span>
                 <Status value={c.status} />{' '}
                 <small className="muted">
-                  {taka(c.dailyBudget)}/day · Total cap {taka(c.totalBudget)}
+                  {taka(c.dailyBudget)}/day
+                  {c.budgetDelivery === 'lifetime' ? ' · Planning average' : ''} · Total cap{' '}
+                  {taka(c.totalBudget)}
                 </small>
               </span>
             </div>
@@ -2051,23 +2106,65 @@ function App() {
       data.approvals.find(
         (a) =>
           a.planId === plan.id &&
-          ['pending', 'approved'].includes(a.status) &&
+          ['pending', 'approved', 'failed', 'needs_reconciliation', 'executing'].includes(
+            a.status,
+          ) &&
           a.action === 'launch_campaign',
       );
-    setModal({ kind: 'plan', plan, approval: request || null });
+    setModal({
+      kind: 'plan',
+      plan: data.plans.find((p) => p.id === plan.id) || plan,
+      approval: request || null,
+    });
   }
   const showProduct = (product) => setModal({ kind: 'product', product });
   async function execute(approval) {
     return run(
       async () => {
-        await api(`/approvals/${approval.id}/execute`, 'POST', {});
-        await refresh();
+        await executeRequest(approval);
         setModal(null);
       },
       mode === 'demo'
         ? 'Approved action executed through MCP in demo mode. No real ad spend.'
         : 'Approved action executed through MCP.',
     );
+  }
+  async function executeRequest(approval) {
+    try {
+      await api(`/approvals/${approval.id}/execute`, 'POST', {});
+    } catch (error) {
+      // Disable the consumed approval immediately, including when the follow-up read is unavailable.
+      setModal((current) =>
+        current?.kind === 'plan'
+          ? {
+              ...current,
+              approval: {
+                ...approval,
+                status: 'needs_reconciliation',
+                executionError: { message: error.message },
+              },
+            }
+          : current,
+      );
+      try {
+        const latest = await refresh();
+        const updated = latest.approvals.find((a) => a.id === approval.id);
+        if (updated)
+          setModal((current) =>
+            current?.kind === 'plan'
+              ? {
+                  ...current,
+                  approval: updated,
+                  plan: latest.plans.find((p) => p.id === updated.planId) || updated.snapshot,
+                }
+              : current,
+          );
+      } catch {
+        /* Keep execution disabled until the server state can be checked. */
+      }
+      throw error;
+    }
+    await refresh();
   }
   async function decide(approval, decision, comment, executeNow = false) {
     return run(
@@ -2079,8 +2176,7 @@ function App() {
         await refresh();
         if (decision === 'approve' && executeNow) {
           setModal({ kind: 'plan', plan: updated.snapshot, approval: updated });
-          await api(`/approvals/${updated.id}/execute`, 'POST', {});
-          await refresh();
+          await executeRequest(updated);
         }
         setModal(null);
       },
@@ -2317,6 +2413,9 @@ function App() {
                   )}
                   {page === 'Campaign plans' && <Plans {...common} />}
                   {page === 'Approvals' && <Approvals {...common} execute={execute} />}
+                  {page === 'Ad control center' && (
+                    <AdControlCenter key={data.business.id} {...common} api={api} run={run} />
+                  )}
                   {page === 'Performance' && (
                     <Performance
                       {...common}

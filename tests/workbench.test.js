@@ -11,7 +11,7 @@ import { createStorage } from '../src/storage/index.js';
 import { projectSchema } from '../src/modules/research/workbench.js';
 import { createServicePlan } from '../src/modules/campaigns/service-plan.js';
 import { workspaceLLM } from '../src/integrations/credentials.js';
-import { seal, unseal } from '../src/utils/core.js';
+import { AppError, seal, unseal } from '../src/utils/core.js';
 import { LiveMetaAdapter } from '../src/integrations/meta/adapter.js';
 import { recommendOptimizations } from '../src/modules/optimization/engine.js';
 
@@ -222,6 +222,8 @@ test('service campaign uses an approved country and uploaded media, and needs a 
     assert.equal(plan.market, 'US');
     assert.equal(plan.objective, 'OUTCOME_LEADS');
     assert.equal(plan.conversionEvent, 'LEAD');
+    assert.equal(plan.budgetRecommendation.deliveryMode, 'lifetime');
+    assert.equal(plan.budgetRecommendation.totalBudget, 700);
     assert.equal(plan.ads[0].assetChecksum, asset.checksum);
     assert.equal(plan.validation.valid, true);
     const approval = await f.platform.submitPlan(f.user, plan.id);
@@ -237,6 +239,25 @@ test('service campaign uses an approved country and uploaded media, and needs a 
     const result = await f.platform.executeApproved(approval.id, 'create_campaign');
     assert.ok(result.campaignId);
     const campaign = (await f.store.list('campaigns', { businessId: f.user.businessId }))[0];
+    assert.equal(campaign.budgetDelivery, 'lifetime');
+    assert.equal(
+      f.meta.calls.find((row) => row.resource === 'campaigns').payload.spend_cap,
+      undefined,
+    );
+    assert.equal(
+      f.meta.calls.find((row) => row.resource === 'adsets').payload.lifetime_budget,
+      70000,
+    );
+    await assert.rejects(
+      f.platform.proposeAction(
+        f.user,
+        campaign.id,
+        'update_budget',
+        { dailyBudget: 90 },
+        'Try changing a lifetime test to daily pacing',
+      ),
+      { code: 'LIFETIME_BUDGET_LOCKED' },
+    );
     const rows = await f.platform.syncInsights(f.user, campaign.id);
     assert.equal(rows[0].revenue, null);
     await f.research.research(f.user, project.id, 'Reconsider the selected market.');
@@ -248,6 +269,58 @@ test('service campaign uses an approved country and uploaded media, and needs a 
     await f.close();
   }
 });
+test('a rejected uncreated service campaign can be revised without repeating research or reusing its approval', async () => {
+  const f = await fixture(),
+    media = await fileFixture(f);
+  try {
+    const asset = await media.upload(),
+      { version } = await approvedResearch(f);
+    const plan = await createServicePlan(f.platform, f.user, version.id, {
+      goal: 'leads',
+      landingUrl: 'https://example.com',
+      price: null,
+      deliveryCost: null,
+      requiredProfit: null,
+      leadCloseRate: null,
+      dailyBudget: 100,
+      durationDays: 7,
+      testBudgetCeiling: 1000,
+      acknowledgeUnknownCPA: true,
+      mediaAssetId: asset.id,
+    });
+    const approval = await f.platform.submitPlan(f.user, plan.id);
+    await f.platform.decide(f.user, approval.id, 'approve', 'Review');
+    f.meta.launch = async () => {
+      throw new AppError(502, 'META_REJECTED', 'Limit too low', { noRemoteMutation: true });
+    };
+    await assert.rejects(f.platform.executeApproved(approval.id, 'create_campaign'), {
+      code: 'META_REJECTED',
+    });
+    const revised = await f.platform.revisePlan(f.user, plan.id, {});
+    assert.equal(revised.status, 'draft');
+    assert.equal(revised.version, 2);
+    assert.equal(revised.researchVersionId, version.id);
+    assert.equal(revised.researchDecisionHash, plan.researchDecisionHash);
+    assert.deepEqual(revised.ads, plan.ads);
+    assert.equal(revised.budgetRecommendation.totalBudget, 700);
+    assert.equal(revised.budgetRecommendation.deliveryMode, 'lifetime');
+    const pending = await f.platform.submitPlan(f.user, revised.id);
+    assert.equal(pending.status, 'pending');
+    assert.notEqual(pending.snapshotHash, approval.snapshotHash);
+    assert.equal((await f.store.get('approval_requests', approval.id)).status, 'failed');
+    await assert.rejects(f.platform.executeApproved(pending.id, 'create_campaign'), {
+      code: 'APPROVAL_REQUIRED',
+    });
+    assert.equal(
+      (await f.store.get('research_versions', version.id)).reportHash,
+      version.reportHash,
+    );
+  } finally {
+    await media.cleanup();
+    await f.close();
+  }
+});
+
 test('unknown service economics never invent allowable CPA or scaling recommendations', async () => {
   const f = await fixture();
   const media = await fileFixture(f);
@@ -258,8 +331,8 @@ test('unknown service economics never invent allowable CPA or scaling recommenda
       goal: 'leads',
       landingUrl: 'https://example.com',
       price: null,
-      deliveryCost: 0,
-      requiredProfit: 0,
+      deliveryCost: null,
+      requiredProfit: null,
       leadCloseRate: null,
       dailyBudget: 100,
       durationDays: 7,
@@ -270,11 +343,20 @@ test('unknown service economics never invent allowable CPA or scaling recommenda
     await assert.rejects(createServicePlan(f.platform, f.user, version.id, input), {
       code: 'UNKNOWN_CPA',
     });
+    await assert.rejects(
+      createServicePlan(f.platform, f.user, version.id, {
+        ...input,
+        price: 1000,
+        acknowledgeUnknownCPA: true,
+      }),
+      { code: 'SERVICE_ECONOMICS' },
+    );
     const plan = await createServicePlan(f.platform, f.user, version.id, {
       ...input,
       acknowledgeUnknownCPA: true,
     });
     assert.equal(plan.pricingRecommendation.targetCPA, null);
+    assert.equal(plan.pricingRecommendation.baseVariableCost, null);
     assert.equal(plan.budgetRecommendation.plannedAcquisitions, null);
     assert.deepEqual(
       recommendOptimizations({ dailyBudget: 100 }, plan, {

@@ -16,6 +16,7 @@ export function WorkflowGuide({ data, onNavigate }) {
       ),
     ],
     ['Performance', '6. Review results', data.performance.length > 0],
+    ['Ad control center', '7. Record real customer outcomes', false],
   ];
   return (
     <div className="panel stepper">

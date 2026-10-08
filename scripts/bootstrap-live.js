@@ -113,7 +113,9 @@ try {
       provider: process.env.LLM_PROVIDER,
       apiKey: process.env.LLM_API_KEY,
       model: process.env.LLM_MODEL,
-      grounding: process.env.GEMINI_SEARCH_GROUNDING === 'true',
+      researchModel: config.researchModel,
+      researchThinking: config.researchThinking,
+      grounding: config.searchGrounding,
     });
   console.log(
     JSON.stringify(

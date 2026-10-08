@@ -4,7 +4,7 @@ The AdPilot release is live at `https://fahimstack.tech/adpilot/`. Atlas now all
 
 ## Layout and services
 
-- Release source: `/srv/adpilot/releases/20261008-adpilot`.
+- Current release source: `/srv/adpilot/releases/20261008-openai`; `/srv/adpilot/current` points here. The previous Gemini release and `adpilot-app:20261008-gemini3` image remain available for rollback.
 - Runtime secrets: `/srv/adpilot/shared/production.env`, root-only file inside a private directory. Secrets are excluded from release archives and images.
 - Compose definition: `deploy/compose.production.yaml`. API listens on loopback port 4015; worker runs separately. API and worker use the same encrypted Atlas records and private R2 bucket.
 - Authenticated Redis 7.4 uses a private Docker network, AOF persistence and a persistent `/srv/adpilot/shared/redis` volume. It has no public port. BullMQ uses its native connection, independently of the earlier Upstash REST configuration.
@@ -14,7 +14,7 @@ The AdPilot release is live at `https://fahimstack.tech/adpilot/`. Atlas now all
 ## Start and inspect
 
 ```sh
-cd /srv/adpilot/releases/20261008-adpilot
+cd /srv/adpilot/current
 docker compose -f deploy/compose.production.yaml up -d --wait --wait-timeout 180
 docker compose -f deploy/compose.production.yaml ps
 docker compose -f deploy/compose.production.yaml logs --tail 40 api worker
@@ -25,9 +25,9 @@ The API must be healthy before the worker starts. Containers restart after host 
 
 ## Research and campaign operation
 
-Research defaults to `gemini-3.8-flash` with High thinking, separately from the copy model. Existing workspaces can override these defaults through **Accounts**. The adapter preserves the selected model across bounded retries; provider overload or quota exhaustion does not silently downgrade it. Gemini 3.8 research uses JSON mode with the full application schema in the prompt, strict validation and one bounded format repair. Unknown action fields fail validation. Source provenance remains application-owned; AI claims cannot certify themselves as verified evidence.
+The active workspace and production defaults now use OpenAI `gpt-6-luna`, High research reasoning, Low copy reasoning and native Responses web search. The user supplied the OpenAI key and authorized integration after Gemini Search quota failures. The key is encrypted in the workspace Accounts record. Accounts can select OpenAI or Gemini and separate copy/research models. The adapters preserve the selected model across bounded retries; provider overload or quota exhaustion does not silently downgrade it. Application validation rejects missing, duplicate or substituted candidate countries and invalid recommendations; one bounded same-model repair can correct research. Unknown action fields fail validation. Source provenance remains application-owned; AI claims cannot certify themselves as verified evidence.
 
-Google Search grounding is optional and remains disabled. The replacement key returned valid native Flash Lite JSON, but Gemini 3.8 High thinking returned Google's high-demand 503 for both the complete 10-country brief and a small independent request. Full research acceptance must be repeated when the selected model has capacity. Billing or another key is not a guaranteed fix for model overload. High thinking does not turn an unsourced hypothesis into verified market data. Add dated evidence and check the current search quota before enabling grounding.
+OpenAI live Search is enabled. Native High-reasoning research passed the saved ten-country brief with six retrieved sources; Bangladesh product research and three creative variants also passed. Per-report retrieval metadata shows whether Search actually succeeded and links sources for review. Search outages produce explicit limitations; high reasoning does not make country demand or campaign performance certain. Gemini remains available as an optional workspace provider, subject to its own Search quota. See [OpenAI research](openai-research.md) and the latest verification record.
 
 Existing workspaces use their encrypted **Accounts** key. Changing server or local `LLM_API_KEY` does not replace it. Save the new key in the intended workspace's Accounts form; an empty key field deliberately preserves the saved key. The replacement key was saved through the authenticated production API during live verification.
 
@@ -36,3 +36,5 @@ Production enables paid execution and background jobs. A user still needs to sup
 ## Updating and recovery
 
 Prepare a new timestamped release, verify tests, and build its image before switching services. Retain the previous image tag and release directory. Use the existing secrets file and persistent Redis volume; keep `TOKEN_ENCRYPTION_KEY` unchanged so existing encrypted integrations remain readable. Check Atlas backups and R2 retention before a release that changes data formats. Restore the saved domain config and reload Nginx if a route change fails validation. Never stop unrelated Docker projects or overwrite the domain homepage.
+
+The OpenAI deployment retains root-only `production.before-openai.env` and `ai.before-openai.json` backups in `/srv/adpilot/shared/backups`. The second file contains the earlier encrypted AI connection. A rollback to a release without OpenAI support must restore the previous workspace AI connection as well as the image/environment. The encryption master key was preserved. The temporary provider-key transfer file was deleted after runtime configuration.

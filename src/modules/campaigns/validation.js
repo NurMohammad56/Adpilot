@@ -1,4 +1,5 @@
 import { hash } from '../../utils/core.js';
+import { regionalGeo } from '../research/locations.js';
 export const planFingerprint = (plan) =>
   hash({
     businessId: plan.businessId,
@@ -47,6 +48,18 @@ export function validatePlan(
   const warnings = [...plan.pricingRecommendation.risks, ...plan.budgetRecommendation.risks];
   const { budgetRecommendation: b, pricingRecommendation: p, audienceRecommendation: a } = plan;
   const service = plan.kind === 'service';
+  if (b.deliveryMode !== undefined && !['daily', 'lifetime'].includes(b.deliveryMode))
+    errors.push('Budget delivery mode is invalid.');
+  if (
+    b.deliveryMode === 'lifetime' &&
+    (!Number.isInteger(b.durationDays) ||
+      b.durationDays < 1 ||
+      b.durationDays > 30 ||
+      Math.abs(b.totalBudget - Math.round(b.dailyBudget * b.durationDays * 100) / 100) > 0.005)
+  )
+    errors.push(
+      'Lifetime budget must match the reviewed daily planning average and test duration.',
+    );
   if (
     (!service && plan.market !== 'BD') ||
     plan.platform !== 'META' ||
@@ -80,6 +93,37 @@ export function validatePlan(
     errors.push('Total test budget exceeds a hard ceiling or is invalid.');
   if (a.ageMin > a.ageMax || a.ageMin < 18 || a.ageMax > 65)
     errors.push('Audience age range is invalid.');
+  if (a.geoTargets?.length) {
+    try {
+      regionalGeo(a.geoTargets, plan.market);
+    } catch {
+      errors.push('Regional targets must be verified and belong to the approved country.');
+    }
+    if (
+      config.mode === 'live' &&
+      a.geoTargets.some((target) => target.demo || target.accountId !== integration?.adAccountId)
+    )
+      errors.push('Regional targets must be verified for the connected live ad account.');
+    if (
+      !service &&
+      a.geoTargets.some((target) => {
+        const covered = Object.entries(integration?.locationMap || {}).find(
+          ([, entry]) => entry.key === target.key && entry.country_code === 'BD',
+        )?.[0];
+        return (
+          !(
+            business.deliveryRegions.includes('Nationwide') ||
+            business.deliveryRegions.includes(covered)
+          ) ||
+          !(
+            product.deliveryRegions?.includes('Nationwide') ||
+            (product.deliveryRegions || business.deliveryRegions).includes(covered)
+          )
+        );
+      })
+    )
+      errors.push('Verify regional targets against both business and product delivery coverage.');
+  }
   if (
     !a.locations.length ||
     a.locations.some((region) =>
@@ -91,8 +135,12 @@ export function validatePlan(
   )
     errors.push('A location is outside the supported delivery footprint.');
   if (!plan.ads.length) errors.push('At least one creative is required.');
-  if (!service && product.deliveryRegions && !product.deliveryRegions.includes('Nationwide') &&
-    a.locations.some(region => !product.deliveryRegions.includes(region)))
+  if (
+    !service &&
+    product.deliveryRegions &&
+    !product.deliveryRegions.includes('Nationwide') &&
+    a.locations.some((region) => !product.deliveryRegions.includes(region))
+  )
     errors.push('Selected locations are outside this product delivery coverage.');
   if (a.interests.some((i) => !i.id || !i.verifiedAt))
     errors.push('Interest targeting must be resolved through Meta.');

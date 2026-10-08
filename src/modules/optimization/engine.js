@@ -46,17 +46,28 @@ export function recommendOptimizations(campaign, plan, metrics, rows = []) {
       { dailyBudget: money(campaign.dailyBudget * 1.15) },
     );
   const recent = [...rows].sort((a, b) => b.date.localeCompare(a.date));
-  if (recent.length >= 6) {
-    const average = (list) =>
-      list.reduce(
-        (sum, row) => sum + (row.conversions ? row.spend / row.conversions : targetCPA * 3),
-        0,
-      ) / list.length;
-    if (average(recent.slice(0, 3)) > average(recent.slice(3, 6)) * 1.5)
+  if (
+    recent.length >= 6 &&
+    Date.parse(recent[0].date) - Date.parse(recent[5].date) === 5 * 86400000
+  ) {
+    const observedCPA = (list) => {
+      const conversions = list.reduce((sum, row) => sum + row.conversions, 0);
+      return conversions > 0 ? list.reduce((sum, row) => sum + row.spend, 0) / conversions : null;
+    };
+    const currentCPA = observedCPA(recent.slice(0, 3));
+    const previousCPA = observedCPA(recent.slice(3, 6));
+    if (
+      currentCPA !== null &&
+      previousCPA !== null &&
+      previousCPA > 0 &&
+      currentCPA > previousCPA * 1.5
+    )
       make(
         'pause_campaign',
         'Recent 3-day acquisition cost deteriorated over 50% versus the prior 3 days.',
       );
   }
-  return result;
+  return plan.budgetRecommendation?.deliveryMode === 'lifetime'
+    ? result.filter((row) => row.action !== 'update_budget')
+    : result;
 }

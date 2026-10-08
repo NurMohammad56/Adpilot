@@ -1,6 +1,17 @@
 import { z } from 'zod';
 const amount = z.number().finite().min(0).max(1e8);
 const text = z.string().trim().min(1).max(500);
+export const retrievalSchema = z
+  .object({
+    provider: z.enum(['openai', 'gemini']),
+    model: z.string().min(1).max(150),
+    thinking: z.enum(['low', 'high']),
+    status: z.enum(['completed', 'unavailable', 'disabled']),
+    sourceCount: z.number().int().min(0).max(100),
+    searchCalls: z.number().int().min(0).max(100),
+    checkedAt: z.string().datetime(),
+  })
+  .strict();
 export const creativeInputSchema = z
   .object({
     hook: text,
@@ -46,6 +57,7 @@ export const campaignActionSchema = z.discriminatedUnion('action', [
           locations: z.array(text).min(1).max(9),
           ageMin: z.number().int().min(18).max(65),
           ageMax: z.number().int().min(18).max(65),
+          locationIds: z.array(z.string().uuid()).max(8).optional(),
           experimentLabel: text,
         })
         .strict(),

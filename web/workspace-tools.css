@@ -1,6 +1,94 @@
 .tools-heading {
   margin-bottom: 26px;
 }
+.campaign-setup h3 {
+  font-size: 18px;
+  margin-top: 26px;
+}
+.campaign-context,
+.campaign-budget-summary {
+  padding: 16px;
+  background: #eef2e8;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.campaign-context p {
+  margin: 8px 0;
+}
+.campaign-budget-summary {
+  display: grid;
+  gap: 8px;
+}
+.campaign-budget-preset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.campaign-budget-preset small {
+  flex-basis: 100%;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.campaign-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.campaign-field-header label {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.field-help {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+}
+.field-help-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: #f5f7f2;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+}
+.field-help-button:focus-visible {
+  outline: 2px solid #416c47;
+  outline-offset: 3px;
+}
+.field-help-tooltip {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(330px, calc(100vw - 90px));
+  background: #14271d;
+  color: #fff;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  box-shadow: 0 6px 22px #0003;
+  overflow-wrap: anywhere;
+}
+.campaign-check-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.campaign-check-header .tools-check {
+  flex: 1;
+}
 .sidebar nav {
   min-height: 0;
   overflow-y: auto;
@@ -317,4 +405,42 @@
   .tools-actions > .button {
     width: 100%;
   }
+}
+.region-picker {
+  padding: 20px;
+  margin: 18px 0;
+  background: #f5f8f3;
+  border: 1px solid #dce5d7;
+  border-radius: 12px;
+}
+.region-selections {
+  margin-top: 16px;
+}
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 18px;
+}
+.readiness-grid > div {
+  padding: 16px;
+  border: 1px solid #dce5d7;
+  border-radius: 12px;
+}
+.control-tabs {
+  margin: 24px 0;
+}
+.results-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 18px;
+  font-size: 16px;
+}
+.results-grid dd {
+  margin: 0;
+  text-align: right;
+}
+.geo-json {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 15px;
 }

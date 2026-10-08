@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { evidenceSchema } from '../modules/schemas.js';
+import { evidenceSchema, retrievalSchema } from '../modules/schemas.js';
 import { AppError } from '../utils/core.js';
 import { GeminiProvider } from './gemini.js';
+import { OpenAIProvider } from './openai.js';
 export const researchOutputSchema = z
   .object({
     summary: z.string().max(5000),
@@ -9,6 +10,7 @@ export const researchOutputSchema = z
     competitorAnalysis: z.string().max(4000),
     differentiation: z.array(z.string().max(1000)).max(10),
     risks: z.array(z.string().max(1000)).max(20),
+    retrieval: retrievalSchema.optional(),
   })
   .strict();
 export const copyOutputSchema = z
@@ -36,9 +38,10 @@ export class LLMService {
   }
   async generate(task, context, schema) {
     if (this.config.llmProvider === 'demo') return null;
-    if (this.config.llmProvider === 'gemini') {
+    if (['gemini', 'openai'].includes(this.config.llmProvider)) {
       const research = ['bangladesh-market-research', 'market-comparison'].includes(task);
-      return new GeminiProvider({
+      const Provider = this.config.llmProvider === 'openai' ? OpenAIProvider : GeminiProvider;
+      return new Provider({
         ...this.config,
         llmModel: research
           ? this.config.researchModel || this.config.llmModel
@@ -50,7 +53,7 @@ export class LLMService {
       throw new AppError(
         503,
         'LLM_CONFIG',
-        'Unsupported AI provider; choose demo, gemini or gateway',
+        'Unsupported AI provider; choose demo, gemini, openai or gateway',
       );
     if (!this.config.llmEndpoint?.startsWith('https://'))
       throw new AppError(503, 'LLM_CONFIG', 'A trusted HTTPS LLM gateway endpoint is required');

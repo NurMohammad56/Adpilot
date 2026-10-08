@@ -34,6 +34,9 @@ export const collections = [
   'research_projects',
   'research_versions',
   'offers',
+  'targeting_locations',
+  'business_outcomes',
+  'account_snapshots',
 ];
 const stamp = (value) => ({
   ...value,
@@ -157,6 +160,13 @@ export class MongoStore {
         schema.index({ userId: 1, businessId: 1 }, { unique: true });
       if (collection === 'research_versions')
         schema.index({ projectId: 1, number: 1 }, { unique: true });
+      if (collection === 'business_outcomes')
+        schema.index({ businessId: 1, campaignId: 1, reference: 1 }, { unique: true });
+      if (collection === 'targeting_locations')
+        schema.index(
+          { businessId: 1, accountId: 1, key: 1, country: 1, type: 1 },
+          { unique: true },
+        );
       if (collection === 'campaigns') schema.index({ approvalId: 1 }, { unique: true });
       if (collection === 'ad_performance')
         schema.index({ campaignId: 1, level: 1, entityId: 1, date: 1 }, { unique: true });

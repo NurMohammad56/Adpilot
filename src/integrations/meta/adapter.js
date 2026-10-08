@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { regionalGeo } from '../../modules/research/locations.js';
 import { AppError, assert, id, money, unseal } from '../../utils/core.js';
 function metaGeo(locations, integration) {
   if (locations.includes('Nationwide')) return { countries: ['BD'] };
@@ -19,6 +20,18 @@ function metaGeo(locations, integration) {
 }
 
 export class DemoMetaAdapter {
+  async accountSnapshot() {
+    return {
+      demo: true,
+      account: { id: 'demo-account', name: 'Demo account', currency: 'BDT', account_status: 1 },
+      campaigns: [],
+      adSets: [],
+      ads: [],
+      regions: [],
+      truncated: false,
+      note: 'Simulated account. No live performance or billing data is available.',
+    };
+  }
   constructor() {
     this.calls = [];
   }
@@ -35,15 +48,18 @@ export class DemoMetaAdapter {
     return { id: `demo_${resource.replaceAll('/', '_')}_${id()}`, success: true };
   }
   async launch(plan, integration, onStep) {
+    const lifetime = plan.budgetRecommendation.deliveryMode === 'lifetime';
     const campaign = await this.request('POST', 'campaigns', {
       name: plan.name,
       status: 'PAUSED',
-      spend_cap: Math.round(plan.budgetRecommendation.totalBudget * 100),
+      ...(!lifetime ? { spend_cap: Math.round(plan.budgetRecommendation.totalBudget * 100) } : {}),
     });
     await onStep('campaign', campaign.id);
     const adset = await this.request('POST', 'adsets', {
       campaign_id: campaign.id,
-      daily_budget: Math.round(plan.budgetRecommendation.dailyBudget * 100),
+      ...(lifetime
+        ? { lifetime_budget: Math.round(plan.budgetRecommendation.totalBudget * 100) }
+        : { daily_budget: Math.round(plan.budgetRecommendation.dailyBudget * 100) }),
       status: 'PAUSED',
     });
     await onStep('adset', adset.id);
@@ -139,12 +155,97 @@ export class DemoMetaAdapter {
       }),
     ]);
   }
-  async targetingSearch(query, type) {
-    return [{ key: 'demo-dhaka', name: query || 'Dhaka', type, country_code: 'BD', demo: true }];
+  async targetingSearch(query, type, integration, country = 'BD') {
+    return [
+      {
+        key: `demo-${country}-${type}-${query.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+        name: query || 'Dhaka',
+        type,
+        country_code: country,
+        demo: true,
+      },
+    ];
   }
 }
 
 export class LiveMetaAdapter {
+  async accountSnapshot(integration) {
+    const accountId = `act_${integration.adAccountId}`;
+    const account = await this.request(integration, 'GET', accountId, {
+      fields:
+        'id,name,currency,timezone_name,account_status,disable_reason,amount_spent,balance,spend_cap',
+    });
+    let truncated = false;
+    const pages = async (edge, fields, extra = {}) => {
+      const rows = [];
+      let after;
+      const seen = new Set();
+      for (let page = 0; page < 5; page++) {
+        const response = await this.request(integration, 'GET', `${accountId}/${edge}`, {
+          fields,
+          limit: 100,
+          ...extra,
+          ...(after ? { after } : {}),
+        });
+        rows.push(...(response.data || []));
+        const hasNext = Boolean(response.paging?.next);
+        after = hasNext ? response.paging?.cursors?.after : null;
+        if (hasNext && (!after || seen.has(after))) {
+          truncated = true;
+          break;
+        }
+        if (after) seen.add(after);
+        if (!after) break;
+        if (page === 4) truncated = true;
+      }
+      return rows;
+    };
+    const inventory = await Promise.allSettled([
+      pages(
+        'campaigns',
+        'id,name,objective,status,effective_status,daily_budget,lifetime_budget,spend_cap,start_time,stop_time',
+      ),
+      pages(
+        'adsets',
+        'id,name,campaign_id,status,effective_status,daily_budget,lifetime_budget,start_time,end_time,targeting',
+      ),
+      pages('ads', 'id,name,campaign_id,adset_id,status,effective_status,ad_review_feedback'),
+    ]);
+    const [campaigns, adSets, ads] = inventory.map((result) =>
+      result.status === 'fulfilled' ? result.value : [],
+    );
+    const inventoryErrors = Object.fromEntries(
+      ['campaigns', 'adSets', 'ads'].flatMap((edge, index) =>
+        inventory[index].status === 'rejected'
+          ? [[edge, inventory[index].reason.code || 'META_UNAVAILABLE']]
+          : [],
+      ),
+    );
+    let regionalError = null;
+    let regions = [];
+    try {
+      regions = await pages(
+        'insights',
+        'date_start,date_stop,campaign_id,campaign_name,spend,impressions,clicks',
+        { level: 'campaign', date_preset: 'last_30d', breakdowns: 'country,region' },
+      );
+    } catch (error) {
+      // A permissions or privacy restriction must not hide the successfully checked account.
+      regionalError = error.code || 'REGIONAL_DATA_UNAVAILABLE';
+    }
+    return {
+      account,
+      campaigns,
+      adSets,
+      ads,
+      regions,
+      regionalError,
+      inventoryErrors,
+      truncated,
+      demo: false,
+      note: 'Meta-reported account inventory and regional delivery for the last 30 days. Regional clicks/spend do not establish profitability. Account balances/budgets are in minor currency units.',
+    };
+  }
   constructor(config) {
     this.config = config;
   }
@@ -186,16 +287,52 @@ export class LiveMetaAdapter {
             : 'Meta action outcome is uncertain. Reconcile before retrying.',
         );
       }
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new AppError(
+          502,
+          method === 'GET' ? 'META_UNAVAILABLE' : 'META_AMBIGUOUS',
+          'Meta returned an unreadable response. Check the remote outcome before retrying.',
+        );
+      }
       if (!response.ok || data.error) {
         if (method === 'GET' && [429, 500, 502, 503].includes(response.status) && attempt < 2) {
           await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 500));
           continue;
         }
-        throw new AppError(502, 'META_REJECTED', 'Meta rejected the request', {
+        const sanitize = (value) => {
+          let text = typeof value === 'string' ? value : '';
+          for (const secret of [token, appSecret].filter(Boolean))
+            text = text.replaceAll(secret, '[REDACTED]');
+          return text
+            .replace(
+              /(?:EA[A-Za-z0-9_-]{30,}|sk-[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{25,})/g,
+              '[REDACTED]',
+            )
+            .replace(
+              /(?:access_token|appsecret_proof|client_secret)\s*[=:]\s*[^\s&]+/gi,
+              '[REDACTED]',
+            )
+            .slice(0, 700);
+        };
+        const userMessage = sanitize(data.error?.error_user_msg);
+        const title = sanitize(data.error?.error_user_title);
+        const rejected =
+          response.status >= 400 &&
+          response.status < 500 &&
+          Number.isFinite(data.error?.code) &&
+          ![1, 2].includes(data.error.code) &&
+          !data.error.is_transient;
+        throw new AppError(502, 'META_REJECTED', userMessage || 'Meta rejected the request', {
           metaCode: data.error?.code,
           subcode: data.error?.error_subcode,
           traceId: data.error?.fbtrace_id,
+          title,
+          userMessage,
+          outcome: rejected ? 'rejected' : 'uncertain',
+          operation: `${method} ${['campaigns', 'adsets', 'ads', 'adcreatives', 'adimages', 'advideos'].find((edge) => resource.endsWith('/' + edge)) || 'object'}`,
         });
       }
       return data;
@@ -203,15 +340,22 @@ export class LiveMetaAdapter {
   }
   async verify(integration) {
     const verifyRead = async (field, resource, payload) => {
-      try { return await this.request(integration, 'GET', resource, payload); }
-      catch (error) {
+      try {
+        return await this.request(integration, 'GET', resource, payload);
+      } catch (error) {
         if (error.code !== 'META_REJECTED') throw error;
         const tokenError = error.details?.metaCode === 190;
-        const message = tokenError ? 'Meta access token is invalid or expired. Paste a fresh token with access to your assets.'
-          : field === 'adAccountId' ? 'Meta cannot access this ad account. Check its numeric ID and token permissions.'
-          : field === 'pageId' ? 'Meta cannot access this Facebook Page. Use the Page ID, not the App ID, and check token permissions.'
-          : 'Meta cannot read pixels for this ad account. Check dataset access and token permissions.';
-        throw new AppError(422, 'META_CONNECTION', message, { fieldErrors: { [tokenError ? 'accessToken' : field]: [message] }, metaCode: error.details?.metaCode });
+        const message = tokenError
+          ? 'Meta access token is invalid or expired. Paste a fresh token with access to your assets.'
+          : field === 'adAccountId'
+            ? 'Meta cannot access this ad account. Check its numeric ID and token permissions.'
+            : field === 'pageId'
+              ? 'Meta cannot access this Facebook Page. Use the Page ID, not the App ID, and check token permissions.'
+              : 'Meta cannot read pixels for this ad account. Check dataset access and token permissions.';
+        throw new AppError(422, 'META_CONNECTION', message, {
+          fieldErrors: { [tokenError ? 'accessToken' : field]: [message] },
+          metaCode: error.details?.metaCode,
+        });
       }
     };
     const account = await verifyRead('adAccountId', `act_${integration.adAccountId}`, {
@@ -242,11 +386,9 @@ export class LiveMetaAdapter {
     );
     assert(account.account_status === 1, 422, 'ACCOUNT_INACTIVE', 'Meta ad account is not active');
     const page = await verifyRead('pageId', integration.pageId, { fields: 'id,name' });
-    const pixels = await verifyRead(
-      'pixelId',
-      `act_${integration.adAccountId}/adspixels`,
-      { fields: 'id,name' },
-    );
+    const pixels = await verifyRead('pixelId', `act_${integration.adAccountId}/adspixels`, {
+      fields: 'id,name',
+    });
     assert(
       pixels.data?.some((p) => p.id === integration.pixelId),
       422,
@@ -262,28 +404,62 @@ export class LiveMetaAdapter {
     };
   }
   async launch(plan, integration, onStep) {
-    await this.verify(integration);
+    try {
+      await this.verify(integration);
+    } catch (error) {
+      error.details = { ...error.details, noRemoteMutation: true };
+      throw error;
+    }
     const act = `act_${integration.adAccountId}`;
     const budget = plan.budgetRecommendation;
     const audience = plan.audienceRecommendation;
-    const geo =
-      plan.kind === 'service'
+    const geo = audience.geoTargets?.length
+      ? regionalGeo(audience.geoTargets, plan.market)
+      : plan.kind === 'service'
         ? { countries: audience.locations }
         : metaGeo(audience.locations, integration);
-    const campaign = await this.request(integration, 'POST', `${act}/campaigns`, {
+    const lifetime = budget.deliveryMode === 'lifetime';
+    const campaignPayload = {
       name: plan.name,
       objective: plan.objective,
       special_ad_categories: [],
       status: 'PAUSED',
-      spend_cap: Math.round(budget.totalBudget * 100),
+      ...(!lifetime ? { spend_cap: Math.round(budget.totalBudget * 100) } : {}),
       is_adset_budget_sharing_enabled: false,
-    });
+    };
+    // Meta validates campaign limits without creating an object or reserving remote spend.
+    try {
+      await this.request(integration, 'POST', `${act}/campaigns`, {
+        ...campaignPayload,
+        execution_options: ['validate_only'],
+      });
+    } catch (error) {
+      error.details = { ...error.details, noRemoteMutation: true };
+      throw error;
+    }
+    let campaign;
+    try {
+      campaign = await this.request(integration, 'POST', `${act}/campaigns`, campaignPayload);
+    } catch (error) {
+      if (error.details?.outcome === 'rejected')
+        error.details = { ...error.details, noRemoteMutation: true };
+      throw error;
+    }
+    assert(
+      campaign.id,
+      502,
+      'META_AMBIGUOUS',
+      'Meta did not return a campaign ID. Reconcile before retrying.',
+    );
     await onStep('campaign', campaign.id);
-    const endTime = new Date(Date.now() + budget.durationDays * 86400000).toISOString();
-    const adset = await this.request(integration, 'POST', `${act}/adsets`, {
+    const startTime = new Date(Date.now() + 600000).toISOString();
+    const endTime = new Date(Date.parse(startTime) + budget.durationDays * 86400000).toISOString();
+    const adsetPayload = {
       name: `${plan.name} · Primary`,
       campaign_id: campaign.id,
-      daily_budget: Math.round(budget.dailyBudget * 100),
+      ...(lifetime
+        ? { lifetime_budget: Math.round(budget.totalBudget * 100), start_time: startTime }
+        : { daily_budget: Math.round(budget.dailyBudget * 100) }),
       end_time: endTime,
       billing_event: 'IMPRESSIONS',
       optimization_goal: 'OFFSITE_CONVERSIONS',
@@ -298,7 +474,12 @@ export class LiveMetaAdapter {
         device_platforms: ['mobile', 'desktop'],
       },
       status: 'PAUSED',
+    };
+    await this.request(integration, 'POST', `${act}/adsets`, {
+      ...adsetPayload,
+      execution_options: ['validate_only'],
     });
+    const adset = await this.request(integration, 'POST', `${act}/adsets`, adsetPayload);
     await onStep('adset', adset.id);
     const adIds = [];
     for (const ad of plan.ads) {
@@ -320,7 +501,7 @@ export class LiveMetaAdapter {
     for (const adId of adIds) await this.request(integration, 'POST', adId, { status: 'ACTIVE' });
     await this.request(integration, 'POST', adset.id, { status: 'ACTIVE' });
     await this.request(integration, 'POST', campaign.id, { status: 'ACTIVE' });
-    return { campaignId: campaign.id, adSetId: adset.id, endTime, demo: false };
+    return { campaignId: campaign.id, adSetId: adset.id, startTime, endTime, demo: false };
   }
   async action(campaign, action, payload, integration, plan, onCreative) {
     assert(
@@ -338,8 +519,9 @@ export class LiveMetaAdapter {
     if (action === 'update_targeting')
       return this.request(integration, 'POST', campaign.metaAdSetId, {
         targeting: {
-          geo_locations:
-            plan.kind === 'service'
+          geo_locations: payload.geoTargets?.length
+            ? regionalGeo(payload.geoTargets, plan.market)
+            : plan.kind === 'service'
               ? { countries: payload.locations }
               : metaGeo(payload.locations, integration),
           age_min: payload.ageMin,
@@ -381,7 +563,15 @@ export class LiveMetaAdapter {
     const rows = [];
     for (const level of ['campaign', 'adset', 'ad']) {
       let after;
+      const seen = new Set();
+      let pages = 0;
       do {
+        assert(
+          ++pages <= 30,
+          502,
+          'INSIGHTS_INCOMPLETE',
+          'Insight pagination reached its limit; incomplete data was not saved',
+        );
         const data = await this.request(integration, 'GET', `${campaign.metaCampaignId}/insights`, {
           level,
           fields:
@@ -420,18 +610,25 @@ export class LiveMetaAdapter {
           });
         }
         after = data.paging?.next ? data.paging?.cursors?.after : null;
+        assert(
+          !data.paging?.next || (after && !seen.has(after)),
+          502,
+          'INSIGHTS_INCOMPLETE',
+          'Insight pagination did not advance; incomplete data was not saved',
+        );
+        if (after) seen.add(after);
       } while (after);
     }
     return rows;
   }
-  async targetingSearch(query, type, integration) {
+  async targetingSearch(query, type, integration, country = 'BD') {
     const data = await this.request(integration, 'GET', 'search', {
       type: 'adgeolocation',
       location_types: [type],
       q: query,
-      country_code: 'BD',
+      country_code: country,
     });
-    return (data.data || []).filter((r) => r.country_code === 'BD');
+    return (data.data || []).filter((r) => r.country_code === country);
   }
   async creativeStory(ad, plan, integration, onStep) {
     const act = `act_${integration.adAccountId}`;

@@ -4,7 +4,8 @@ export function recommendBudget(product, business, economics, overrides = {}) {
   const hardTotalCeiling = Math.min(product.testBudgetCeiling, business.totalBudgetCeiling);
   const desiredTestBudget = money(economics.targetCPA * 20);
   const dailyBudget = money(
-    overrides.dailyBudget ?? Math.min(hardDailyCeiling, hardTotalCeiling, Math.max(100, desiredTestBudget / 7)),
+    overrides.dailyBudget ??
+      Math.min(hardDailyCeiling, hardTotalCeiling, 300, Math.max(100, desiredTestBudget / 7)),
   );
   const durationDays =
     overrides.durationDays ??
@@ -32,8 +33,15 @@ export function recommendBudget(product, business, economics, overrides = {}) {
     decisionPoint:
       'Review after 3× target CPA with zero purchases; consider scaling only after 20 purchases and a profitable CPA.',
     risks: [
-      ...(plannedAcquisitions < 20 ? ['This budget may not produce enough purchases for a reliable scaling decision.'] : []),
-      ...(plannedAcquisitions > product.inventory ? ['Planned purchases at the target CPA exceed available inventory. Review stock before increasing budget.'] : []),
+      'The default Bangladesh starter uses at most BDT 300/day. Small samples do not establish profitability; confirmed customer outcomes are needed before scaling.',
+      ...(plannedAcquisitions < 20
+        ? ['This budget may not produce enough purchases for a reliable scaling decision.']
+        : []),
+      ...(plannedAcquisitions > product.inventory
+        ? [
+            'Planned purchases at the target CPA exceed available inventory. Review stock before increasing budget.',
+          ]
+        : []),
     ],
   };
 }

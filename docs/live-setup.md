@@ -2,6 +2,8 @@
 
 This runbook configures the live adapters. Local checks verified MongoDB, Meta reads and Gemini generation using supplied credentials. No advertising objects were created or activated. Private connection reports and administrator credentials are kept in the Git-ignored `.data` directory.
 
+Current production is `https://fahimstack.tech/adpilot/`. The active workspace now uses OpenAI GPT-6 Luna with High research reasoning, Low copy reasoning and live web search. Set `LLM_PROVIDER=openai`, `LLM_ENDPOINT=https://api.openai.com/v1`, `LLM_API_KEY`, `LLM_MODEL=gpt-6-luna`, `LLM_RESEARCH_MODEL=gpt-6-luna`, `LLM_RESEARCH_THINKING=high`, and `LLM_SEARCH_GROUNDING=true` for bootstrap defaults. Existing encrypted workspace connections are changed through Accounts. OpenAI and Gemini both remain supported; the historical Gemini checks below describe that alternative. See [OpenAI research](openai-research.md), [deployment](deployment.md) and [verification](verification.md) for current results.
+
 ## 1. Infrastructure
 
 Use a MongoDB replica set (Atlas or a properly secured self-hosted cluster), Redis, Node 22.12+, HTTPS termination, and a separate supervised worker process. Back up Mongo and test restoration before paid tests. Secrets belong in the deployment secret manager; `.env` is for local development and is ignored by Git.

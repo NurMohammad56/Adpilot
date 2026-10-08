@@ -11,10 +11,18 @@ export function ActionForm({ campaign, data, busy, onSave, api }) {
   const plan = data.plans.find((p) => p.id === campaign.planId);
   const audience = campaign.audience || plan.audienceRecommendation;
   const ads = data.ads.filter((ad) => ad.campaignId === campaign.id);
-  const [action, setAction] = useState('update_budget');
+  const lifetime = plan.budgetRecommendation.deliveryMode === 'lifetime';
+  const [action, setAction] = useState(lifetime ? 'update_targeting' : 'update_budget');
   const [dailyBudget, setDailyBudget] = useState(campaign.dailyBudget);
   const [target, setTarget] = useState({
     locations: audience.locations,
+    ...(plan.audienceRecommendation.geoTargets?.length
+      ? {
+          locationIds: (audience.geoTargets || plan.audienceRecommendation.geoTargets).map(
+            (row) => row.id,
+          ),
+        }
+      : {}),
     ageMin: audience.ageMin,
     ageMax: audience.ageMax,
   });
@@ -48,16 +56,23 @@ export function ActionForm({ campaign, data, busy, onSave, api }) {
       </div>
       <Field label="Change to propose">
         <select value={action} onChange={(e) => setAction(e.target.value)}>
-          <option value="update_budget">Change configured daily budget</option>
+          {!lifetime && <option value="update_budget">Change configured daily budget</option>}
           <option value="update_targeting">Change audience / location</option>
           <option value="replace_creative">Replace one ad creative</option>
         </select>
       </Field>
+      {lifetime && (
+        <p>
+          This test uses a fixed total lifetime budget. Pause it and create a separately approved
+          test to change the budget.
+        </p>
+      )}
       {action === 'update_budget' && (
         <Field label="Proposed configured daily budget (৳)">
           <input
             type="number"
-            min="1"
+            min="0.01"
+            step="0.01"
             required
             value={dailyBudget}
             onChange={(e) => setDailyBudget(Number(e.target.value))}
@@ -66,29 +81,58 @@ export function ActionForm({ campaign, data, busy, onSave, api }) {
       )}
       {action === 'update_targeting' && (
         <>
-          <Field label="Bangladesh locations">
-            <div className="checkboxes">
-              {(plan.kind === 'service' ? [plan.market] : data.business.deliveryRegions).map(
-                (region) => (
-                  <label key={region}>
+          {plan.audienceRecommendation.geoTargets?.length ? (
+            <section className="region-picker">
+              <h3>Approved targeting areas</h3>
+              <p>
+                You can narrow within the approved areas. Adding a new area requires a new research
+                decision.
+              </p>
+              <div className="country-options">
+                {plan.audienceRecommendation.geoTargets.map((row) => (
+                  <label key={row.id}>
                     <input
                       type="checkbox"
-                      checked={target.locations.includes(region)}
-                      onChange={(e) =>
+                      checked={(target.locationIds || []).includes(row.id)}
+                      onChange={(event) =>
                         setTarget({
                           ...target,
-                          locations: e.target.checked
-                            ? [...target.locations, region]
-                            : target.locations.filter((r) => r !== region),
+                          locationIds: event.target.checked
+                            ? [...(target.locationIds || []), row.id]
+                            : (target.locationIds || []).filter((id) => id !== row.id),
                         })
                       }
                     />
-                    {region}
+                    {row.name}
                   </label>
-                ),
-              )}
-            </div>
-          </Field>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <Field label="Campaign locations">
+              <div className="checkboxes">
+                {(plan.kind === 'service' ? [plan.market] : data.business.deliveryRegions).map(
+                  (region) => (
+                    <label key={region}>
+                      <input
+                        type="checkbox"
+                        checked={target.locations.includes(region)}
+                        onChange={(e) =>
+                          setTarget({
+                            ...target,
+                            locations: e.target.checked
+                              ? [...target.locations, region]
+                              : target.locations.filter((r) => r !== region),
+                          })
+                        }
+                      />
+                      {region}
+                    </label>
+                  ),
+                )}
+              </div>
+            </Field>
+          )}
           <div className="form-grid">
             {['ageMin', 'ageMax'].map((key) => (
               <Field key={key} label={key === 'ageMin' ? 'Minimum age' : 'Maximum age'}>

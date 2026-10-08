@@ -85,9 +85,10 @@ export class GeminiProvider {
   }
   async generate(task, context, schema) {
     let grounding = null;
+    let groundingUnavailable = false;
     const isResearch = ['bangladesh-market-research', 'market-comparison'].includes(task);
     if (isResearch && this.config.geminiGrounding) {
-      grounding = await this.call({
+      try { grounding = await this.call({
         systemInstruction: { parts: [{ text: instructions }] },
         contents: [
           {
@@ -101,7 +102,10 @@ export class GeminiProvider {
         ],
         tools: [{ googleSearch: {} }],
         generationConfig: { maxOutputTokens: 6000 },
-      });
+      }); } catch (error) {
+        if (error.code !== 'GEMINI_UNAVAILABLE' && !(error.code === 'GEMINI_REJECTED' && [429, 500, 502, 503, 504].includes(error.details?.httpStatus))) throw error;
+        groundingUnavailable = true;
+      }
     }
     const sources = (grounding?.grounding?.groundingChunks || [])
       .map((chunk) => chunk.web)
@@ -131,6 +135,7 @@ export class GeminiProvider {
                 task,
                 context,
                 observedAt: new Date().toISOString(),
+                ...(groundingUnavailable ? { sourceRetrievalUnavailable: true, researchConstraint: 'Search was unavailable. Use supplied evidence only; label unsourced claims as hypotheses and do not invent sources.' } : {}),
                 ...(grounding
                   ? { retrievedResearch: grounding.text, retrievedSources: sources }
                   : {}),
@@ -155,6 +160,9 @@ export class GeminiProvider {
     if (!parsed.success)
       throw new AppError(502, 'LLM_OUTPUT', 'Gemini output failed application schema validation');
     if (isResearch) {
+      if (groundingUnavailable && parsed.data.findings.length < (task === 'market-comparison' ? 40 : 50)) parsed.data.findings.push({
+        subject: 'Source retrieval unavailable', finding: 'Google Search was temporarily unavailable or its quota was exhausted. This report uses supplied evidence and unverified AI hypotheses. Add dated sources before approval.', source: 'ai-provider', observedAt: new Date().toISOString(), confidence: 'Low', classification: 'ai-generated', quality: 'AI-generated assumptions',
+      });
       const allowed = new Set([
         ...sources.map((s) => s.source),
         ...(context.evidence || []).map((e) => e.source),

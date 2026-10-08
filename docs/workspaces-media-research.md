@@ -71,8 +71,10 @@ Leave `S3_ENDPOINT` empty for AWS's standard regional endpoint. Use your actual 
 
 Back up MongoDB metadata, media objects and the token-encryption key together. Restoring Mongo without its assets/key cannot restore usable approved creatives/integrations. Multi-instance deployment should use S3 or a shared persistent volume, not separate instance disks.
 
+See [the easy-use, Bangla and R2 guide](usability-and-storage.md) for the updated product/research flow, draft preservation and account ID help.
+
 ## Current live setup
 
-The built application runs locally at `http://localhost:4000` using Atlas, the verified initial Meta account and workspace Gemini configuration. Private administrator details are in `.data/initial-admin.txt`. Live advertising remains disabled. Upstash REST authentication passed, but BullMQ still requires the provider's native `rediss://...` connection string. Public hosting/domain and private bucket credentials or a persistent volume are needed to deploy the whole stack. This setup has not launched a paid advertisement.
+The built application runs locally at `http://localhost:4000` using Atlas, the verified initial Meta account and workspace Gemini configuration. Private administrator details are in `.data/initial-admin.txt`. Live advertising remains disabled. Upstash REST authentication passed, but BullMQ still requires the provider's native `rediss://...` connection string. Private Cloudflare R2 storage is configured and active; real authenticated upload/read/range/privacy checks passed. Public hosting/domain and the native Redis connection are still needed to deploy the whole stack. This setup has not launched a paid advertisement.
 
 Backend tests exercise isolation, stale tabs, private file ranges, research version/approval invalidation, Mongo concurrency, S3 signed requests and Meta image/video request behavior. Browser tests exercise actual image/video upload, repeat research, decision editing/approval, service campaign revision and separate demo launch approval on desktop/mobile. Cloud S3 upload and live paid Meta video/country acceptance remain external checks.

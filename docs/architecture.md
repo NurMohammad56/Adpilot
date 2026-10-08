@@ -94,6 +94,14 @@ Service plans compare the relevant website event instead: leads or purchases. Le
 
 ## Infrastructure and operational limits
 
+Dashboard presentation uses a build-time localization adapter with an English/Bangla dictionary. It translates labels and messages while preserving option values, identifiers and user-authored record fields. Form drafts use browser-tab storage scoped by workspace/user/project/version; secret fields are excluded. The shared API client binds requests to the selected workspace, bounds timeouts, retries reads only, and rejects stale responses after workspace changes. Requests receive a validated/generated correlation ID for diagnosis.
+
+Physical-product country research can link a workspace-owned product. The approved Bangladesh report is preserved in the product plan with its project/version/hash; current research approval and product/account/media bindings are rechecked before launch. COD failure scenarios show deterministic financial sensitivity without inventing market performance. Default product budgets respect total ceilings even when smaller than the usual suggested daily test amount. Service review shows the actual lead/purchase event and creative CTA.
+
+Private Cloudflare R2 is the configured storage backend for this local live workspace. Media IDs/checksums and ownership remain in Mongo; authenticated API streams read bucket objects, including byte ranges for video. The storage client bounds connection/request duration, retries provider-safe storage operations and returns redacted missing-object/unavailable errors. Failed uploads clean their metadata/object where possible. Real provider tests use their own temporary objects and leave no test media. Browser tests explicitly force local storage.
+
+Optional Gemini Search retrieval failures caused by quota/transient connectivity can produce a clearly marked supplied-evidence report; invalid credentials still fail. Retrieval status never upgrades the model's output into verified evidence.
+
 Mongo must be a replica set/sharded deployment with majority writes. Redis/BullMQ runs insights, analysis, research refresh, reports, expiry and reminder jobs. Only read operations receive automatic retry; action recovery needs reconciliation. Session cookies use Secure in production, with configured same-origin mutation protection and an exact reverse-proxy trust setting.
 
 Service/account credentials, HTTPS termination, Meta app review, valid targeting keys, real image URLs, conversion tracking, backup restore drills, account delivery behavior, and controlled live acceptance remain operator prerequisites. The app cannot supply credentials, validate an unconnected real account, or promise Meta's delivered daily spending behavior.

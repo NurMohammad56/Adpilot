@@ -5,8 +5,28 @@ import { GeminiProvider } from '../src/ai/gemini.js';
 import { copyOutputSchema, researchOutputSchema } from '../src/ai/provider.js';
 import { LiveMetaAdapter } from '../src/integrations/meta/adapter.js';
 import { seal } from '../src/utils/core.js';
+import { AppError } from '../src/utils/core.js';
 
 const config = { llmKey: 'test-secret-key', llmModel: 'gemini-2.5-flash' };
+test('search outages preserve a usable research report and explicitly mark missing retrieval', async () => {
+  const provider = new GeminiProvider({ ...config, geminiGrounding: true });
+  let calls = 0;
+  provider.call = async body => {
+    calls++;
+    if (body.tools) throw new AppError(503, 'GEMINI_REJECTED', 'Search quota exhausted', { httpStatus: 429 });
+    const input = JSON.parse(body.contents[0].parts[0].text);
+    assert.equal(input.sourceRetrievalUnavailable, true);
+    return { text: JSON.stringify({ summary: 'Unverified supplied-context research', competitorAnalysis: 'Not checked', differentiation: [], risks: ['Add current sources'], findings: [] }) };
+  };
+  const result = await provider.generate('bangladesh-market-research', { evidence: [], competitors: [] }, researchOutputSchema);
+  assert.equal(calls, 2);
+  assert.equal(result.findings[0].subject, 'Source retrieval unavailable');
+  assert.equal(result.findings[0].source, 'ai-provider');
+  assert.equal(result.findings[0].classification, 'ai-generated');
+  assert.equal(researchOutputSchema.safeParse(result).success, true);
+  provider.call = async () => { throw new AppError(502, 'GEMINI_REJECTED', 'Invalid API key', { httpStatus: 403 }); };
+  await assert.rejects(provider.generate('bangladesh-market-research', {}, researchOutputSchema), { code: 'GEMINI_REJECTED' });
+});
 const copy = {
   ads: [
     {

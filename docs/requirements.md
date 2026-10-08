@@ -39,7 +39,7 @@ The document's sections 29–32 and 38 originally reserve global/SaaS/other-plat
 | Own account/Page/pixel/AI keys           | Accounts interface, verified encrypted integrations per workspace; new live contexts cannot inherit the initial provider key                    |
 | Multiple independent client contexts     | Workspace creation/membership/switching; server ownership and stale-tab header checks; Mongo and browser isolation tests                        |
 | Upload images and videos                 | Real multipart JPEG/PNG/WebP/MP4/WebM upload, private ranges, size/quota/type validation; actual browser video upload                           |
-| Proper hosted storage path               | Local persistent storage and private S3-compatible driver; signed S3 wire test; cloud bucket provisioning pending                               |
+| Proper hosted storage path               | Local persistent storage and private S3-compatible driver; signed S3 wire test and real private R2 authenticated upload/read/range/privacy verification passed                               |
 | Compare product/service/software markets | Country research workbench, up to 10 of 35 candidate countries, dated evidence and qualitative source-aware comparisons                         |
 | Discuss, edit and research repeatedly    | Follow-up instructions, versioned brief/report snapshots, country/decision edits and immutable previous reports                                 |
 | Approve final research decision          | Role-gated current-version decisions; edit/research invalidation; no campaign write on research approval                                        |

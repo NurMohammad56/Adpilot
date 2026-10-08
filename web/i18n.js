@@ -2,7 +2,8 @@ import React, { useSyncExternalStore } from 'react';
 import translations from './locales/bn.json';
 
 const listeners = new Set();
-let language = typeof localStorage === 'undefined' ? 'en' : localStorage.getItem('adpilot-language') || 'en';
+let language = 'en';
+try { language = localStorage.getItem('adpilot-language') === 'bn' ? 'bn' : 'en'; } catch { /* Storage can be disabled. */ }
 if (typeof document !== 'undefined') document.documentElement.lang = language;
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const patterns = Object.entries(translations).filter(([source]) => /\{\d+\}/.test(source)).map(([source, translated]) => ({
@@ -12,7 +13,7 @@ const patterns = Object.entries(translations).filter(([source]) => /\{\d+\}/.tes
 export const getLanguage = () => language;
 export function setLanguage(value) {
   language = value === 'bn' ? 'bn' : 'en';
-  localStorage.setItem('adpilot-language', language);
+  try { localStorage.setItem('adpilot-language', language); } catch { /* Language remains available in memory. */ }
   document.documentElement.lang = language;
   for (const listener of listeners) listener();
 }
@@ -22,10 +23,11 @@ export const useLanguage = () => useSyncExternalStore(listener => {
 export function translateText(value) {
   if (language !== 'bn' || typeof value !== 'string') return value;
   const trimmed = value.trim();
-  const match = translations[trimmed] || translations[trimmed.toLowerCase()];
+  const canonical = trimmed.replace(/\s+/g, ' ');
+  const match = translations[canonical] || translations[canonical.toLowerCase()];
   if (match) return value.replace(trimmed, match);
   for (const pattern of patterns) {
-    const captures = pattern.expression.exec(trimmed);
+    const captures = pattern.expression.exec(canonical);
     if (captures) return value.replace(trimmed, pattern.tokens.reduce((text, token, index) => text.replaceAll(token, captures[index + 1]), pattern.translated));
   }
   return value;

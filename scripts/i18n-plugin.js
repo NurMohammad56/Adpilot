@@ -26,9 +26,16 @@ export default function localizationPlugin({ types: t }) {
       },
       JSXText(path, state) {
         if (!state.localize) return;
-        const text = path.node.value.split(/\r?\n/).map((line, i, lines) =>
-          i === 0 ? line.trimEnd() : i === lines.length - 1 ? line.trimStart() : line.trim()
-        ).filter(Boolean).join(' ');
+        // Match JSX's whitespace rules, including meaningful spaces beside expressions.
+        const lines = path.node.value.split(/\r\n|\n|\r/);
+        let lastNonEmpty = 0;
+        lines.forEach((line, index) => { if (/[^ \t]/.test(line)) lastNonEmpty = index; });
+        const text = lines.map((line, index) => {
+          let cleaned = line.replace(/\t/g, ' ');
+          if (index !== 0) cleaned = cleaned.replace(/^ +/, '');
+          if (index !== lines.length - 1) cleaned = cleaned.replace(/ +$/, '');
+          return cleaned ? cleaned + (index !== lastNonEmpty ? ' ' : '') : '';
+        }).join('');
         if (text.trim()) { path.replaceWith(t.jsxExpressionContainer(call('__t', t.stringLiteral(text)))); path.skip(); }
       },
       JSXExpressionContainer(path, state) {
@@ -38,7 +45,12 @@ export default function localizationPlugin({ types: t }) {
         if (t.isJSXAttribute(path.parent)) {
           if (['label', 'title', 'text', 'subtitle', 'hint', 'placeholder', 'aria-label'].includes(path.parent.name.name))
             path.node.expression = call('__t', expression);
-        } else path.node.expression = call('__l', expression);
+        } else {
+          // User-authored records are content, even when a name happens to equal a UI label.
+          const contentFields = new Set(['name', 'description', 'category', 'summary', 'finding', 'opportunity', 'competition', 'reason', 'primaryText', 'headline', 'hook', 'concept', 'buyerProfile', 'questions', 'note', 'email', 'source', 'instruction', 'accountName', 'pageName', 'landingUrl']);
+          if (t.isMemberExpression(expression) && !expression.computed && contentFields.has(expression.property.name)) return;
+          path.node.expression = call('__l', expression);
+        }
       },
       JSXAttribute(path, state) {
         if (state.localize && t.isStringLiteral(path.node.value) &&

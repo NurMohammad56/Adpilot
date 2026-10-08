@@ -226,7 +226,8 @@ export class Platform {
     const sourceReport = sourceResearch?.version.report;
     const report = sourceResearch ? {
       market: 'BD', marketMode: 'LOCAL_BUSINESS', platform: 'META', generatedAt: now(), demo: this.config.mode === 'demo',
-      summary: sourceReport.summary, findings: sourceReport.findings, competitors, sourcedPrices: [],
+      summary: sourceReport.summary, findings: sourceReport.findings, competitors,
+      sourcedPrices: competitors.filter(competitor => competitor.price > 0 && competitor.source && Date.parse(competitor.observedAt) <= Date.now() && Date.now() - Date.parse(competitor.observedAt) < 30 * 86400000).map(competitor => competitor.price),
       competitorAnalysis: sourceReport.countries.find(country => country.country === 'BD')?.competition || '',
       differentiation: sourceReport.recommendation.nextSteps, regionalScores: [],
       risks: [...sourceReport.openQuestions, ...sourceReport.countries.flatMap(country => country.risks)], confidence: 'Low',

@@ -21,6 +21,7 @@ export default defineConfig({
       APP_ORIGIN: 'http://127.0.0.1:4173',
       DATA_FILE: `.data/e2e-${process.pid}.json`,
       STORAGE_PATH: `.data/e2e-uploads-${process.pid}`,
+      STORAGE_DRIVER: 'local',
     },
   },
 });

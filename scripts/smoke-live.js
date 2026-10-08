@@ -38,6 +38,12 @@ assert.equal(overview.integration.encryptedToken, undefined);
 assert.equal(overview.integration.encryptedAppSecret, undefined);
 assert.equal(overview.aiIntegration.configured, true);
 assert.equal(overview.aiIntegration.encryptedKey, undefined);
+await request('/integrations/meta', 'POST', {
+  adAccountId: overview.integration.adAccountId,
+  pageId: overview.integration.pageId,
+  pixelId: overview.integration.pixelId,
+  accessToken: '', appSecret: '',
+});
 const workspaces = await request('/workspaces');
 assert.ok(
   workspaces.some((workspace) => workspace.id === overview.business.id && workspace.active),
@@ -54,6 +60,8 @@ for (const key of [
   'META_APP_SECRET',
   'TOKEN_ENCRYPTION_KEY',
   'MCP_SERVICE_KEY',
+  'S3_ACCESS_KEY_ID',
+  'S3_SECRET_ACCESS_KEY',
 ])
   if (process.env[key])
     assert(

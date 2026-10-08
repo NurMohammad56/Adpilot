@@ -2,6 +2,14 @@
 
 Base path `/api`. Responses are JSON; errors are `{ "error": { "code", "message", "details"? } }`. Same-site sessions use an HTTP-only cookie. Mutating browser/API-client requests must include the exact configured `Origin` header and JSON content type, except the multipart media upload. The browser sends `X-Workspace-Id`; a mismatch with its current session fails with 409 `WORKSPACE_CHANGED`, preventing stale tabs from writing to another workspace. There is no browser-visible bearer Meta token or stored AI key.
 
+Responses echo a validated or generated `X-Request-Id`. Research run requests accept `Accept-Language: bn` to request new human-readable analysis in Bangla; country codes and JSON field names remain unchanged. Overview includes workspace `researchProjects` and storage driver/ready-file count without object keys or storage credentials.
+
+`POST /research/versions/:id/product-campaign` with `{}` creates a Bangladesh product plan from a current approved physical-product report. Its brief must contain an owned `productId` and its approved recommendation must select `BD`. The resulting plan retains project/version/hash bindings; subsequent brief edits or research invalidate that decision before launch.
+
+Product input additionally accepts optional `paymentMethod` (`cod`, `prepaid`, `mixed`), `deliveryRegions`, `mediaAssetId`, and video `thumbnailAssetId`. The UI takes return rate and margin as percentages and converts them to fractions before submitting. Delivery regions must remain inside workspace/product coverage when validating campaign targeting.
+
+For `POST /integrations/meta`, empty/omitted `accessToken` re-verifies an existing encrypted connection belonging to this workspace. An unconnected workspace must provide a token. Empty token/secret preserves its saved secret; a new token without an app secret clears the previous proof secret. Field-specific errors are returned as `details.fieldErrors`.
+
 | Method     | Route                                            | Behavior                                                                                       |
 | ---------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | GET        | `/health`                                        | Mode and execution readiness, no secrets                                                       |

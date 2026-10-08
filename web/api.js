@@ -1,4 +1,5 @@
 let activeWorkspace = null;
+const language = () => { try { return localStorage.getItem('adpilot-language') || 'en'; } catch { return 'en'; } };
 export const selectApiWorkspace = (id) => { activeWorkspace = id; };
 export async function uploadMedia(file) {
   const workspace = activeWorkspace;
@@ -23,7 +24,7 @@ export async function api(endpoint, method = 'GET', body) {
         headers: {
           ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
           ...(workspace ? { 'x-workspace-id': workspace } : {}),
-          'accept-language': localStorage.getItem('adpilot-language') || 'en',
+          'accept-language': language(),
           'x-request-id': crypto.randomUUID(),
         },
         ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

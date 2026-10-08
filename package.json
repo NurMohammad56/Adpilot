@@ -24,6 +24,8 @@
     "setup:check": "node scripts/check-connections.js",
     "setup:bootstrap": "node scripts/bootstrap-live.js",
     "setup:gemini": "node scripts/smoke-gemini.js",
+    "setup:storage": "node scripts/smoke-storage.js",
+    "setup:media": "node scripts/smoke-media-live.js",
     "format": "prettier --write src web tests e2e scripts docs *.json *.js *.yaml .github/workflows/*.yml",
     "verify": "npm run check && npm test && npm run build"
   },
@@ -49,6 +51,7 @@
     "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
+    "@babel/parser": "^7.29.9",
     "@playwright/test": "^1.58.2",
     "@vitejs/plugin-react": "^4.7.0",
     "concurrently": "^9.2.1",

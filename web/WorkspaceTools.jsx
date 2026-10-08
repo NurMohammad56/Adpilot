@@ -300,9 +300,10 @@ export function MediaPicker({ api, value, thumbnail, onChange }) {
 }
 export function MediaLibrary({ data, api, run, busy }) {
   const [assets, setAssets] = useState([]);
+  const [loadError, setLoadError] = useState('');
   const load = () => api('/media').then(setAssets);
   useEffect(() => {
-    load().catch(() => {});
+    load().catch(error => setLoadError(error.message));
   }, [data.business.id]);
   return (
     <>
@@ -310,6 +311,8 @@ export function MediaLibrary({ data, api, run, busy }) {
         Upload your real product images, service screenshots and video demonstrations. Choose them
         when reviewing a campaign.
       </Heading>
+      <div className="notice">{data.storage?.driver === 's3' ? 'Private cloud storage is connected. Files are accessible only to workspace members.' : 'Files are stored privately on this server. Use persistent storage when hosting.'}</div>
+      {loadError && <p className="field-error" role="alert">{loadError}</p>}
       <article className="panel tools-panel">
         <form
           className="upload-form"
@@ -321,6 +324,7 @@ export function MediaLibrary({ data, api, run, busy }) {
             run(async () => {
               await uploadMedia(file);
               await load();
+              setLoadError('');
               form.reset();
             }, 'File uploaded privately to this workspace.');
           }}
@@ -389,15 +393,19 @@ const emptyBrief = {
 export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
-  const [brief, setBrief] = useDraft(`adpilot-draft:${data.business.id}:${data.user.id}:research-brief`, emptyBrief);
+  const [briefDrafts, setBriefDrafts] = useDraft(`adpilot-draft:${data.business.id}:${data.user.id}:research-briefs`, { new: emptyBrief });
+  const briefKey = project?.id || 'new';
+  const brief = briefDrafts[briefKey] || (project ? Object.fromEntries(Object.keys(emptyBrief).map(key => [key, project[key]])) : emptyBrief);
+  const setBrief = value => setBriefDrafts(current => ({ ...current, [briefKey]: value }));
   const [briefEditing, setBriefEditing] = useState(false);
   const [versions, setVersions] = useState([]);
   const [versionId, setVersionId] = useState('');
-  const [followup, setFollowup] = useDraft(`adpilot-draft:${data.business.id}:${data.user.id}:research-followup`, '');
+  const [followup, setFollowup] = useDraft(`adpilot-draft:${data.business.id}:${data.user.id}:research-followup:${project?.id || 'new'}`, '');
   const [editing, setEditing] = useState(false);
-  const [decision, setDecision] = useState({ summary: '', country: '', reason: '', note: '' });
+  const [decision, setDecision] = useDraft(`adpilot-draft:${data.business.id}:${data.user.id}:decision:${versionId}`, { summary: '', country: '', reason: '', note: '' });
   const [campaign, setCampaign] = useState(false);
-  const [media, setMedia] = useState({ mediaAssetId: null, thumbnailAssetId: null });
+  const [media, setMedia] = useDraft(`adpilot-draft:${data.business.id}:${data.user.id}:campaign-media:${versionId}`, { mediaAssetId: null, thumbnailAssetId: null });
+  const [campaignFields, setCampaignFields] = useDraft(`adpilot-draft:${data.business.id}:${data.user.id}:campaign:${versionId}`, { goal: 'leads', landingUrl: '', price: '', deliveryCost: '0', requiredProfit: '0', leadCloseRate: '', dailyBudget: '100', durationDays: '7', testBudgetCeiling: '1000', acknowledgeUnknownCPA: false });
   const loadProjects = async () => {
     const values = await api('/research');
     setProjects(values);
@@ -409,7 +417,6 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
   async function select(selected) {
     setProject(selected);
     sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, selected.id);
-    setBrief(Object.fromEntries(Object.keys(emptyBrief).map((key) => [key, selected[key]])));
     const history = await api(`/research/${selected.id}/versions`);
     setVersions(history);
     setVersionId(selected.currentVersionId || history.at(-1)?.id || '');
@@ -439,7 +446,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
             onClick={() => {
               sessionStorage.removeItem(`adpilot-research-selection:${data.business.id}`);
               setProject(null);
-              setBrief(emptyBrief);
+              setBriefDrafts(current => ({ ...current, new: emptyBrief }));
               setVersions([]);
               setBriefEditing(false);
             }}
@@ -473,11 +480,33 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                       project ? 'PUT' : 'POST',
                       brief,
                     );
+                    setBriefDrafts(current => {
+                      const updated = { ...current };
+                      delete updated[briefKey];
+                      return updated;
+                    });
                     await loadProjects();
                     await select(saved);
                   }, 'Brief saved. Run research or add a focused question.');
                 }}
               >
+                {!project && <Field label="Start with a guided example" hint="Examples help write a brief. The suggested countries are candidates to investigate, not recommended markets.">
+                  <select value="" onChange={event => {
+                    const examples = {
+                      ecommerce: { kind: 'service', name: 'Custom ecommerce development', description: 'Custom ecommerce applications with product catalog, checkout and order management for established retailers.', buyerProfile: 'Retail business owners with an existing customer base who need an online store.', candidateCountries: ['BD', 'US', 'GB', 'AE'] },
+                      website: { kind: 'service', name: 'Business website development', description: 'Business websites with service pages, enquiry forms and basic analytics.', buyerProfile: 'Small business owners who need a professional website and qualified enquiries.', candidateCountries: ['US', 'GB', 'CA', 'AU'] },
+                      software: { kind: 'software', name: 'Business software subscription', description: 'A software application that solves a clearly defined daily business workflow.', buyerProfile: 'Business operators with a recurring workflow problem and a budget for software.', candidateCountries: ['BD', 'US', 'GB', 'IN'] },
+                      product: { kind: 'physical-product', name: '', description: '', buyerProfile: 'Bangladesh buyers who can be reached and served within our delivery coverage.', candidateCountries: ['BD'] },
+                    };
+                    if (examples[event.target.value]) setBrief({ ...brief, ...examples[event.target.value], productId: null });
+                  }}>
+                    <option value="">Choose an example or write your own brief</option>
+                    <option value="ecommerce">Custom ecommerce development</option>
+                    <option value="website">Business website development</option>
+                    <option value="software">Software / subscription service</option>
+                    <option value="product">Bangladesh product selling</option>
+                  </select>
+                </Field>}
                 <Field label="Offer / project name">
                   <input
                     required
@@ -787,7 +816,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                             <button
                               className="button secondary"
                               onClick={() => {
-                                setDecision({
+                                if (!decision.summary && !decision.reason) setDecision({
                                   summary: version.report.summary,
                                   country: version.report.recommendation.country || '',
                                   reason: version.report.recommendation.reason,
@@ -916,7 +945,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                         }}
                       >
                         <Field label="Campaign goal">
-                          <select name="goal">
+                          <select name="goal" value={campaignFields.goal} onChange={event => setCampaignFields({ ...campaignFields, goal: event.target.value })}>
                             <option value="leads">Website leads / client enquiries</option>
                             <option value="purchases">Website purchase / paid subscription</option>
                           </select>
@@ -927,6 +956,8 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                             type="url"
                             required
                             placeholder="https://your-business.com/custom-ecommerce"
+                            value={campaignFields.landingUrl}
+                            onChange={event => setCampaignFields({ ...campaignFields, landingUrl: event.target.value })}
                           />
                         </Field>
                         <div className="form-grid">
@@ -945,7 +976,8 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                                 type="number"
                                 min="0"
                                 step="any"
-                                defaultValue={value}
+                                value={campaignFields[key] ?? value}
+                                onChange={event => setCampaignFields({ ...campaignFields, [key]: event.target.value })}
                                 required={!['price', 'leadCloseRate'].includes(key)}
                               />
                             </Field>
@@ -960,7 +992,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                           }
                         />
                         <label className="tools-check">
-                          <input type="checkbox" name="acknowledgeUnknownCPA" />I understand that
+                          <input type="checkbox" name="acknowledgeUnknownCPA" checked={campaignFields.acknowledgeUnknownCPA} onChange={event => setCampaignFields({ ...campaignFields, acknowledgeUnknownCPA: event.target.checked })} />I understand that
                           missing conversion economics make this a capped discovery test, not a
                           scaling recommendation.
                         </label>

@@ -606,130 +606,6 @@ function PerformanceChart({ series }) {
   );
 }
 
-const blankProduct = {
-  name: '',
-  category: '',
-  description: '',
-  inventory: 100,
-  sellingPrice: null,
-  minProfit: 200,
-  desiredMargin: 0.2,
-  dailyBudgetCeiling: 1000,
-  testBudgetCeiling: 7000,
-  landingUrl: '',
-  imageUrl: '',
-  costs: {
-    product: 0,
-    packaging: 0,
-    delivery: 0,
-    paymentFixed: 0,
-    paymentPercent: 0,
-    other: 0,
-    returnRate: 0.1,
-    returnCost: 0,
-  },
-};
-function ProductForm({ product, onSave, busy }) {
-  const [value, setValue] = useState(
-    product ? structuredClone(product) : structuredClone(blankProduct),
-  );
-  const input = (key, type = 'text') => (
-    <input
-      type={type}
-      value={value[key] ?? ''}
-      min={type === 'number' ? 0 : undefined}
-      step={type === 'number' ? 'any' : undefined}
-      required={!['sellingPrice', 'landingUrl', 'imageUrl'].includes(key)}
-      onChange={(event) =>
-        setValue({
-          ...value,
-          [key]:
-            type === 'number'
-              ? event.target.value === ''
-                ? null
-                : Number(event.target.value)
-              : event.target.value,
-        })
-      }
-    />
-  );
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        const { id, businessId, createdBy, revision, createdAt, updatedAt, ...payload } = value;
-        onSave(payload);
-      }}
-    >
-      <div className="form-grid">
-        <Field label="Product name">{input('name')}</Field>
-        <Field label="Category / niche">{input('category')}</Field>
-        <Field label="Description">
-          <textarea
-            value={value.description}
-            required
-            minLength={10}
-            rows={3}
-            onChange={(event) => setValue({ ...value, description: event.target.value })}
-          />
-        </Field>
-        <Field label="Available inventory">{input('inventory', 'number')}</Field>
-      </div>
-      <h3 className="form-section">
-        Actual cost per order <span>BDT / ৳</span>
-      </h3>
-      <div className="form-grid three">
-        {[
-          { key: 'product', label: 'Product cost' },
-          { key: 'packaging', label: 'Packaging' },
-          { key: 'delivery', label: 'Delivery / shipping' },
-          { key: 'paymentFixed', label: 'Fixed COD / payment fee' },
-          { key: 'paymentPercent', label: 'Payment fee (%)' },
-          { key: 'other', label: 'Other variable costs' },
-          { key: 'returnRate', label: 'Expected failure rate (0–0.8)' },
-          { key: 'returnCost', label: 'Loss per failed / returned order' },
-        ].map(({ key, label }) => (
-          <Field key={key} label={label}>
-            <input
-              type="number"
-              step="any"
-              min="0"
-              max={key === 'returnRate' ? '0.8' : key === 'paymentPercent' ? '20' : undefined}
-              required
-              value={value.costs[key]}
-              onChange={(event) =>
-                setValue({ ...value, costs: { ...value.costs, [key]: Number(event.target.value) } })
-              }
-            />
-          </Field>
-        ))}
-      </div>
-      <h3 className="form-section">Profit and test guardrails</h3>
-      <div className="form-grid">
-        <Field label="Current selling price (optional)">{input('sellingPrice', 'number')}</Field>
-        <Field label="Minimum profit per delivered order">{input('minProfit', 'number')}</Field>
-        <Field label="Desired profit margin (0–0.8)">{input('desiredMargin', 'number')}</Field>
-        <Field label="Maximum configured daily budget">
-          {input('dailyBudgetCeiling', 'number')}
-        </Field>
-        <Field label="Maximum total test budget">{input('testBudgetCeiling', 'number')}</Field>
-        <Field label="Product / landing page URL">{input('landingUrl', 'url')}</Field>
-        <Field label="Creative image URL (HTTPS)">{input('imageUrl', 'url')}</Field>
-      </div>
-      <div className="notice">
-        <ShieldCheck size={16} />
-        These ceilings are validated again before approval and execution.
-      </div>
-      <div className="modal-actions">
-        <button className="button primary" disabled={busy}>
-          {product ? 'Save product changes' : 'Add product'}
-          <Check size={16} />
-        </button>
-      </div>
-    </form>
-  );
-}
-
 function Products({ data, showProduct, generate, addEvidence, busy }) {
   return (
     <>
@@ -1193,6 +1069,13 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                     </div>
                   </dl>
                   <p className="small muted">{p.formula}</p>
+                  {p.failureScenarios?.length > 0 && <div className="notice"><div>
+                    <strong>COD return-rate sensitivity</strong>
+                    {p.failureScenarios.map(scenario => <p key={scenario.failureRate}>
+                      {Math.round(scenario.failureRate * 100)}% failed orders: allowable ad cost {taka(scenario.allowableCPA)}
+                    </p>)}
+                    <small>These are cost scenarios, not forecasts of campaign performance.</small>
+                  </div></div>}
                 </div>
                 <div>
                   <h3>Campaign structure</h3>
@@ -1221,14 +1104,14 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                     </div>
                     <div>
                       <dt>Conversion event</dt>
-                      <dd>Purchase</dd>
+                      <dd>{plan.conversionEvent || 'PURCHASE'}</dd>
                     </div>
                     <div>
                       <dt>Allocation / CTA</dt>
-                      <dd>100% Primary / Shop now</dd>
+                      <dd>{plan.ads[0]?.cta?.replaceAll('_', ' ') || 'SHOP NOW'}</dd>
                     </div>
                     <div>
-                      <dt>Planning purchase count</dt>
+                      <dt>{plan.conversionEvent === 'LEAD' ? 'Planning lead count' : 'Planning purchase count'}</dt>
                       <dd>
                         {b.plannedAcquisitions == null
                           ? 'Not estimated'
@@ -1718,7 +1601,7 @@ function Audit({ data }) {
   );
 }
 
-function Settings({ data, run, refresh, busy }) {
+function Settings({ data, run, refresh, busy, setPage }) {
   const [business, setBusiness] = useState({
     name: data.business.name,
     location: data.business.location,
@@ -1858,42 +1741,7 @@ function Settings({ data, run, refresh, busy }) {
               <p className="settings-description">
                 Credentials are encrypted at rest and kept server-side.
               </p>
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const input = Object.fromEntries(new FormData(event.currentTarget));
-                  run(async () => {
-                    await api('/integrations/meta', 'POST', input);
-                    event.target.reset();
-                    await refresh();
-                  }, 'Meta integration verified.');
-                }}
-              >
-                {['adAccountId', 'pageId', 'pixelId', 'accessToken'].map((key) => (
-                  <Field
-                    label={
-                      {
-                        adAccountId: 'Ad account ID',
-                        pageId: 'Facebook Page ID',
-                        pixelId: 'Pixel / dataset ID',
-                        accessToken: 'Meta access token',
-                      }[key]
-                    }
-                    key={key}
-                  >
-                    <input
-                      name={key}
-                      type={key === 'accessToken' ? 'password' : 'text'}
-                      required
-                      disabled={!admin}
-                      autoComplete="off"
-                    />
-                  </Field>
-                ))}
-                <button className="button primary" disabled={busy || !admin}>
-                  Verify & save connection
-                </button>
-              </form>
+              <button className="button secondary" onClick={() => setPage("Accounts")}>Open account connections</button>
               <h3 className="form-section">Resolve targeting locations</h3>
               <form
                 onSubmit={(event) => {

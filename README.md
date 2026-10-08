@@ -1,4 +1,4 @@
-# AdPilot — Ads Research and Campaign Studio
+# AdPilot - Ads Research and Campaign Studio
 
 A runnable implementation of the [AI-powered Facebook Ads automation specification](https://docs.google.com/document/d/18HsdTKCjJGfLG7BP48qrWCDZM0YqVncgQ4HWlsAnZXc/edit), extended by the user's subsequent request for separate client workspaces, private image/video uploads, iterative international research, and service/software campaigns. Physical-product economics retain the Bangladesh workflow. Service/software plans use the approved test country and a website lead or purchase goal. Advertising changes require human approval.
 

@@ -121,6 +121,8 @@ export class Platform {
       aiIntegration: publicAI(
         await this.store.find('integrations', { businessId: user.businessId, provider: 'AI' }),
       ),
+      researchProjects: await this.store.list('research_projects', { businessId: user.businessId }),
+      storage: { driver: this.media.storage.driver, readyFiles: (await this.store.list('media_assets', { businessId: user.businessId, status: 'ready' })).length },
     };
   }
   async updateBusiness(user, input) {

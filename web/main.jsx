@@ -52,6 +52,7 @@ import { LanguageSwitch, useLanguage, getLanguage, translateText } from './i18n.
 import { useDraft } from './use-draft.js';
 import './usability.css';
 import { GuidedProduct } from './GuidedProduct.jsx';
+import { WorkflowGuide } from './WorkflowGuide.jsx';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -2111,7 +2112,7 @@ function App() {
   const [mode, setMode] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [page, setPage] = useState('Overview');
+  const [page, setPage] = useDraft('adpilot-ui-page', 'Overview');
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
   const [query, setQuery] = useState('');
@@ -2391,6 +2392,7 @@ function App() {
               </div>
             )}
             <div className="page-content">
+              {page === 'Overview' && <WorkflowGuide data={data} onNavigate={setPage} />}
               {query ? (
                 <>
                   <PageHeading title="Search workspace" text={`Results for “${query}”`} />

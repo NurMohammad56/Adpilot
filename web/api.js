@@ -1,5 +1,17 @@
 let activeWorkspace = null;
 export const selectApiWorkspace = (id) => { activeWorkspace = id; };
+export async function uploadMedia(file) {
+  const workspace = activeWorkspace;
+  if (!file) throw new Error('Select an image or video');
+  const input = new FormData(); input.set('file', file);
+  let response;
+  try { response = await fetch('/api/media', { method: 'POST', credentials: 'same-origin', headers: { 'x-workspace-id': workspace }, body: input, signal: AbortSignal.timeout(180000) }); }
+  catch { throw new Error('Upload connection interrupted. Check Media library before uploading the file again.'); }
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error?.message || 'Upload failed');
+  if (activeWorkspace !== workspace) throw new Error('Workspace changed. Reload to continue in the selected workspace.');
+  return result;
+}
 export async function api(endpoint, method = 'GET', body) {
   if (['/auth/login', '/auth/register', '/auth/demo'].includes(endpoint)) activeWorkspace = null;
   const workspace = activeWorkspace;

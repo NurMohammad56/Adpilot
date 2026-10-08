@@ -14,6 +14,7 @@ import './workspace-tools.css';
 import { MetaConnection } from './MetaConnection.jsx';
 import { useDraft } from './use-draft.js';
 import { getLanguage } from './i18n.js';
+import { uploadMedia } from './api.js';
 const Field = ({ label, children, hint }) => (
   <label className="field">
     <span>{label}</span>
@@ -235,14 +236,25 @@ export function Accounts({ data, api, run, refresh, busy, onSwitch }) {
 }
 export function MediaPicker({ api, value, thumbnail, onChange }) {
   const [assets, setAssets] = useState([]);
+  const [error, setError] = useState('');
+  const [uploading, setUploading] = useState(false);
   useEffect(() => {
     api('/media')
       .then(setAssets)
-      .catch(() => {});
+      .catch(error => setError(error.message));
   }, []);
   const selected = assets.find((asset) => asset.id === value);
   return (
     <div className="media-picker">
+      <label className="field"><span>Upload a creative here</span><input aria-label="Upload a creative here" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" disabled={uploading}
+        onChange={async event => {
+          const file = event.target.files[0]; if (!file) return;
+          setUploading(true); setError('');
+          try { const uploaded = await uploadMedia(file); setAssets(await api('/media')); onChange(uploaded.id, null); }
+          catch (error) { setError(error.message); } finally { setUploading(false); }
+        }} /><small>Upload directly without leaving this form. Images: 10 MB. Videos: 50 MB.</small></label>
+      {uploading && <p role="status">Uploading your private creative…</p>}
+      {error && <p className="field-error" role="alert">{error}</p>}
       <Field label="Uploaded image or video">
         <select
           value={value || ''}
@@ -307,16 +319,7 @@ export function MediaLibrary({ data, api, run, busy }) {
             const file = form.elements.file.files[0];
             if (!file) return;
             run(async () => {
-              const input = new FormData();
-              input.set('file', file);
-              const response = await fetch('/api/media', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'x-workspace-id': data.user.businessId },
-                body: input,
-              });
-              const value = await response.json();
-              if (!response.ok) throw new Error(value.error?.message || 'Upload failed');
+              await uploadMedia(file);
               await load();
               form.reset();
             }, 'File uploaded privately to this workspace.');

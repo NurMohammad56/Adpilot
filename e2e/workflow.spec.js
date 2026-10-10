@@ -21,6 +21,7 @@ test('review, revise, approve and launch a product plan through the dashboard', 
   await dialog.getByLabel('Daily budget', { exact: true }).fill('400');
   await dialog.getByRole('button', { name: 'Save new version' }).click();
   await expect(dialog.getByText('Version 2', { exact: true })).toBeVisible();
+  await dialog.getByRole('radio', { name: /Direct launch from AdPilot/ }).check();
   await dialog.getByRole('button', { name: 'Request approval' }).click();
   await expect(dialog.getByRole('button', { name: 'Approve & launch' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Approve & launch' }).click();

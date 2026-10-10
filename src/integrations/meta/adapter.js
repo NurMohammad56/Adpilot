@@ -406,6 +406,115 @@ export class LiveMetaAdapter {
       accountStatus: account.account_status,
     };
   }
+  async inspectManualCampaign(campaignId, integration) {
+    assert(
+      /^\d{5,30}$/.test(campaignId),
+      422,
+      'MANUAL_ID_INVALID',
+      'Enter a numeric Meta Campaign ID.',
+    );
+    const campaign = await this.request(integration, 'GET', campaignId, {
+      fields: 'id,name,account_id,objective,status,effective_status,daily_budget,lifetime_budget',
+    });
+    assert(
+      String(campaign.account_id) === integration.adAccountId,
+      422,
+      'MANUAL_ACCOUNT_MISMATCH',
+      'This campaign belongs to a different ad account. Select the campaign from this workspace account.',
+    );
+    const pages = async (edge, fields, parameters = {}) => {
+      const rows = [],
+        seen = new Set();
+      let after;
+      for (let page = 0; page < 10; page++) {
+        const result = await this.request(integration, 'GET', `${campaignId}/${edge}`, {
+          fields,
+          limit: 100,
+          ...parameters,
+          ...(after ? { after } : {}),
+        });
+        assert(
+          Array.isArray(result.data),
+          502,
+          'MANUAL_READ_INCOMPLETE',
+          'Meta returned incomplete campaign settings.',
+        );
+        rows.push(...result.data);
+        if (!result.paging?.next) return rows;
+        after = result.paging?.cursors?.after;
+        assert(
+          after && !seen.has(after),
+          502,
+          'MANUAL_READ_INCOMPLETE',
+          'Campaign pagination did not advance. No full verification was recorded.',
+        );
+        seen.add(after);
+      }
+      throw new AppError(
+        502,
+        'MANUAL_READ_INCOMPLETE',
+        'Campaign pagination exceeded its safety limit. No full verification was recorded.',
+      );
+    };
+    const [account, adSets, ads] = await Promise.all([
+      this.request(integration, 'GET', `act_${integration.adAccountId}`, { fields: 'id,currency' }),
+      pages(
+        'adsets',
+        'id,name,status,effective_status,daily_budget,lifetime_budget,start_time,end_time,optimization_goal,promoted_object,targeting',
+      ),
+      pages('ads', 'id,name,status,effective_status,creative{object_story_spec}'),
+    ]);
+    let insights = null,
+      insightsIssue = null;
+    try {
+      const rows = await pages(
+        'insights',
+        'date_start,date_stop,spend,impressions,clicks,actions',
+        { date_preset: 'last_30d' },
+      );
+      if (rows.length) {
+        const metric = (field) => rows.reduce((sum, row) => sum + Number(row[field] || 0), 0);
+        const event = (type) =>
+          rows.reduce(
+            (sum, row) =>
+              sum +
+              Number(
+                (row.actions || []).find((a) => a.action_type === type)?.value ||
+                  (row.actions || []).find(
+                    (a) => a.action_type === `offsite_conversion.fb_pixel_${type}`,
+                  )?.value ||
+                  0,
+              ),
+            0,
+          );
+        insights = {
+          period: 'last_30d',
+          from: rows[0].date_start,
+          to: rows.at(-1).date_stop,
+          spend: metric('spend'),
+          impressions: metric('impressions'),
+          clicks: metric('clicks'),
+          leads: event('lead'),
+          purchases: event('purchase'),
+          source: 'Meta attributed; not confirmed orders or revenue',
+        };
+        assert(
+          Object.values(insights)
+            .filter((v) => typeof v === 'number')
+            .every(Number.isFinite),
+          502,
+          'MANUAL_READ_INCOMPLETE',
+          'Meta returned invalid insight values.',
+        );
+      } else insightsIssue = 'No Meta delivery insights were returned for the last 30 days.';
+    } catch (error) {
+      if (!['META_REJECTED', 'META_AMBIGUOUS', 'MANUAL_READ_INCOMPLETE'].includes(error.code))
+        throw error;
+      insights = null;
+      insightsIssue = error.message;
+    }
+    return { campaign, account, adSets, ads, insights, insightsIssue };
+  }
   campaignPayload(plan) {
     const budget = plan.budgetRecommendation;
     return {

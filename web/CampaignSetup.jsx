@@ -137,6 +137,10 @@ export function CampaignSetup({
   return (
     <article className="panel tools-panel campaign-setup">
       <h2>Easy campaign setup</h2>
+      <p>
+        Next, choose Manual guided launch or Direct launch. Manual is recommended while Meta API
+        launch is blocked. You will review the complete Facebook setup guide before approving.
+      </p>
       <div className="campaign-context">
         <strong>{project.name}</strong>
         <p>Approved test market: {countryName}</p>

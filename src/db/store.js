@@ -38,6 +38,7 @@ export const collections = [
   'business_outcomes',
   'account_snapshots',
   'campaign_launch_checks',
+  'manual_campaigns',
 ];
 const stamp = (value) => ({
   ...value,
@@ -85,7 +86,10 @@ export class DemoStore {
         (r) =>
           r.id === row.id ||
           (collection === 'users' && r.email === row.email) ||
-          (collection === 'campaigns' && r.approvalId === row.approvalId),
+          (collection === 'campaigns' && r.approvalId === row.approvalId) ||
+          (collection === 'manual_campaigns' &&
+            r.businessId === row.businessId &&
+            (r.planId === row.planId || r.metaCampaignId === row.metaCampaignId)),
       )
     )
       throw new AppError(409, 'DUPLICATE', 'Record already exists');
@@ -169,6 +173,10 @@ export class MongoStore {
           { unique: true },
         );
       if (collection === 'campaigns') schema.index({ approvalId: 1 }, { unique: true });
+      if (collection === 'manual_campaigns') {
+        schema.index({ businessId: 1, planId: 1 }, { unique: true });
+        schema.index({ businessId: 1, metaCampaignId: 1 }, { unique: true });
+      }
       if (collection === 'ad_performance')
         schema.index({ campaignId: 1, level: 1, entityId: 1, date: 1 }, { unique: true });
       if (collection === 'sessions') {

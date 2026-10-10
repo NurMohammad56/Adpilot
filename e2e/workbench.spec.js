@@ -188,6 +188,7 @@ test('own workspace, real image/video uploads, iterative country research and se
     .selectOption({ label: 'agency-cover.png · image' });
   await dialog.getByRole('button', { name: 'Save new version' }).click();
   await expect(dialog.getByText('Version 2', { exact: true })).toBeVisible();
+  await dialog.getByRole('radio', { name: /Direct launch from AdPilot/ }).check();
   await dialog.getByRole('button', { name: 'Request approval', exact: true }).click();
   await dialog.getByRole('button', { name: 'Approve & launch' }).click();
   await expect(dialog).not.toBeVisible({ timeout: 20000 });

@@ -55,6 +55,7 @@ import './usability.css';
 import { GuidedProduct } from './GuidedProduct.jsx';
 import { WorkflowGuide } from './WorkflowGuide.jsx';
 import { AdControlCenter } from './AdControlCenter.jsx';
+import { LaunchModePicker, ManualCampaignGuide } from './ManualCampaignGuide.jsx';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -803,7 +804,7 @@ function Approvals({ data, showPlan, busy, execute }) {
               Review
               <ArrowRight size={15} />
             </button>
-            {a.status === 'approved' && (
+            {a.status === 'approved' && a.action !== 'manual_campaign' && (
               <button className="button primary" disabled={busy} onClick={() => execute(a)}>
                 Execute approved
               </button>
@@ -832,9 +833,25 @@ function PlanReview({
   revise,
   execute,
   checkLaunch,
+  linkManual,
   onResearch,
 }) {
-  const [tab, setTab] = useState('Plan');
+  const [launchMode, setLaunchMode] = useState(
+    approval
+      ? approval.action === 'manual_campaign'
+        ? 'manual'
+        : 'direct'
+      : ['draft', 'rejected'].includes(plan.status)
+        ? 'manual'
+        : plan.launchMode || 'direct',
+  );
+  const manual = approval ? approval.action === 'manual_campaign' : launchMode === 'manual';
+  const [tab, setTab] = useState(
+    approval?.action === 'manual_campaign' ||
+      (!approval && ['draft', 'rejected'].includes(plan.status))
+      ? 'Manual guide'
+      : 'Plan',
+  );
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState('');
   const [changes, setChanges] = useState({
@@ -874,7 +891,18 @@ function PlanReview({
         <Badge tone="amber">{plan.confidence} confidence</Badge>
         <span className="muted">Version {plan.version}</span>
       </div>
-      {(!approval || approval.action === 'launch_campaign') &&
+      {(!approval || ['launch_campaign', 'manual_campaign'].includes(approval.action)) && (
+        <LaunchModePicker
+          value={manual ? 'manual' : 'direct'}
+          disabled={!!approval || busy || !['draft', 'rejected'].includes(plan.status)}
+          onChange={(value) => {
+            setLaunchMode(value);
+            setTab(value === 'manual' ? 'Manual guide' : 'Plan');
+          }}
+        />
+      )}
+      {!manual &&
+        (!approval || approval.action === 'launch_campaign') &&
         ['draft', 'rejected', 'pending_approval', 'approved'].includes(plan.status) && (
           <div className="notice">
             <ShieldCheck size={18} />
@@ -962,15 +990,17 @@ function PlanReview({
       )}
       <ActionSummary approval={approval} />
       <div className="tabs">
-        {['Plan', 'Research', 'Creatives', 'Risks'].map((label) => (
-          <button
-            key={label}
-            className={tab === label ? 'selected' : ''}
-            onClick={() => setTab(label)}
-          >
-            {label}
-          </button>
-        ))}
+        {[...(manual ? ['Manual guide'] : []), 'Plan', 'Research', 'Creatives', 'Risks'].map(
+          (label) => (
+            <button
+              key={label}
+              className={tab === label ? 'selected' : ''}
+              onClick={() => setTab(label)}
+            >
+              {label}
+            </button>
+          ),
+        )}
       </div>
       {editing ? (
         <form
@@ -1052,6 +1082,17 @@ function PlanReview({
           {changes.ads.map((ad, i) => (
             <div className="creative-edit" key={ad.id}>
               <h3>Creative {i + 1}</h3>
+              {changes.ads.length > 1 && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() =>
+                    setChanges({ ...changes, ads: changes.ads.filter((_, index) => index !== i) })
+                  }
+                >
+                  Remove this creative from the new version
+                </button>
+              )}
               {['hook', 'headline', 'primaryText', 'concept', 'imageUrl'].map((key) => (
                 <Field label={key.replace(/([A-Z])/g, ' $1')} key={key}>
                   {['primaryText', 'concept'].includes(key) ? (
@@ -1110,6 +1151,15 @@ function PlanReview({
         </form>
       ) : (
         <>
+          {tab === 'Manual guide' && manual && (
+            <ManualCampaignGuide
+              plan={plan}
+              approval={approval}
+              data={data}
+              busy={busy}
+              link={linkManual}
+            />
+          )}
           {tab === 'Plan' && (
             <>
               <div className="review-metrics">
@@ -1431,6 +1481,19 @@ function PlanReview({
               </Field>
             )}
             <div className="modal-actions">
+              {manual &&
+                approval &&
+                ['approved', 'pending'].includes(approval.status) &&
+                Date.parse(approval.expiresAt) <= Date.now() &&
+                !(data.manualCampaigns || []).some((r) => r.planId === plan.id) && (
+                  <button
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() => submit(plan, 'manual')}
+                  >
+                    Request renewed manual review
+                  </button>
+                )}
               {canEdit && (
                 <button
                   className="button secondary"
@@ -1445,10 +1508,10 @@ function PlanReview({
               {!approval && ['draft', 'rejected'].includes(plan.status) && (
                 <button
                   className="button primary"
-                  disabled={busy || !plan.validation.valid || !launchReady}
-                  onClick={() => submit(plan)}
+                  disabled={busy || !plan.validation.valid || (!manual && !launchReady)}
+                  onClick={() => submit(plan, launchMode)}
                 >
-                  Request approval
+                  {manual ? 'Request manual guide approval' : 'Request approval'}
                   <ArrowRight size={16} />
                 </button>
               )}
@@ -1464,16 +1527,18 @@ function PlanReview({
                   <button
                     className="button primary"
                     disabled={busy || (approval.action === 'launch_campaign' && !launchReady)}
-                    onClick={() => decide(approval, 'approve', comment, true)}
+                    onClick={() => decide(approval, 'approve', comment, !manual)}
                   >
                     <CheckCheck size={17} />
-                    {approval.action === 'launch_campaign'
-                      ? 'Approve & launch'
-                      : 'Approve & execute'}
+                    {manual
+                      ? 'Approve guide — no automatic spend'
+                      : approval.action === 'launch_campaign'
+                        ? 'Approve & launch'
+                        : 'Approve & execute'}
                   </button>
                 </>
               )}
-              {approval?.status === 'approved' && permitted && (
+              {approval?.status === 'approved' && permitted && !manual && (
                 <button
                   className="button primary"
                   disabled={busy || (approval.action === 'launch_campaign' && !launchReady)}
@@ -1497,7 +1562,7 @@ function PlanReview({
   );
 }
 
-function Performance({ data, busy, sync, analyze, action, propose }) {
+function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
   const [level, setLevel] = useState('campaign');
   const rows = [...data.performance]
     .filter((r) => r.level === level)
@@ -1552,7 +1617,30 @@ function Performance({ data, busy, sync, analyze, action, propose }) {
             )}
           </div>
         ))}
-        {!data.campaigns.length && (
+        {(data.manualCampaigns || []).map((record) => (
+          <div className="manual-campaign-row" key={record.id}>
+            <div>
+              <strong>{record.name}</strong>
+              <p>Manual campaign · {record.metaCampaignId}</p>
+              <small>
+                {record.verification.effectiveStatus || 'Unverified'} ·{' '}
+                {record.verification.status.replaceAll('_', ' ')}
+              </small>
+            </div>
+            <button
+              className="button secondary"
+              onClick={() =>
+                showPlan(
+                  data.plans.find((p) => p.id === record.planId),
+                  data.approvals.find((a) => a.id === record.approvalId),
+                )
+              }
+            >
+              Open manual guide & verification
+            </button>
+          </div>
+        ))}
+        {!data.campaigns.length && !(data.manualCampaigns || []).length && (
           <Empty
             icon={Megaphone}
             title="No launched campaigns"
@@ -2159,14 +2247,17 @@ function App() {
   function showPlan(plan, approval = null) {
     const request =
       approval ||
-      data.approvals.find(
-        (a) =>
-          a.planId === plan.id &&
-          ['pending', 'approved', 'failed', 'needs_reconciliation', 'executing'].includes(
-            a.status,
-          ) &&
-          a.action === 'launch_campaign',
-      );
+      [...data.approvals]
+        .reverse()
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .find(
+          (a) =>
+            a.planId === plan.id &&
+            ['pending', 'approved', 'failed', 'needs_reconciliation', 'executing'].includes(
+              a.status,
+            ) &&
+            ['launch_campaign', 'manual_campaign'].includes(a.action),
+        );
     setModal({
       kind: 'plan',
       plan: data.plans.find((p) => p.id === plan.id) || plan,
@@ -2231,10 +2322,16 @@ function App() {
         });
         await refresh();
         if (decision === 'approve' && executeNow) {
+          if (approval.action === 'manual_campaign')
+            throw new Error('Manual guide approval cannot launch API ads.');
           setModal({ kind: 'plan', plan: updated.snapshot, approval: updated });
           await executeRequest(updated);
         }
-        setModal(null);
+        setModal(
+          approval.action === 'manual_campaign'
+            ? { kind: 'plan', plan: updated.snapshot, approval: updated }
+            : null,
+        );
       },
       decision === 'approve'
         ? `Approved${executeNow ? ' and executed through MCP' : ''}.${mode === 'demo' ? ' Demo actions only.' : ''}`
@@ -2649,6 +2746,24 @@ function App() {
               busy={busy}
               decide={decide}
               execute={execute}
+              linkManual={(approval, metaCampaignId, replaceUnverified = false) =>
+                run(async () => {
+                  const linked = await api(`/approvals/${approval.id}/manual-campaign`, 'POST', {
+                    metaCampaignId,
+                    replaceUnverified,
+                  });
+                  await refresh();
+                  setToast({
+                    text:
+                      linked.verification.status === 'settings_match'
+                        ? 'Readable Facebook settings match. Complete the remaining manual checks.'
+                        : linked.verification.status === 'mismatch'
+                          ? 'Campaign linked. Some settings differ from the approved plan; review the details.'
+                          : 'Campaign ID saved. Meta verification is incomplete; review the details.',
+                  });
+                  return linked;
+                })
+              }
               checkLaunch={(plan) =>
                 run(async () => {
                   const check = await api(`/plans/${plan.id}/preflight`, 'POST', {});
@@ -2663,9 +2778,9 @@ function App() {
                 setModal(null);
                 setPage('Research studio');
               }}
-              submit={(plan) =>
+              submit={(plan, launchMode) =>
                 run(async () => {
-                  const approval = await api(`/plans/${plan.id}/submit`, 'POST', {});
+                  const approval = await api(`/plans/${plan.id}/submit`, 'POST', { launchMode });
                   await refresh();
                   setModal({ kind: 'plan', plan: approval.snapshot, approval });
                 }, 'Plan submitted for human approval.')

@@ -1,0 +1,248 @@
+.launch-mode-picker {
+  border: 1px solid #d7e1d5;
+  border-radius: 12px;
+  padding: 18px;
+  margin: 20px 0;
+  min-width: 0;
+}
+.launch-mode-picker legend {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 0 8px;
+}
+.launch-mode-picker label {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #dce3d7;
+  border-radius: 9px;
+  margin: 8px 0;
+  cursor: pointer;
+  align-items: flex-start;
+}
+.launch-mode-picker label.selected {
+  background: #f0f5e9;
+  border-color: #628c63;
+}
+.launch-mode-picker input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.launch-mode-picker small {
+  display: block;
+  font-size: 15px;
+  line-height: 1.6;
+  margin-top: 5px;
+}
+.guide-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+.manual-guide {
+  font-size: 16px;
+  line-height: 1.75;
+  min-width: 0;
+}
+.manual-guide p {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.guide-copy-status {
+  min-height: 28px;
+  color: #276244;
+}
+.guide-step {
+  border: 1px solid #dce3d7;
+  border-radius: 12px;
+  margin: 18px 0;
+  overflow: visible;
+}
+.guide-step summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 700;
+  background: #f3f6ee;
+  border-radius: 12px;
+}
+.guide-step summary small {
+  font-size: 14px;
+  font-weight: 400;
+}
+.guide-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #1c4835;
+  color: white;
+}
+.guide-field {
+  padding: 16px 20px;
+  border-top: 1px solid #e7ebe4;
+}
+.guide-field-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.guide-value {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 8px 0;
+}
+.guide-value span {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  flex: 1;
+}
+.guide-value .button {
+  flex-shrink: 0;
+  min-height: 40px;
+}
+.guide-field p {
+  font-size: 15px;
+  color: #526455;
+  line-height: 1.7;
+}
+.guide-buyer {
+  border-left: 4px solid #8b9e71;
+  padding: 12px 18px;
+  background: #f7f9f3;
+}
+.guide-creative {
+  padding: 18px;
+  border: 1px solid #dce3d7;
+  border-radius: 12px;
+  margin: 16px 0;
+}
+.guide-creative h4 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+.guide-creative img,
+.guide-creative video {
+  display: block;
+  max-width: 100%;
+  max-height: 250px;
+  object-fit: contain;
+  margin: 12px 0;
+}
+.guide-creative > a {
+  margin: 6px;
+}
+.guide-link {
+  border: 2px solid #789d78;
+  border-radius: 12px;
+  padding: 18px;
+  margin: 22px 0;
+}
+.guide-link form {
+  display: grid;
+  gap: 12px;
+}
+.guide-budget-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.guide-budget-summary > div {
+  background: #f2f6ec;
+  border: 1px solid #dae5d2;
+  border-radius: 10px;
+  padding: 16px;
+}
+.guide-budget-summary span {
+  display: block;
+  font-size: 15px;
+}
+.guide-budget-summary strong {
+  display: block;
+  font-size: 21px;
+  margin-top: 8px;
+}
+.guide-metrics dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.guide-metrics dd {
+  font-weight: 700;
+  margin: 0;
+  font-size: 18px;
+}
+.guide-metrics dt {
+  font-size: 14px;
+}
+.manual-verification {
+  padding: 16px;
+  background: #f2f6ec;
+  margin-top: 18px;
+  border-radius: 8px;
+}
+.manual-guide li {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.manual-guide .field-help-tooltip {
+  max-width: min(320px, 70vw);
+}
+.manual-campaign-row {
+  padding: 16px 0;
+  border-top: 1px solid #e2e7de;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.manual-campaign-row strong {
+  display: block;
+}
+.manual-campaign-row > div {
+  flex: 1;
+  min-width: 180px;
+}
+@media (max-width: 600px) {
+  .guide-field {
+    padding: 14px 12px;
+  }
+  .guide-value {
+    flex-wrap: wrap;
+  }
+  .guide-value span {
+    flex-basis: 100%;
+  }
+  .guide-toolbar .button {
+    width: 100%;
+    justify-content: center;
+  }
+  .guide-link {
+    padding: 12px;
+  }
+  .launch-mode-picker {
+    padding: 12px;
+  }
+  .guide-step summary {
+    padding: 14px;
+  }
+  .guide-step summary small {
+    flex-basis: 100%;
+  }
+  .manual-guide {
+    font-size: 16px;
+  }
+}

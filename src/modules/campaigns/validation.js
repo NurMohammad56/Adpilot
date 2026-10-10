@@ -30,6 +30,7 @@ export const planFingerprint = (plan) =>
     researchProjectId: plan.researchProjectId,
     researchDecisionHash: plan.researchDecisionHash,
     accountCurrency: plan.accountCurrency,
+    launchMode: plan.launchMode,
   });
 export const businessPolicyHash = (business) =>
   hash({

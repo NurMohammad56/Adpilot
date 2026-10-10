@@ -1,0 +1,13 @@
+{
+  "Request renewed manual review": "Manual গাইডের নতুন অনুমোদন চান",
+  "Manual guide": "নিজে চালুর গাইড",
+  "manual campaign": "নিজে তৈরি campaign-এর গাইড",
+  "Request manual guide approval": "Manual গাইড অনুমোদনের জন্য পাঠান",
+  "Approve guide — no automatic spend": "গাইড অনুমোদন করুন — নিজে থেকে খরচ হবে না",
+  "Remove this creative from the new version": "নতুন version থেকে এই creative বাদ দিন",
+  "Open manual guide & verification": "Manual গাইড ও যাচাই দেখুন",
+  "Next, choose Manual guided launch or Direct launch. Manual is recommended while Meta API launch is blocked. You will review the complete Facebook setup guide before approving.": "পরের ধাপে নিজে চালুর গাইড অথবা Direct launch নির্বাচন করুন। Meta API launch বন্ধ থাকলে Manual ব্যবহার করুন। অনুমোদনের আগে সম্পূর্ণ Facebook setup গাইড দেখবেন।",
+  "Readable Facebook settings match. Complete the remaining manual checks.": "Facebook থেকে পাওয়া setting মিলে গেছে। বাকি manual checkগুলো শেষ করুন।",
+  "Campaign linked. Some settings differ from the approved plan; review the details.": "Campaign link হয়েছে। কিছু setting approved plan-এর সঙ্গে মেলেনি; বিস্তারিত দেখুন।",
+  "Campaign ID saved. Meta verification is incomplete; review the details.": "Campaign ID save হয়েছে। Meta যাচাই অসম্পূর্ণ; বিস্তারিত দেখুন।"
+}

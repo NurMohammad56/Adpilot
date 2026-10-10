@@ -105,6 +105,12 @@ export function createApp(runtime) {
     rateLimit({
       windowMs: 60000,
       limit: 180,
+      message: {
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many requests. Wait a minute and retry; your inputs are preserved.',
+        },
+      },
       standardHeaders: 'draft-8',
       legacyHeaders: false,
       ...(jobs?.connection ? { store: redisRateStore(jobs.connection, 'api') } : {}),
@@ -190,6 +196,12 @@ export function createApp(runtime) {
   const authLimit = rateLimit({
     windowMs: 15 * 60000,
     limit: 30,
+    message: {
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Too many sign-in attempts. Wait before trying again.',
+      },
+    },
     standardHeaders: 'draft-8',
     legacyHeaders: false,
     ...(jobs?.connection ? { store: redisRateStore(jobs.connection, 'auth') } : {}),
@@ -519,8 +531,40 @@ export function createApp(runtime) {
       ),
     ),
   );
-  app.post('/api/plans/:id/submit', parse(z.object({}).strict()), async (req, res) =>
-    res.status(201).json(await platform.submitPlan(req.user, req.params.id)),
+  app.post(
+    '/api/plans/:id/submit',
+    parse(z.object({ launchMode: z.enum(['manual', 'direct']).default('direct') }).strict()),
+    async (req, res) =>
+      res
+        .status(201)
+        .json(await platform.submitPlan(req.user, req.params.id, req.input.launchMode)),
+  );
+  app.post(
+    '/api/approvals/:id/manual-campaign',
+    parse(
+      z
+        .object({
+          metaCampaignId: z
+            .string()
+            .trim()
+            .regex(/^\d{5,30}$/),
+          replaceUnverified: z.boolean().default(false),
+        })
+        .strict(),
+    ),
+    async (req, res) => {
+      platform.requireApprover(req.user);
+      res.json(
+        await exclusive(`manual-link:${req.user.businessId}:${req.params.id}`, () =>
+          platform.linkManual(
+            req.user,
+            req.params.id,
+            req.input.metaCampaignId,
+            req.input.replaceUnverified,
+          ),
+        ),
+      );
+    },
   );
   app.post(
     '/api/approvals/:id/decision',

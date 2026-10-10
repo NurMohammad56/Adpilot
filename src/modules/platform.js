@@ -11,6 +11,7 @@ import { workspaceLLM, publicAI, configureAI } from '../integrations/credentials
 import { createServicePlan } from './campaigns/service-plan.js';
 import { resolveLocations } from './research/locations.js';
 import { actualResults } from './analytics/outcomes.js';
+import { linkManualCampaign } from './campaigns/manual-launch.js';
 
 const canApprove = (user) => ['admin', 'approver'].includes(user.role);
 const integrationHash = (integration) =>
@@ -91,6 +92,7 @@ export class Platform {
       'optimization_recommendations',
       'audit_logs',
       'jobs',
+      'manual_campaigns',
     ];
     const rows = await Promise.all(
       names.map((name) =>
@@ -111,6 +113,7 @@ export class Platform {
       products: data.products,
       plans: data.campaign_plans,
       campaigns: data.campaigns,
+      manualCampaigns: data.manual_campaigns,
       adSets: data.ad_sets,
       ads: data.ads,
       approvals: data.approval_requests,
@@ -605,17 +608,52 @@ export class Platform {
     });
     return check;
   }
-  async submitPlan(user, planId) {
+  async linkManual(user, approvalId, metaCampaignId, replaceUnverified = false) {
+    return linkManualCampaign(this, user, approvalId, metaCampaignId, replaceUnverified);
+  }
+  async submitPlan(user, planId, launchMode = 'direct') {
+    assert(
+      ['manual', 'direct'].includes(launchMode),
+      422,
+      'LAUNCH_MODE',
+      'Choose manual or direct launch.',
+    );
     return this.store.transaction(async () => {
-      const plan = await this.owned('campaign_plans', planId, user);
+      let plan = await this.owned('campaign_plans', planId, user);
+      const earlier = await this.store.list('approval_requests', {
+        businessId: user.businessId,
+        planId,
+      });
+      const renewableManual =
+        launchMode === 'manual' &&
+        plan.launchMode === 'manual' &&
+        ['approved', 'pending_approval'].includes(plan.status) &&
+        earlier.some(
+          (a) =>
+            a.action === 'manual_campaign' &&
+            ['approved', 'pending'].includes(a.status) &&
+            Date.parse(a.expiresAt) <= Date.now(),
+        ) &&
+        !earlier.some(
+          (a) => ['pending', 'approved'].includes(a.status) && Date.parse(a.expiresAt) > Date.now(),
+        );
       assert(
-        ['draft', 'rejected'].includes(plan.status),
+        ['draft', 'rejected'].includes(plan.status) || renewableManual,
         409,
         'PLAN_STATE',
         'Plan is already submitted or locked',
       );
       const { integration } = await this.assertFresh(plan, user);
-      if (this.config.mode === 'live') {
+      if (renewableManual)
+        for (const a of earlier.filter((a) => a.status === 'pending'))
+          await this.store.update('approval_requests', a.id, { status: 'expired' });
+      assert(
+        !(await this.store.find('manual_campaigns', { businessId: user.businessId, planId })),
+        409,
+        'MANUAL_ALREADY_LINKED',
+        'This plan already has a manually created campaign.',
+      );
+      if (launchMode === 'direct' && this.config.mode === 'live') {
         const checks = (
           await this.store.list('campaign_launch_checks', { businessId: user.businessId, planId })
         ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -633,10 +671,19 @@ export class Platform {
           { errors: check?.issue?.message ? [check.issue.message] : [] },
         );
       }
+      // Only editable drafts change mode. The mode is bound into the immutable approval.
+      if (launchMode === 'manual' || plan.launchMode !== undefined) {
+        plan = { ...plan, launchMode };
+        plan.fingerprint = planFingerprint(plan);
+        plan = await this.store.update('campaign_plans', planId, {
+          launchMode,
+          fingerprint: plan.fingerprint,
+        });
+      }
       const request = {
         businessId: user.businessId,
         planId,
-        action: 'launch_campaign',
+        action: launchMode === 'manual' ? 'manual_campaign' : 'launch_campaign',
         payload: {},
         snapshot: plan,
         snapshotHash: hash(plan),
@@ -695,9 +742,9 @@ export class Platform {
         decidedAt: now(),
         comment,
       });
-      if (approval.action === 'launch_campaign')
+      if (['launch_campaign', 'manual_campaign'].includes(approval.action))
         await this.store.update('campaign_plans', approval.planId, { status });
-      if (approval.action === 'launch_campaign')
+      if (['launch_campaign', 'manual_campaign'].includes(approval.action))
         for (const decisionRecord of await this.store.list('ai_decisions', {
           planId: approval.planId,
           businessId: user.businessId,
@@ -936,6 +983,22 @@ export class Platform {
     return this.store.transaction(async () => {
       const approval = await this.store.get('approval_requests', approvalId);
       assert(approval, 404, 'NOT_FOUND', 'Approval not found');
+      assert(
+        approval.action !== 'manual_campaign',
+        422,
+        'MANUAL_NOT_EXECUTABLE',
+        'Manual guide approval cannot execute API ads. Create the campaign in Ads Manager.',
+      );
+      if (approval.action === 'launch_campaign')
+        assert(
+          !(await this.store.find('manual_campaigns', {
+            businessId: approval.businessId,
+            planId: approval.planId,
+          })),
+          409,
+          'MANUAL_ALREADY_LINKED',
+          'This plan is already linked to a manual campaign.',
+        );
       if (approval.status === 'executed') return { alreadyExecuted: true, approval };
       assert(
         approval.status === 'approved',
@@ -1006,6 +1069,17 @@ export class Platform {
       const reservations = (
         await this.store.list('campaigns', { businessId: approval.businessId })
       ).filter((c) => c.id !== campaign?.id);
+      // Even a user-reported manual launch consumes its reviewed reservation until checked.
+      reservations.push(
+        ...(await this.store.list('manual_campaigns', { businessId: approval.businessId })).map(
+          (c) => ({
+            ...c,
+            status: ['PAUSED', 'DELETED', 'ARCHIVED'].includes(c.verification.effectiveStatus)
+              ? 'paused'
+              : 'active',
+          }),
+        ),
+      );
       if (approval.action !== 'pause_campaign') {
         assert(
           reservations
@@ -1075,7 +1149,9 @@ export class Platform {
     };
     const before = await this.store.get('approval_requests', approvalId);
     assert(
-      before && expectedTools[before.action] === toolName,
+      before &&
+        Object.hasOwn(expectedTools, before.action) &&
+        expectedTools[before.action] === toolName,
       422,
       'TOOL_ACTION_MISMATCH',
       'Tool must match the exact approved action',
@@ -1393,7 +1469,8 @@ export class Platform {
         ].some(Boolean)
       ) {
         assert(
-          !(await this.store.list('campaigns', { businessId: user.businessId })).length,
+          !(await this.store.list('campaigns', { businessId: user.businessId })).length &&
+            !(await this.store.list('manual_campaigns', { businessId: user.businessId })).length,
           409,
           'ACCOUNT_BOUND',
           'This workspace has campaigns. Create another workspace for a different account or Page.',

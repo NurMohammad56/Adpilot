@@ -11,6 +11,12 @@ const tools = {
   replace_creative: 'update_ad',
 };
 export async function executeViaMcp(approval, config) {
+  if (!Object.hasOwn(tools, approval.action))
+    throw new AppError(
+      422,
+      'MANUAL_NOT_EXECUTABLE',
+      'This approval is a manual guide. Create the campaign in Ads Manager; API execution is not authorized.',
+    );
   const client = new Client({ name: 'adpilot-api', version: '1.0.0' });
   const transport = new StdioClientTransport({
     command: process.execPath,

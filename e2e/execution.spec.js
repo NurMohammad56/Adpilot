@@ -37,6 +37,7 @@ for (const status of ['failed', 'needs_reconciliation']) {
       .click();
     await page.getByRole('button', { name: 'Generate campaign plan' }).last().click();
     const dialog = page.getByRole('dialog');
+    await dialog.getByRole('radio', { name: /Direct launch from AdPilot/ }).check();
     await dialog.getByRole('button', { name: 'Request approval', exact: true }).click();
     await dialog.getByRole('button', { name: 'Approve & launch', exact: true }).click();
     await expect(dialog.getByRole('alert')).toContainText(
@@ -88,6 +89,7 @@ test('a development-mode launch check explains the Meta setting and blocks reque
   await page.getByRole('navigation').getByRole('button', { name: 'Products', exact: true }).click();
   await page.getByRole('button', { name: 'Generate campaign plan' }).last().click();
   const dialog = page.getByRole('dialog');
+  await dialog.getByRole('radio', { name: /Direct launch from AdPilot/ }).check();
   await expect(
     dialog.getByRole('button', { name: 'Request approval', exact: true }),
   ).toBeDisabled();

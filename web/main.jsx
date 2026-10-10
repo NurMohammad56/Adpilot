@@ -822,7 +822,18 @@ function Approvals({ data, showPlan, busy, execute }) {
   );
 }
 
-function PlanReview({ plan, approval, data, busy, submit, decide, revise, execute, onResearch }) {
+function PlanReview({
+  plan,
+  approval,
+  data,
+  busy,
+  submit,
+  decide,
+  revise,
+  execute,
+  checkLaunch,
+  onResearch,
+}) {
   const [tab, setTab] = useState('Plan');
   const [editing, setEditing] = useState(false);
   const [comment, setComment] = useState('');
@@ -840,6 +851,15 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
   const b = plan.budgetRecommendation;
   const a = plan.audienceRecommendation;
   const permitted = ['admin', 'approver'].includes(data.user.role);
+  const launchCheck = (data.launchChecks || []).find(
+    (check) => check.planId === plan.id && check.fingerprint === plan.fingerprint,
+  );
+  const launchReady =
+    data.mode === 'demo' ||
+    (launchCheck?.ok &&
+      !launchCheck.demo &&
+      launchCheck.integrationUpdatedAt === (data.integration.updatedAt || null) &&
+      Date.now() - Date.parse(launchCheck.checkedAt) < 15 * 60000);
   const canEdit =
     (['draft', 'pending_approval', 'rejected'].includes(plan.status) ||
       (plan.status === 'failed' && plan.kind === 'service')) &&
@@ -854,6 +874,42 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
         <Badge tone="amber">{plan.confidence} confidence</Badge>
         <span className="muted">Version {plan.version}</span>
       </div>
+      {(!approval || approval.action === 'launch_campaign') &&
+        ['draft', 'rejected', 'pending_approval', 'approved'].includes(plan.status) && (
+          <div className="notice">
+            <ShieldCheck size={18} />
+            <div>
+              <strong>Meta launch readiness</strong>
+              <p>
+                Checks the account, campaign settings and creatives before approval. Images or
+                videos may be uploaded to Meta. This check creates no campaign or ad and spends no
+                advertising budget.
+              </p>
+              {launchCheck && (
+                <p>
+                  {launchCheck.ok ? 'Launch checks passed' : 'Launch blocked'}
+                  {launchCheck.issue?.message ? `: ${launchCheck.issue.message}` : ''}
+                </p>
+              )}
+              {launchCheck?.issue?.subcode === 1885183 && (
+                <p>
+                  Open your Meta Developer App dashboard and switch the app from Development to
+                  Live. Complete any Meta requirements shown there, then run this check again.{' '}
+                  <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer">
+                    Open Meta Developer Apps
+                  </a>
+                </p>
+              )}
+              <button
+                className="button secondary"
+                disabled={busy || !plan.validation.valid}
+                onClick={() => checkLaunch(plan)}
+              >
+                Check Meta launch readiness
+              </button>
+            </div>
+          </div>
+        )}
       {['failed', 'needs_reconciliation', 'executing'].includes(approval?.status) && (
         <div className="notice" role="alert">
           <ShieldCheck size={18} />
@@ -1389,7 +1445,7 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
               {!approval && ['draft', 'rejected'].includes(plan.status) && (
                 <button
                   className="button primary"
-                  disabled={busy || !plan.validation.valid}
+                  disabled={busy || !plan.validation.valid || !launchReady}
                   onClick={() => submit(plan)}
                 >
                   Request approval
@@ -1407,7 +1463,7 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
                   </button>
                   <button
                     className="button primary"
-                    disabled={busy}
+                    disabled={busy || (approval.action === 'launch_campaign' && !launchReady)}
                     onClick={() => decide(approval, 'approve', comment, true)}
                   >
                     <CheckCheck size={17} />
@@ -1420,7 +1476,7 @@ function PlanReview({ plan, approval, data, busy, submit, decide, revise, execut
               {approval?.status === 'approved' && permitted && (
                 <button
                   className="button primary"
-                  disabled={busy}
+                  disabled={busy || (approval.action === 'launch_campaign' && !launchReady)}
                   onClick={() => execute(approval)}
                 >
                   Execute approved action
@@ -2593,6 +2649,15 @@ function App() {
               busy={busy}
               decide={decide}
               execute={execute}
+              checkLaunch={(plan) =>
+                run(async () => {
+                  const check = await api(`/plans/${plan.id}/preflight`, 'POST', {});
+                  await refresh();
+                  if (!check.ok)
+                    throw new Error(check.issue?.message || 'Meta launch check failed');
+                  return check;
+                }, 'Meta launch checks passed. You can request approval.')
+              }
               onResearch={(projectId) => {
                 sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, projectId);
                 setModal(null);

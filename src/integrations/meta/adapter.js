@@ -20,6 +20,9 @@ function metaGeo(locations, integration) {
 }
 
 export class DemoMetaAdapter {
+  async preflight() {
+    return { demo: true, stories: [], assetSteps: [] };
+  }
   async accountSnapshot() {
     return {
       demo: true,
@@ -403,7 +406,20 @@ export class LiveMetaAdapter {
       accountStatus: account.account_status,
     };
   }
-  async launch(plan, integration, onStep) {
+  campaignPayload(plan) {
+    const budget = plan.budgetRecommendation;
+    return {
+      name: plan.name,
+      objective: plan.objective,
+      special_ad_categories: [],
+      status: 'PAUSED',
+      ...(budget.deliveryMode !== 'lifetime'
+        ? { spend_cap: Math.round(budget.totalBudget * 100) }
+        : {}),
+      is_adset_budget_sharing_enabled: false,
+    };
+  }
+  async preflight(plan, integration, onAsset = async () => {}) {
     try {
       await this.verify(integration);
     } catch (error) {
@@ -411,38 +427,60 @@ export class LiveMetaAdapter {
       throw error;
     }
     const act = `act_${integration.adAccountId}`;
-    const budget = plan.budgetRecommendation;
-    const audience = plan.audienceRecommendation;
-    const geo = audience.geoTargets?.length
-      ? regionalGeo(audience.geoTargets, plan.market)
-      : plan.kind === 'service'
-        ? { countries: audience.locations }
-        : metaGeo(audience.locations, integration);
-    const lifetime = budget.deliveryMode === 'lifetime';
-    const campaignPayload = {
-      name: plan.name,
-      objective: plan.objective,
-      special_ad_categories: [],
-      status: 'PAUSED',
-      ...(!lifetime ? { spend_cap: Math.round(budget.totalBudget * 100) } : {}),
-      is_adset_budget_sharing_enabled: false,
-    };
     // Meta validates campaign limits without creating an object or reserving remote spend.
     try {
       await this.request(integration, 'POST', `${act}/campaigns`, {
-        ...campaignPayload,
+        ...this.campaignPayload(plan),
         execution_options: ['validate_only'],
       });
     } catch (error) {
       error.details = { ...error.details, noRemoteMutation: true };
       throw error;
     }
+    const stories = [],
+      assetSteps = [];
+    try {
+      for (const ad of plan.ads) {
+        const story = await this.creativeStory(ad, plan, integration, async (step, metaId) => {
+          assetSteps.push({ step, metaId });
+          await onAsset(step, metaId);
+        });
+        await this.request(integration, 'POST', `${act}/adcreatives`, {
+          name: ad.headline,
+          object_story_spec: story,
+          execution_options: ['validate_only'],
+        });
+        stories.push(story);
+      }
+    } catch (error) {
+      // Images/videos may have been uploaded, but no campaign, ad set or ad has been created.
+      error.details = { ...error.details, noRemoteCampaign: true };
+      throw error;
+    }
+    return { demo: false, stories, assetSteps };
+  }
+  async launch(plan, integration, onStep) {
+    const { stories } = await this.preflight(plan, integration, onStep);
+    const act = `act_${integration.adAccountId}`;
+    const budget = plan.budgetRecommendation,
+      audience = plan.audienceRecommendation;
+    const lifetime = budget.deliveryMode === 'lifetime';
+    const geo = audience.geoTargets?.length
+      ? regionalGeo(audience.geoTargets, plan.market)
+      : plan.kind === 'service'
+        ? { countries: audience.locations }
+        : metaGeo(audience.locations, integration);
     let campaign;
     try {
-      campaign = await this.request(integration, 'POST', `${act}/campaigns`, campaignPayload);
+      campaign = await this.request(
+        integration,
+        'POST',
+        `${act}/campaigns`,
+        this.campaignPayload(plan),
+      );
     } catch (error) {
       if (error.details?.outcome === 'rejected')
-        error.details = { ...error.details, noRemoteMutation: true };
+        error.details = { ...error.details, noRemoteCampaign: true };
       throw error;
     }
     assert(
@@ -482,8 +520,8 @@ export class LiveMetaAdapter {
     const adset = await this.request(integration, 'POST', `${act}/adsets`, adsetPayload);
     await onStep('adset', adset.id);
     const adIds = [];
-    for (const ad of plan.ads) {
-      const story = await this.creativeStory(ad, plan, integration, onStep);
+    for (const [index, ad] of plan.ads.entries()) {
+      const story = stories[index];
       const creative = await this.request(integration, 'POST', `${act}/adcreatives`, {
         name: ad.headline,
         object_story_spec: story,

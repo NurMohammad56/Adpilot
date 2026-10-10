@@ -124,6 +124,11 @@ export class Platform {
         await this.store.find('integrations', { businessId: user.businessId, provider: 'AI' }),
       ),
       researchProjects: await this.store.list('research_projects', { businessId: user.businessId }),
+      launchChecks: (
+        await this.store.list('campaign_launch_checks', { businessId: user.businessId })
+      )
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 100),
       storage: {
         driver: this.media.storage.driver,
         readyFiles: (
@@ -555,6 +560,51 @@ export class Platform {
     );
     return { product, business, integration };
   }
+  async checkLaunch(user, planId) {
+    const plan = await this.owned('campaign_plans', planId, user);
+    assert(
+      ['draft', 'rejected', 'approved', 'pending_approval'].includes(plan.status),
+      409,
+      'PLAN_STATE',
+      'Prepare a current plan version before checking launch readiness.',
+    );
+    const { integration } = await this.assertFresh(plan, user);
+    let issue;
+    let demo = this.config.mode === 'demo';
+    try {
+      const result = await this.meta.preflight(plan, integration);
+      demo = result.demo === true;
+    } catch (error) {
+      issue = {
+        code: error.code || 'PREFLIGHT_FAILED',
+        message: error.message,
+        metaCode: error.details?.metaCode,
+        subcode: error.details?.subcode,
+        title: error.details?.title,
+        traceId: error.details?.traceId,
+      };
+    }
+    const check = await this.store.insert('campaign_launch_checks', {
+      businessId: user.businessId,
+      planId: plan.id,
+      fingerprint: plan.fingerprint,
+      integrationRevision: hash({
+        identity: integrationHash(integration),
+        updatedAt: integration?.updatedAt,
+      }),
+      integrationUpdatedAt: integration?.updatedAt || null,
+      ok: !issue,
+      issue: issue || null,
+      demo,
+      checkedAt: now(),
+    });
+    await this.audit(user, 'campaign.launch_checked', plan.id, {
+      checkId: check.id,
+      ok: check.ok,
+      issue,
+    });
+    return check;
+  }
   async submitPlan(user, planId) {
     return this.store.transaction(async () => {
       const plan = await this.owned('campaign_plans', planId, user);
@@ -564,7 +614,25 @@ export class Platform {
         'PLAN_STATE',
         'Plan is already submitted or locked',
       );
-      await this.assertFresh(plan, user);
+      const { integration } = await this.assertFresh(plan, user);
+      if (this.config.mode === 'live') {
+        const checks = (
+          await this.store.list('campaign_launch_checks', { businessId: user.businessId, planId })
+        ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        const check = checks[0];
+        assert(
+          check?.ok &&
+            !check.demo &&
+            check.fingerprint === plan.fingerprint &&
+            check.integrationRevision ===
+              hash({ identity: integrationHash(integration), updatedAt: integration?.updatedAt }) &&
+            Date.now() - Date.parse(check.checkedAt) < 15 * 60000,
+          422,
+          'PLAN_PREFLIGHT_REQUIRED',
+          'Run and pass the Meta launch readiness check before requesting approval.',
+          { errors: check?.issue?.message ? [check.issue.message] : [] },
+        );
+      }
       const request = {
         businessId: user.businessId,
         planId,
@@ -1149,8 +1217,8 @@ export class Platform {
         const current = await this.store.get('campaigns', campaign.id);
         const noRemoteMutation =
           approval.action === 'launch_campaign' &&
-          error.details?.noRemoteMutation === true &&
-          !Object.keys(current.steps || {}).length;
+          (error.details?.noRemoteMutation === true || error.details?.noRemoteCampaign === true) &&
+          Object.keys(current.steps || {}).every((step) => step.startsWith('asset:'));
         const status = noRemoteMutation ? 'failed' : 'needs_reconciliation';
         const executionError = {
           code: error.code || 'ACTION_FAILED',
@@ -1160,7 +1228,8 @@ export class Platform {
           traceId: error.details?.traceId,
           title: error.details?.title,
           operation: error.details?.operation,
-          noRemoteMutation,
+          noRemoteMutation: error.details?.noRemoteMutation === true,
+          noRemoteCampaign: noRemoteMutation,
         };
         await this.store.update('campaigns', campaign.id, {
           status,

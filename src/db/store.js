@@ -37,6 +37,7 @@ export const collections = [
   'targeting_locations',
   'business_outcomes',
   'account_snapshots',
+  'campaign_launch_checks',
 ];
 const stamp = (value) => ({
   ...value,

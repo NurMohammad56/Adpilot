@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { LiveMetaAdapter, DemoMetaAdapter } from '../src/integrations/meta/adapter.js';
 import { AppError, seal } from '../src/utils/core.js';
-import { fixture, approved } from './helpers.js';
+import { fixture, approved, productInput } from './helpers.js';
 
 test('definitive rejection before any remote mutation releases budget without reusing approval', async () => {
   class RejectingMeta extends DemoMetaAdapter {
@@ -173,7 +173,9 @@ test('lifetime tests set one exact total at the ad set and validate before creat
   );
   assert.deepEqual(
     adapter.calls.filter((c) => c.payload.status === 'ACTIVE').map((c) => c.resource),
-    ['6', '4', '2'],
+    ['ad:one', 'adset', 'campaign'].map(
+      (step) => checkpoints.find((c) => c.step === step).remoteId,
+    ),
   );
   assert.deepEqual(
     checkpoints.map((c) => c.step),
@@ -183,8 +185,14 @@ test('lifetime tests set one exact total at the ad set and validate before creat
   delete unchanged.budgetRecommendation.deliveryMode;
   const legacy = new RecordingMeta();
   await legacy.launch(unchanged, { adAccountId: '123' }, async () => {});
-  assert.equal(legacy.calls[1].payload.spend_cap, 258307);
-  assert.equal(legacy.calls[3].payload.daily_budget, 36901);
+  assert.equal(
+    legacy.calls.filter((c) => c.resource.endsWith('/campaigns'))[1].payload.spend_cap,
+    258307,
+  );
+  assert.equal(
+    legacy.calls.filter((c) => c.resource.endsWith('/adsets'))[1].payload.daily_budget,
+    36901,
+  );
 });
 
 test('a failed campaign validation creates no remote object and records that outcome', async () => {
@@ -207,4 +215,120 @@ test('a failed campaign validation creates no remote object and records that out
       return true;
     },
   );
+});
+
+test('development-mode creative rejection occurs before a campaign or ad set is created', async () => {
+  class DevelopmentMeta extends LiveMetaAdapter {
+    constructor() {
+      super({});
+      this.calls = [];
+    }
+    async verify() {}
+    async creativeStory(ad, plan, integration, onAsset) {
+      await onAsset('asset:image', 'uploaded-hash');
+      return { page_id: '123' };
+    }
+    async request(integration, method, resource, payload) {
+      this.calls.push({ resource, payload });
+      if (resource.endsWith('/adcreatives'))
+        throw new AppError(502, 'META_REJECTED', 'App is in Development mode', {
+          subcode: 1885183,
+          outcome: 'rejected',
+        });
+      assert.deepEqual(payload.execution_options, ['validate_only']);
+      return { success: true };
+    }
+  }
+  const meta = new DevelopmentMeta(),
+    f = await fixture({ meta });
+  try {
+    await f.store.insert('integrations', {
+      businessId: f.user.businessId,
+      provider: 'META',
+      adAccountId: '123',
+      pageId: '456',
+      pixelId: '789',
+    });
+    const { approval } = await approved(f);
+    await assert.rejects(f.platform.executeApproved(approval.id, 'create_campaign'), {
+      code: 'META_REJECTED',
+    });
+    const c = (await f.store.list('campaigns'))[0];
+    assert.equal(c.status, 'failed');
+    assert.equal(c.steps['asset:image'], 'uploaded-hash');
+    assert.equal(c.executionError.noRemoteCampaign, true);
+    assert.equal(c.executionError.noRemoteMutation, false);
+    assert.equal(
+      meta.calls.filter(
+        (row) => row.resource.endsWith('/campaigns') && !row.payload.execution_options,
+      ).length,
+      0,
+    );
+    assert.equal(meta.calls.filter((row) => row.resource.endsWith('/adsets')).length, 0);
+    assert.equal(meta.calls.filter((row) => row.payload.status === 'ACTIVE').length, 0);
+  } finally {
+    await f.close();
+  }
+});
+
+test('live approval requires a recent successful check scoped to the plan and current account', async () => {
+  const f = await fixture();
+  try {
+    await f.platform.updateProduct(f.user, f.product.id, {
+      ...productInput,
+      landingUrl: 'https://example.com',
+      imageUrl: 'https://example.com/creative.png',
+    });
+    await f.store.insert('integrations', {
+      businessId: f.user.businessId,
+      provider: 'META',
+      adAccountId: '123',
+      pageId: '456',
+      pixelId: '789',
+      verifiedAt: new Date().toISOString(),
+      currency: 'BDT',
+      locationMap: {
+        Dhaka: { country_code: 'BD', type: 'city', key: '1' },
+        Chattogram: { country_code: 'BD', type: 'city', key: '2' },
+      },
+    });
+    const plan = await f.platform.createPlan(f.user, f.product.id),
+      before = structuredClone(plan);
+    f.config.mode = 'live';
+    await assert.rejects(f.platform.submitPlan(f.user, plan.id), {
+      code: 'PLAN_PREFLIGHT_REQUIRED',
+    });
+    f.meta.preflight = async () => {
+      throw new AppError(502, 'META_REJECTED', 'App in Development mode', { subcode: 1885183 });
+    };
+    const blocked = await f.platform.checkLaunch(f.user, plan.id);
+    assert.equal(blocked.ok, false);
+    assert.equal(blocked.issue.subcode, 1885183);
+    await f.store.update('campaign_launch_checks', blocked.id, {
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    assert.deepEqual(await f.store.get('campaign_plans', plan.id), before);
+    await assert.rejects(f.platform.submitPlan(f.user, plan.id), {
+      code: 'PLAN_PREFLIGHT_REQUIRED',
+    });
+    f.meta.preflight = async () => ({ demo: false });
+    const passed = await f.platform.checkLaunch(f.user, plan.id);
+    assert.equal(passed.ok, true);
+    assert.equal((await f.store.list('campaigns')).length, 0);
+    const integration = await f.platform.integration(f.user.businessId);
+    await f.store.update('integrations', integration.id, { updatedAt: '2099-01-01T00:00:00.000Z' });
+    // Any provider credential/account update must invalidate the earlier check, even if asset IDs stay the same.
+    await assert.rejects(f.platform.submitPlan(f.user, plan.id), {
+      code: 'PLAN_PREFLIGHT_REQUIRED',
+    });
+    await f.platform.checkLaunch(f.user, plan.id);
+    const approval = await f.platform.submitPlan(f.user, plan.id);
+    assert.equal(approval.status, 'pending');
+    await assert.rejects(
+      f.platform.checkLaunch({ ...f.user, businessId: 'another-workspace' }, plan.id),
+      { code: 'NOT_FOUND' },
+    );
+  } finally {
+    await f.close();
+  }
 });

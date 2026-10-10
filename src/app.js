@@ -512,6 +512,13 @@ export function createApp(runtime) {
   app.post('/api/plans/:id/revisions', parse(planEditSchema), async (req, res) =>
     res.status(201).json(await platform.revisePlan(req.user, req.params.id, req.input)),
   );
+  app.post('/api/plans/:id/preflight', parse(z.object({}).strict()), async (req, res) =>
+    res.json(
+      await exclusive(`launch-check:${req.user.businessId}:${req.params.id}`, () =>
+        platform.checkLaunch(req.user, req.params.id),
+      ),
+    ),
+  );
   app.post('/api/plans/:id/submit', parse(z.object({}).strict()), async (req, res) =>
     res.status(201).json(await platform.submitPlan(req.user, req.params.id)),
   );

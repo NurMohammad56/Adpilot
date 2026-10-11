@@ -19,7 +19,7 @@ test('manual is the default, approvals stay manual, and the approved guide has c
   await expect(dialog.getByRole('radio', { name: /Manual guided launch/ })).toBeChecked();
   await expect(dialog.getByRole('button', { name: 'Request manual guide approval' })).toBeEnabled();
   await expect(
-    dialog.getByText('Guide preview — review and approve before spending'),
+    dialog.getByText('Guide preview - review and approve before spending'),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Copy Campaign name', exact: true }).click();
   await expect(dialog.locator('.guide-copy-status')).toContainText('Copied.');
@@ -29,8 +29,8 @@ test('manual is the default, approvals stay manual, and the approved guide has c
   await dialog.getByRole('button', { name: 'Help: Ad account', exact: true }).focus();
   await expect(dialog.getByRole('tooltip')).toContainText('confirm its currency');
   await dialog.getByRole('button', { name: 'Request manual guide approval' }).click();
-  await dialog.getByRole('button', { name: 'Approve guide — no automatic spend' }).click();
-  await expect(dialog.getByText('Approved guide — create it yourself in Facebook')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Approve guide - no automatic spend' }).click();
+  await expect(dialog.getByText('Approved guide - create it yourself in Facebook')).toBeVisible();
   await expect(
     dialog.getByRole('link', { name: 'Open Facebook Ads Manager', exact: true }),
   ).toBeVisible();
@@ -56,7 +56,7 @@ test('manual guide remains readable in Bangla on mobile without horizontal overf
   await page.locator('.mobile-nav select').selectOption('Campaign plans');
   await page.locator('.plan-card').last().getByRole('button').first().click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('গাইড preview — খরচ করার আগে review ও approve করুন')).toBeVisible();
+  await expect(dialog.getByText('গাইড preview - খরচ করার আগে review ও approve করুন')).toBeVisible();
   await expect(
     dialog.getByRole('button', { name: 'Manual গাইড অনুমোদনের জন্য পাঠান', exact: true }),
   ).toBeEnabled();

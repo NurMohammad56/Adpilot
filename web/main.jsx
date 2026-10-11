@@ -63,7 +63,7 @@ import './product-studio.css';
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
   value == null
-    ? '—'
+    ? '-'
     : new Intl.NumberFormat(getLanguage() === 'bn' ? 'bn-BD' : 'en-BD', {
         style: 'currency',
         currency: displayCurrency,
@@ -72,7 +72,7 @@ const taka = (value, compact = false) =>
       }).format(value);
 const num = (value) =>
   value == null
-    ? '—'
+    ? '-'
     : new Intl.NumberFormat(getLanguage() === 'bn' ? 'bn-BD' : 'en-BD', {
         maximumFractionDigits: 2,
       }).format(value);
@@ -371,7 +371,7 @@ function Overview({ data, setPage, showPlan, showProduct }) {
           },
           {
             title: 'Return on ad spend',
-            value: m.roas == null ? '—' : `${num(m.roas)}×`,
+            value: m.roas == null ? '-' : `${num(m.roas)}×`,
             icon: Target,
             note: 'Purchase value ÷ ad spend',
           },
@@ -1595,7 +1595,7 @@ function PlanReview({
                   >
                     <CheckCheck size={17} />
                     {manual
-                      ? 'Approve guide — no automatic spend'
+                      ? 'Approve guide - no automatic spend'
                       : approval.action === 'launch_campaign'
                         ? 'Approve & launch'
                         : 'Approve & execute'}
@@ -1759,10 +1759,10 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
                   <td>{taka(row.spend)}</td>
                   <td>{num(row.impressions)}</td>
                   <td>{num(row.clicks)}</td>
-                  <td>{row.ctr == null ? '—' : `${row.ctr}%`}</td>
+                  <td>{row.ctr == null ? '-' : `${row.ctr}%`}</td>
                   <td>{num(row.conversions)}</td>
                   <td>{taka(row.cpa)}</td>
-                  <td>{row.roas == null ? '—' : `${row.roas}×`}</td>
+                  <td>{row.roas == null ? '-' : `${row.roas}×`}</td>
                   <td>{num(row.frequency)}</td>
                 </tr>
               ))}
@@ -2086,7 +2086,7 @@ function Settings({ data, run, refresh, busy, setPage }) {
               <p className="small muted">
                 Live execution:{' '}
                 {data.liveExecutionEnabled
-                  ? 'enabled — human approval still required'
+                  ? 'enabled - human approval still required'
                   : 'disabled by server configuration'}
               </p>
             </>
@@ -2301,7 +2301,7 @@ function App() {
               .join('; ')
           : '');
       setToast({
-        text: `${translateText(error.message)}${detail ? ` — ${detail}` : ''}`,
+        text: `${translateText(error.message)}${detail ? ` - ${detail}` : ''}`,
         error: true,
       });
     } finally {

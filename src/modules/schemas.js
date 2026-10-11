@@ -33,8 +33,22 @@ export const retrievalSchema = z
     sourceCount: z.number().int().min(0).max(100),
     searchCalls: z.number().int().min(0).max(100),
     checkedAt: z.string().datetime(),
+    citedSourceCount: z.number().int().min(0).max(100).optional(),
+    independentSourceCount: z.number().int().min(0).max(100).optional(),
+    collectionRounds: z.number().int().min(0).max(2).optional(),
+    sources: z.array(z.object({ source: z.string().url().max(2000), title: z.string().max(500), cited: z.boolean() }).strict()).max(50).optional(),
   })
   .strict();
+export const competitorCandidateSchema = z.object({
+  name: z.string().min(1).max(200),
+  offer: z.string().min(1).max(1000),
+  source: z.string().url().max(2000),
+  price: amount.positive().nullable(),
+  currency: z.string().regex(/^[A-Z]{3}$/).nullable(),
+  priceBasis: z.string().max(500),
+  comparability: z.string().min(1).max(1000),
+  deliveryTerms: z.string().max(1000),
+}).strict();
 export const creativeInputSchema = z
   .object({
     format: z.enum(['single', 'carousel']).optional(),

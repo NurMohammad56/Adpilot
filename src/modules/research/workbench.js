@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { assert, hash, now } from '../../utils/core.js';
 import { workspaceLLM } from '../../integrations/credentials.js';
-import { evidenceSchema, retrievalSchema } from '../schemas.js';
+import { evidenceSchema, retrievalSchema, competitorCandidateSchema } from '../schemas.js';
 import { resolveLocations, regionalCoverage } from './locations.js';
 import { actualResults } from '../analytics/outcomes.js';
 import { countryNames } from './countries.js';
@@ -74,6 +74,8 @@ export const comparisonSchema = z
       })
       .strict(),
     openQuestions: z.array(z.string().max(1000)).max(15),
+    competitorCandidates: z.array(competitorCandidateSchema).max(10).optional(),
+    evidenceGaps: z.array(z.string().max(1000)).max(15).optional(),
     retrieval: retrievalSchema.optional(),
   })
   .strict();

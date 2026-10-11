@@ -16,7 +16,7 @@ Analysis is cached by image checksum, supplied product facts, provider and model
 
 ## Multiple products
 
-On **Products**, choose **Several products — swipe cards**. Select 2–10 related products with actual prices, in-stock units, HTTPS product pages and primary images. Enter a collection URL and one shared daily planning amount/test duration. The prepared carousel uses one campaign/ad set, with each image card opening its own product page. Each product keeps separate economics; the system does not invent a blended selling price or a discounted bundle. The most restrictive allowable acquisition cost is a conservative guardrail.
+On **Products**, choose **Several products - swipe cards**. Select 2–10 related products with actual prices, in-stock units, HTTPS product pages and primary images. Enter a collection URL and one shared daily planning amount/test duration. The prepared carousel uses one campaign/ad set, with each image card opening its own product page. Each product keeps separate economics; the system does not invent a blended selling price or a discounted bundle. The most restrictive allowable acquisition cost is a conservative guardrail.
 
 Live group research runs as a durable Redis worker job and remains visible after leaving/reloading the page. Duplicate pending requests are reused. Queued product snapshots are checked before work. Completed results are reused after worker recovery, and full research is not automatically retried repeatedly at the owner's expense. Provider-level transient retries still apply. Errors leave saved products intact and appear beside the request.
 

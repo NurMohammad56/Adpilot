@@ -152,6 +152,26 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
         from your business; examples are not market prices.
       </p>
       <h3 className="form-section">1. Product and delivery</h3>
+      {automatic && (
+        <Field
+          label="Delivery fee preset"
+          hint="Your delivery presets: inside Dhaka 80 BDT, outside Dhaka 120 BDT. This fills the courier cost, not the customer fee or ad targeting. Choose custom to enter another amount."
+        >
+          <select
+            value={value.costPlanning.courierCharge === 80 ? 'dhaka' : value.costPlanning.courierCharge === 120 ? 'outside' : 'custom'}
+            onChange={(e) => {
+              if (e.target.value !== 'custom') {
+                const charge = e.target.value === 'dhaka' ? 80 : 120;
+                planning({ courierCharge: charge, customerDeliveryCharge: Math.min(value.costPlanning.customerDeliveryCharge || 0, charge), acknowledged: false });
+              } else planning({ courierCharge: 0, customerDeliveryCharge: 0, acknowledged: false });
+            }}
+          >
+            <option value="custom">Custom delivery charge</option>
+            <option value="dhaka">Inside Dhaka — 80 BDT</option>
+            <option value="outside">Outside Dhaka — 120 BDT</option>
+          </select>
+        </Field>
+      )}
       <div className="form-grid">
         <Field label="Product name">
           <input
@@ -280,15 +300,15 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
             })
           }
         >
-          <option value="automatic">Automatic — fewer fields</option>
-          <option value="manual">Manual — my own calculations</option>
+          <option value="automatic">Automatic - fewer fields</option>
+          <option value="manual">Manual - my own calculations</option>
         </select>
       </Field>
       {automatic && (
         <div className="notice">
           <p>
             {bn
-              ? 'আপনি শুধু প্রকৃত বিক্রির দাম ও খরচ দিন। লাভের লক্ষ্য ও return loss হিসাব হবে। Return rate একটি পরিবর্তনযোগ্য অনুমান—ছবি বা দাম থেকে এটি জানা যায় না।'
+              ? 'আপনি শুধু প্রকৃত বিক্রির দাম ও খরচ দিন। লাভের লক্ষ্য ও return loss হিসাব হবে। Return rate একটি পরিবর্তনযোগ্য অনুমান-ছবি বা দাম থেকে এটি জানা যায় না।'
               : 'Enter actual selling price and costs. Profit goals and return loss are calculated. Return rate is an editable assumption; it cannot be known from a picture or a price.'}
           </p>
         </div>
@@ -312,9 +332,9 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
                 planning({ profitReserveRatio: Number(e.target.value), acknowledged: false })
               }
             >
-              <option value="0.2">20% of contribution — more room for testing</option>
-              <option value="0.3">30% of contribution — balanced starting assumption</option>
-              <option value="0.5">50% of contribution — keep more profit</option>
+              <option value="0.2">20% of contribution - more room for testing</option>
+              <option value="0.3">30% of contribution - balanced starting assumption</option>
+              <option value="0.5">50% of contribution - keep more profit</option>
             </select>
           </Field>
         </div>
@@ -400,6 +420,9 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
               planning({ customerDeliveryCharge: Number(e.target.value), acknowledged: false })
             }
           />
+          <button type="button" className="secondary" onClick={() => planning({ customerDeliveryCharge: value.costPlanning.courierCharge ?? value.costs.delivery, acknowledged: false })}>
+            Collect the same delivery fee from customer
+          </button>
         </Field>
       )}
       {automatic && (
@@ -447,7 +470,7 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
                   planning({ returnRateSource: e.target.value, acknowledged: false })
                 }
               >
-                <option value="assumed">Planning assumption — not measured</option>
+                <option value="assumed">Planning assumption - not measured</option>
                 <option value="measured">My measured failed-order rate</option>
               </select>
             </Field>

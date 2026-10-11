@@ -88,7 +88,7 @@ export function ProductCampaigns({ data, api, busy, onCreated, run }) {
       <div className="launch-mode-options">
         {[
           ['single', 'One product', 'একটি product'],
-          ['carousel', 'Several products — swipe cards', 'একাধিক product—swipe করা cards'],
+          ['carousel', 'Several products - swipe cards', 'একাধিক product-swipe করা cards'],
           ['catalog', 'Catalogue / dynamic ads guide', 'Catalogue / dynamic ads guide'],
         ].map(([key, en, bangla]) => (
           <label key={key} className={`launch-mode-option ${mode === key ? 'selected' : ''}`}>
@@ -336,7 +336,7 @@ function CatalogueSetup({ ids, api, busy, run, bn }) {
       <label className="checkbox-row">
         <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
         {bn
-          ? 'Selected product-এর তথ্য ও ছবি secret feed link দিয়ে Meta-র জন্য accessible হবে—আমি বুঝেছি।'
+          ? 'Selected product-এর তথ্য ও ছবি secret feed link দিয়ে Meta-র জন্য accessible হবে-আমি বুঝেছি।'
           : 'I understand that selected product details and images become accessible through a secret feed link for Meta.'}
       </label>
       <button

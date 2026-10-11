@@ -13,7 +13,7 @@ export function ConfidenceNotes({ report }) {
       </summary>
       <p>
         {bn
-          ? 'Confidence মানে তথ্যের ভিত্তি কতটা শক্ত—ad সফল হওয়ার শতাংশ নয়। ছবি বোঝার confidence, market demand ও profitable ad performance আলাদা বিষয়।'
+          ? 'Confidence মানে তথ্যের ভিত্তি কতটা শক্ত-ad সফল হওয়ার শতাংশ নয়। ছবি বোঝার confidence, market demand ও profitable ad performance আলাদা বিষয়।'
           : 'Confidence describes the strength of the evidence, not the chance that an ad will succeed. Understanding an image, market demand and profitable advertising are separate questions.'}
       </p>
       <dl className="detail-list">
@@ -34,8 +34,8 @@ export function ConfidenceNotes({ report }) {
           <dd>
             {d?.imagesAnalyzed || report?.visualAnalysis || report?.visualAnalyses?.length
               ? bn
-                ? 'হয়েছে—specification যাচাই নয়'
-                : 'Completed — specifications still need checking'
+                ? 'হয়েছে-specification যাচাই নয়'
+                : 'Completed - specifications still need checking'
               : bn
                 ? 'এখনো হয়নি'
                 : 'Not available'}

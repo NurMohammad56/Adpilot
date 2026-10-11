@@ -291,7 +291,7 @@ export function CampaignSetup({
           {numberField('durationDays', 'Test duration in days', { min: 1, max: 30, step: '1' })}
         </div>
         <div className="campaign-budget-summary" role="status">
-          <strong>Planned total: {Number.isFinite(total) ? amount(total) : '—'}</strong>
+          <strong>Planned total: {Number.isFinite(total) ? amount(total) : '-'}</strong>
           <span>Spending ceiling: {amount(fields.testBudgetCeiling)}</span>
           <small>Review the results before renewing. No automatic budget increase.</small>
         </div>
@@ -316,8 +316,8 @@ export function CampaignSetup({
               update('economicsMode', event.target.value);
             }}
           >
-            <option value="unknown">Not yet — start a small discovery test</option>
-            <option value="known">Yes — enter my real project price and costs</option>
+            <option value="unknown">Not yet - start a small discovery test</option>
+            <option value="known">Yes - enter my real project price and costs</option>
           </select>
         </CampaignField>
         {economics === 'known' ? (

@@ -1,12 +1,12 @@
 ﻿AI-Powered Facebook Ads Automation Platform
-Phase 1 — Bangladesh Market | Facebook/Instagram Ads | Human Approval
+Phase 1 - Bangladesh Market | Facebook/Instagram Ads | Human Approval
 
 
 1. Executive Summary
 The goal of Phase 1 is to build an AI-assisted advertising platform focused exclusively on the Bangladesh market and Meta/Facebook advertising. The system will research the market, analyze a product and its actual cost, recommend a selling price, estimate an appropriate advertising budget, recommend target locations and audiences, generate campaign strategy and creatives, create the campaign through the Meta Marketing API, monitor performance, and recommend optimization actions.
 No high-risk advertising action should happen autonomously in Phase 1. Every campaign launch, budget change, important targeting change, and optimization action must pass through a human approval step.
 2. Phase 1 Scope
-* Platform: Meta Ads only — Facebook and Instagram through Meta Marketing API.
+* Platform: Meta Ads only - Facebook and Instagram through Meta Marketing API.
 * Market: Bangladesh only.
 * Primary goal: product sales/conversions.
 * Human approval: mandatory before campaign launch and sensitive changes.
@@ -571,7 +571,7 @@ The quality of the AI system will be heavily dependent on the quality of inputs 
 16. Implement optimization recommendation engine.
 17. Connect optimization recommendations to approval workflow.
 18. Test with small controlled budgets before production use.
-28. Definition of Done — Phase 1
+28. Definition of Done - Phase 1
 * User can create a business/product profile.
 * User can enter actual product and operational costs.
 * System can calculate product economics.
@@ -758,4 +758,4 @@ AI Marketing Core
      ├── Shopify Adapter   ← Future
      ├── CRM Adapter       ← Future
      └── Analytics Adapter← Future
-AI-Powered Facebook Ads Automation — Phase 1 Architecture
+AI-Powered Facebook Ads Automation - Phase 1 Architecture

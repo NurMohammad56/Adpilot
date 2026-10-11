@@ -61,7 +61,7 @@ Gemini 3.8 previously returned high-demand 503 from both beta and stable Google 
 
 Private evidence is in Git-ignored `.data`: `research-diagnostic-status.json`, `live-research-verification.json`, `live-research-followup-status.json`, `verified-live-research-report.json`, `verified-live-research-followup-report.json`, `verified-live-research-desktop.png`, `verified-live-research-mobile.png`, `gemini3-search-status.json`, `production-status.json`, and prior storage/campaign records. The public API/browser research check is reproducible with `node .data/verify-research-live.js`; it saves a new draft report. Do not publish private artifacts or administrator credentials.
 
-# Execution recovery verification — 9 October 2026
+# Execution recovery verification - 9 October 2026
 
 The two user-reported failed launches had no remote campaign/ad set/ad checkpoints. Repeating the exact approved campaign payload with Meta `validate_only` reproduced error `100/2446307`: campaign spending limits in this BDT account must be at least BDT 7,900. The approved tests totaled BDT 2,583.21 and BDT 2,583.07. A complete remote inventory confirmed no user campaign was created. Both failed reservations were reconciled with audit records; their consumed approvals and original snapshots were preserved.
 

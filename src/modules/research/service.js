@@ -121,6 +121,8 @@ export async function researchProduct(
     findings: [...evidence, ...aiFindings],
     competitors,
     sourcedPrices,
+    competitorCandidates: generated?.competitorCandidates || [],
+    evidenceGaps: generated?.evidenceGaps || [],
     competitorAnalysis:
       generated?.competitorAnalysis ||
       (competitors.length

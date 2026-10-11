@@ -121,12 +121,12 @@ export function ManualCampaignGuide({ plan, approval, data, busy, link }) {
           <strong>
             {approved
               ? l(
-                  'Approved guide — create it yourself in Facebook',
-                  'অনুমোদিত গাইড — Facebook-এ নিজে তৈরি করুন',
+                  'Approved guide - create it yourself in Facebook',
+                  'অনুমোদিত গাইড - Facebook-এ নিজে তৈরি করুন',
                 )
               : l(
-                  'Guide preview — review and approve before spending',
-                  'গাইড preview — খরচ করার আগে review ও approve করুন',
+                  'Guide preview - review and approve before spending',
+                  'গাইড preview - খরচ করার আগে review ও approve করুন',
                 )}
           </strong>
           <p>
@@ -182,7 +182,7 @@ export function ManualCampaignGuide({ plan, approval, data, busy, link }) {
       <p>
         {l(
           'The daily average is already included in the total; do not add it again. Tax and payment fees are extra.',
-          'দৈনিক গড় খরচ মোট বাজেটের মধ্যেই আছে—আবার যোগ করবেন না। Tax ও payment fee আলাদা।',
+          'দৈনিক গড় খরচ মোট বাজেটের মধ্যেই আছে-আবার যোগ করবেন না। Tax ও payment fee আলাদা।',
         )}
       </p>
       <p role="status" className="guide-copy-status">
@@ -340,7 +340,7 @@ export function ManualCampaignGuide({ plan, approval, data, busy, link }) {
           <p>
             {l(
               'Select the campaign in Ads Manager and copy its Campaign ID (not ad set or ad ID). Saving here only links and reads it; no status or budget is changed.',
-              'Ads Manager-এ campaign নির্বাচন করে Campaign ID কপি করুন—ad set বা ad ID নয়। এখানে save করলে শুধু link ও read হবে; status বা budget বদলাবে না।',
+              'Ads Manager-এ campaign নির্বাচন করে Campaign ID কপি করুন-ad set বা ad ID নয়। এখানে save করলে শুধু link ও read হবে; status বা budget বদলাবে না।',
             )}
           </p>
           <form
@@ -399,8 +399,8 @@ export function ManualCampaignGuide({ plan, approval, data, busy, link }) {
               <strong>
                 {record.verification.status === 'settings_match'
                   ? l(
-                      'Readable settings match — finish the manual checks below',
-                      'Read করা setting মিলে গেছে — নিচের manual checkগুলো শেষ করুন',
+                      'Readable settings match - finish the manual checks below',
+                      'Read করা setting মিলে গেছে - নিচের manual checkগুলো শেষ করুন',
                     )
                   : record.verification.status === 'mismatch'
                     ? l(
@@ -433,7 +433,7 @@ export function ManualCampaignGuide({ plan, approval, data, busy, link }) {
               {record.verification.insights && (
                 <div className="guide-metrics">
                   <strong>
-                    {l('Actual Meta delivery — last 30 days', 'Meta-এর আসল delivery — শেষ ৩০ দিন')}
+                    {l('Actual Meta delivery - last 30 days', 'Meta-এর আসল delivery - শেষ ৩০ দিন')}
                   </strong>
                   <dl>
                     {[

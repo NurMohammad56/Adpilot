@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { evidenceSchema, retrievalSchema } from '../modules/schemas.js';
+import { evidenceSchema, retrievalSchema, competitorCandidateSchema } from '../modules/schemas.js';
 import { AppError } from '../utils/core.js';
 import { GeminiProvider } from './gemini.js';
 import { OpenAIProvider } from './openai.js';
@@ -8,6 +8,8 @@ export const researchOutputSchema = z
     summary: z.string().max(5000),
     findings: z.array(evidenceSchema).max(50),
     competitorAnalysis: z.string().max(4000),
+    competitorCandidates: z.array(competitorCandidateSchema).max(10).optional(),
+    evidenceGaps: z.array(z.string().max(1000)).max(15).optional(),
     differentiation: z.array(z.string().max(1000)).max(10),
     risks: z.array(z.string().max(1000)).max(20),
     retrieval: retrievalSchema.optional(),

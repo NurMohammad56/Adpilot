@@ -126,7 +126,7 @@ test('carousel guide keeps one budget, real card destinations, and catalogue fee
   }
   await page.reload();
   await page.getByRole('navigation').getByRole('button', { name: 'Products', exact: true }).click();
-  await page.getByRole('radio', { name: 'Several products — swipe cards' }).check();
+  await page.getByRole('radio', { name: 'Several products - swipe cards' }).check();
   await page.locator('.product-selection').getByRole('checkbox').nth(0).check();
   await page.locator('.product-selection').getByRole('checkbox').nth(1).check();
   await page.getByLabel('Collection campaign name', { exact: true }).fill('Everyday bags');
@@ -144,8 +144,8 @@ test('carousel guide keeps one budget, real card destinations, and catalogue fee
   ).toHaveCount(2);
   await dialog.getByRole('button', { name: 'Manual guide', exact: true }).click();
   await dialog.getByRole('button', { name: 'Request manual guide approval' }).click();
-  await dialog.getByRole('button', { name: 'Approve guide — no automatic spend' }).click();
-  await expect(dialog.getByText('Approved guide — create it yourself in Facebook')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Approve guide - no automatic spend' }).click();
+  await expect(dialog.getByText('Approved guide - create it yourself in Facebook')).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Execute approved action' })).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('radio', { name: 'Catalogue / dynamic ads guide' }).check();

@@ -18,7 +18,7 @@ export async function generateCopy(product, economics, research, llm) {
     {
       hook: 'আপনার প্রতিদিনের জন্য',
       primaryText: `${product.name} সম্পর্কে জানুন। মূল্য ৳${economics.sellingPrice}। পণ্যের বিস্তারিত, ডেলিভারি এবং পেমেন্টের শর্ত দেখে অর্ডার করুন।`,
-      headline: `${product.name} — বিস্তারিত দেখুন`,
+      headline: `${product.name} - বিস্তারিত দেখুন`,
       language: 'Bangla',
       concept:
         'Product-led still image showing the actual product, with clear price and verified specifications.',

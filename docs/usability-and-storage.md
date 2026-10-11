@@ -36,7 +36,7 @@ Accounts-এ **OpenAI** বা **Google Gemini** বেছে নেওয়া �
 
 Google-এর **Deep Research agent** একটি পৃথক Interactions/background API; সেটি এই release-এ যুক্ত করা হয়নি। High-thinking structured country research-কে ওই agent বলে দাবি করা হচ্ছে না। [Google Deep Research documentation](https://ai.google.dev/gemini-api/docs/deep-research), [thinking configuration](https://ai.google.dev/gemini-api/docs/thinking)।
 
-Connection সমস্যা হলে form draft থাকে। Read request সীমিত retry পায়; submitted campaign action স্বয়ংক্রিয় replay হয় না। Meta partial creation/checkpoints, budget reservations, transaction, hash bindings ও reconciliation guards আছে। এগুলো ব্যর্থতার প্রভাব কমায়; বাইরের API বা hosting কখনো ব্যর্থ হবে না—এমন নিশ্চয়তা নেই।
+Connection সমস্যা হলে form draft থাকে। Read request সীমিত retry পায়; submitted campaign action স্বয়ংক্রিয় replay হয় না। Meta partial creation/checkpoints, budget reservations, transaction, hash bindings ও reconciliation guards আছে। এগুলো ব্যর্থতার প্রভাব কমায়; বাইরের API বা hosting কখনো ব্যর্থ হবে না-এমন নিশ্চয়তা নেই।
 
 Search quota বা সাময়িক provider সমস্যায় source পাওয়া না গেলে report-এ সেটি স্পষ্ট লেখা থাকে; supplied evidence ও AI hypotheses ব্যবহার হয়। Invalid API key উপেক্ষা করা হয় না। বর্তমান workspace-এ OpenAI web search সফল ও চালু আছে; Gemini Search-এর আগের quota সমস্যা আলাদা provider-এর সীমা।
 

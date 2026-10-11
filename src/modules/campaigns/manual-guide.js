@@ -53,13 +53,13 @@ export function manualGuide(plan, integration = {}) {
           ),
           field(
             'Campaign budget',
-            'Off — use ad set budget',
+            'Off - use ad set budget',
             'Keep one ad set and put the reviewed budget there. Do not add a separate campaign spending cap.',
             'একটি ad set রাখুন এবং সেখানেই বাজেট দিন। আলাদা campaign spending cap যোগ করবেন না।',
           ),
           field(
             'Special ad categories',
-            'None — confirm eligibility',
+            'None - confirm eligibility',
             'If the offer is a regulated special category, stop and revise the plan before publishing.',
             'আপনার offer বিশেষ নিয়ন্ত্রিত category-তে পড়লে publish বন্ধ রেখে plan সংশোধন করুন।',
           ),
@@ -132,7 +132,7 @@ export function manualGuide(plan, integration = {}) {
             'Age',
             `${a.ageMin}–${a.ageMax}`,
             'Use the reviewed range as a control where available; do not treat an audience suggestion as a strict restriction.',
-            'Approved age range ব্যবহার করুন। Audience suggestion কঠোর restriction নয়—control আছে কি না দেখুন।',
+            'Approved age range ব্যবহার করুন। Audience suggestion কঠোর restriction নয়-control আছে কি না দেখুন।',
           ),
           field(
             'Audience approach',

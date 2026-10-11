@@ -18,7 +18,7 @@ const empty = {
 };
 const money = (value, currency = 'BDT') =>
   value == null
-    ? '—'
+    ? '-'
     : new Intl.NumberFormat(getLanguage() === 'bn' ? 'bn-BD' : 'en-GB', {
         style: 'currency',
         currency,
@@ -567,7 +567,7 @@ export function AdControlCenter({ data, api, run, busy, setPage }) {
                   </h3>
                   <p>{row.campaign_name || row.campaign_id}</p>
                   <p>
-                    {row.date_start} — {row.date_stop}
+                    {row.date_start} - {row.date_stop}
                   </p>
                   <p>Spend: {money(Number(row.spend), account.account.currency)}</p>
                   <p>

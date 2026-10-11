@@ -1,0 +1,138 @@
+.product-campaign-builder {
+  margin-bottom: 24px;
+}
+.launch-mode-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.launch-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--border, #d9dfd3);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+}
+.launch-mode-option input {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin: 2px 0;
+}
+.launch-mode-option.selected {
+  background: #edf2e7;
+  border-color: #50754d;
+}
+.product-selection {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
+}
+.product-selection .checkbox-row {
+  align-items: center;
+}
+.product-carousel {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 12px 0 20px;
+  max-width: 100%;
+  scroll-snap-type: x mandatory;
+}
+.carousel-product {
+  flex: 0 0 250px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #dce2d5;
+  border-radius: 10px;
+  scroll-snap-align: start;
+  background: #fff;
+}
+.carousel-product img {
+  width: 100%;
+  height: 190px;
+  object-fit: contain;
+}
+.carousel-product a,
+.carousel-product p {
+  overflow-wrap: anywhere;
+}
+.carousel-product .button {
+  display: flex;
+  margin-top: 10px;
+  width: 100%;
+  white-space: normal;
+}
+.creative-image:has(.product-carousel) {
+  height: auto;
+  display: block;
+  background: #f5f7f1;
+  padding: 14px;
+}
+.product-profile-image {
+  height: 170px;
+  max-width: 100%;
+  object-fit: contain;
+}
+.confidence-notes {
+  margin: 18px 0;
+}
+.confidence-notes summary {
+  line-height: 1.6;
+}
+.confidence-notes p,
+.confidence-notes li {
+  line-height: 1.8;
+}
+.cost-preview dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+.cost-preview dd {
+  text-align: right;
+  margin: 0;
+}
+.catalog-setup input[readonly] {
+  width: 100%;
+  margin: 12px 0;
+}
+.catalog-setup li {
+  margin-bottom: 10px;
+  line-height: 1.8;
+}
+.group-economics {
+  max-height: 580px;
+  overflow: auto;
+}
+.group-economics .detail-list dd {
+  font-weight: 600;
+}
+@media (max-width: 750px) {
+  .launch-mode-options {
+    grid-template-columns: 1fr;
+  }
+  .cost-preview dl {
+    grid-template-columns: 1fr;
+  }
+  .cost-preview dd {
+    text-align: left;
+  }
+  .product-carousel {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .carousel-product {
+    flex-basis: 220px;
+  }
+  .review-columns > div {
+    min-width: 0;
+  }
+  .product-campaign-builder {
+    padding: 20px;
+  }
+}

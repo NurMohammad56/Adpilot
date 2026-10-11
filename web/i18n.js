@@ -2,7 +2,13 @@ import React, { useSyncExternalStore } from 'react';
 import baseTranslations from './locales/bn.json';
 import operationsTranslations from './locales/operations-bn.json';
 import manualTranslations from './locales/manual-bn.json';
-const translations = { ...baseTranslations, ...operationsTranslations, ...manualTranslations };
+import productTranslations from './locales/product-bn.json';
+const translations = {
+  ...baseTranslations,
+  ...operationsTranslations,
+  ...manualTranslations,
+  ...productTranslations,
+};
 
 const listeners = new Set();
 let language = 'en';

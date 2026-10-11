@@ -148,6 +148,23 @@ export function compareManualCampaign(plan, integration, remote) {
       'Reviewed copy, CTA, Page and destination',
       { pageId: story.page_id, link, headline: data.name || data.title },
     );
+    if (index >= 0 && unmatched[index].format === 'carousel') {
+      const expected = unmatched[index].cards,
+        actual = data.child_attachments || [];
+      check(
+        `Carousel ${ad.id}`,
+        actual.length === expected.length &&
+          expected.every(
+            (card, i) =>
+              card.link === actual[i]?.link &&
+              card.headline === actual[i]?.name &&
+              card.description === actual[i]?.description &&
+              actual[i]?.call_to_action?.type === unmatched[index].cta,
+          ),
+        'Reviewed card order, product links, headlines, descriptions and CTA',
+        actual.map((c) => ({ link: c.link, name: c.name, description: c.description })),
+      );
+    }
     if (index >= 0) unmatched.splice(index, 1);
   }
   return {

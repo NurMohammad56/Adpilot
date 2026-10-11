@@ -100,6 +100,26 @@ export class MediaService {
     return asset;
   }
   async bind(user, creative) {
+    if (creative.format === 'carousel') {
+      assert(
+        creative.cards?.length >= 2 && creative.cards.length <= 10,
+        422,
+        'CAROUSEL_CARDS',
+        'A carousel needs two to ten product cards.',
+      );
+      const cards = [];
+      for (const card of creative.cards) {
+        const bound = await this.bind(user, card);
+        assert(
+          !bound.mediaType || bound.mediaType === 'image',
+          422,
+          'CAROUSEL_IMAGE',
+          'Product carousel cards must use images.',
+        );
+        cards.push(bound);
+      }
+      return { ...creative, cards };
+    }
     if (!creative.mediaAssetId) {
       const { mediaType, assetChecksum, thumbnailChecksum, thumbnailAssetId, ...rest } = creative;
       return rest;
@@ -124,6 +144,10 @@ export class MediaService {
     };
   }
   async verify(user, creative) {
+    if (creative.format === 'carousel') {
+      for (const card of creative.cards) await this.verify(user, card);
+      return;
+    }
     if (!creative.mediaAssetId) return;
     const current = await this.bind(user, creative);
     assert(

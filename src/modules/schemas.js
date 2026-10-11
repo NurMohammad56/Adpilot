@@ -1,6 +1,29 @@
 import { z } from 'zod';
 const amount = z.number().finite().min(0).max(1e8);
 const text = z.string().trim().min(1).max(500);
+export const carouselCardSchema = z
+  .object({
+    productId: z.string().uuid(),
+    name: text,
+    headline: text,
+    description: z.string().max(1000),
+    link: z
+      .string()
+      .url()
+      .max(1000)
+      .refine((url) => url.startsWith('https://')),
+    sellingPrice: amount.positive(),
+    imageUrl: z
+      .string()
+      .url()
+      .max(1000)
+      .refine((url) => url.startsWith('https://'))
+      .or(z.literal('')),
+    mediaAssetId: z.string().uuid().nullable().optional(),
+    mediaType: z.literal('image').optional(),
+    assetChecksum: z.string().length(64).optional(),
+  })
+  .strict();
 export const retrievalSchema = z
   .object({
     provider: z.enum(['openai', 'gemini']),
@@ -14,6 +37,8 @@ export const retrievalSchema = z
   .strict();
 export const creativeInputSchema = z
   .object({
+    format: z.enum(['single', 'carousel']).optional(),
+    cards: z.array(carouselCardSchema).min(2).max(10).optional(),
     hook: text,
     primaryText: z.string().min(1).max(2200),
     headline: text,
@@ -115,9 +140,29 @@ export const productSchema = z
     name: text,
     category: text,
     paymentMethod: z.enum(['cod', 'prepaid', 'mixed']).optional(),
+    condition: z.enum(['new', 'used', 'refurbished']).optional(),
+    brand: z.string().trim().max(100).optional(),
+    gtin: z
+      .string()
+      .regex(/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/)
+      .or(z.literal(''))
+      .optional(),
     deliveryRegions: businessSchema.shape.deliveryRegions.optional(),
     mediaAssetId: z.string().uuid().nullable().optional(),
     thumbnailAssetId: z.string().uuid().nullable().optional(),
+    mediaAssetIds: z.array(z.string().uuid()).max(6).optional(),
+    costPlanning: z
+      .object({
+        mode: z.enum(['automatic', 'manual']),
+        returnRateSource: z.enum(['assumed', 'measured']),
+        returnShippingCost: amount,
+        courierCharge: amount.optional(),
+        customerDeliveryCharge: amount.optional(),
+        profitReserveRatio: z.number().min(0).max(0.8),
+        acknowledged: z.boolean(),
+      })
+      .strict()
+      .optional(),
     description: z.string().trim().min(10).max(4000),
     costs: costsSchema,
     inventory: z.number().int().min(0).max(1e8),
@@ -179,6 +224,8 @@ export const planEditSchema = z
         z
           .object({
             id: text,
+            format: z.enum(['single', 'carousel']).optional(),
+            cards: z.array(carouselCardSchema).min(2).max(10).optional(),
             hook: text,
             primaryText: z.string().min(1).max(2200),
             headline: text,

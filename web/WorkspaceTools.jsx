@@ -13,6 +13,7 @@ import {
 import './workspace-tools.css';
 import { MetaConnection } from './MetaConnection.jsx';
 import { AIConnection, ResearchRetrieval } from './AIConnection.jsx';
+import { ConfidenceNotes } from './ConfidenceNotes.jsx';
 import { useDraft } from './use-draft.js';
 import { getLanguage } from './i18n.js';
 import { uploadMedia } from './api.js';
@@ -788,6 +789,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                     <p className="small muted">{version.instruction}</p>
                     <p>{version.report.summary}</p>
                     <ResearchRetrieval retrieval={version.report.retrieval} />
+                    <ConfidenceNotes report={version.report} />
                     <div className="notice">
                       AI findings are hypotheses with low confidence. No reliable CPC, demand score
                       or acquisition forecast is invented.

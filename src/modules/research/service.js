@@ -42,7 +42,16 @@ export function opportunityScore(components, weights = scoreWeights) {
     quality: complete ? 'Estimated data' : 'Insufficient data',
   };
 }
-export async function researchProduct(product, business, evidence, competitors, llm, demo) {
+export async function researchProduct(
+  product,
+  business,
+  evidence,
+  competitors,
+  llm,
+  demo,
+  visualAnalysis = null,
+  language = 'en',
+) {
   const generated = await llm.generate(
     'bangladesh-market-research',
     {
@@ -50,6 +59,10 @@ export async function researchProduct(product, business, evidence, competitors, 
       business,
       evidence,
       competitors,
+      responseLanguage: language === 'bn' ? 'Bangla' : 'English',
+      visualAnalysis: visualAnalysis
+        ? { report: visualAnalysis.report, classification: visualAnalysis.classification }
+        : null,
       schema:
         'summary, findings[{subject,finding,source,observedAt,confidence,classification,quality}], competitorAnalysis, differentiation[], risks[]',
     },

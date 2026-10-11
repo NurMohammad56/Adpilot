@@ -5,6 +5,16 @@ import rateLimit from 'express-rate-limit';
 import path from 'node:path';
 import fs from 'node:fs';
 import { z } from 'zod';
+import { analyzeProductImages } from './modules/media/vision.js';
+import { groupInput } from './modules/campaigns/product-group.js';
+import { enqueueProductGroup } from './modules/campaigns/group-jobs.js';
+import {
+  createCatalogFeed,
+  resolveCatalogFeed,
+  catalogXML,
+  catalogImage,
+  publicFeed,
+} from './modules/media/catalog.js';
 import { assert, hash, now, publicUser } from './utils/core.js';
 import {
   businessSchema,
@@ -236,10 +246,28 @@ export function createApp(runtime) {
     });
     res.json({ success: true });
   });
+  app.get('/api/catalog-feeds/:id/feed.xml', async (req, res) => {
+    const feed = await resolveCatalogFeed(platform, req.params.id, req.query.token);
+    res
+      .set('Cache-Control', 'no-store')
+      .set('Referrer-Policy', 'no-referrer')
+      .type('application/xml')
+      .send(await catalogXML(platform, feed, req.query.token));
+  });
+  app.get('/api/catalog-feeds/:id/images/:assetId', async (req, res) => {
+    const feed = await resolveCatalogFeed(platform, req.params.id, req.query.token);
+    const { bytes, asset } = await catalogImage(platform, feed, req.params.assetId);
+    res
+      .set('Cache-Control', 'no-store')
+      .set('Referrer-Policy', 'no-referrer')
+      .type(asset.mime)
+      .send(bytes);
+  });
   app.use('/api', async (req, res, next) => {
     req.user = await auth.resolve(cookieToken(req));
     if (!req.user)
       return res.status(401).json({ error: { code: 'AUTH_REQUIRED', message: 'Please sign in' } });
+    req.user.language = req.headers['accept-language']?.startsWith('bn') ? 'bn' : 'en';
     if (req.headers['x-workspace-id'] && req.headers['x-workspace-id'] !== req.user.businessId)
       return res.status(409).json({
         error: {
@@ -254,6 +282,43 @@ export function createApp(runtime) {
     res.json({ user: publicUser(req.user), mode: config.mode }),
   );
   app.get('/api/overview', async (req, res) => res.json(await platform.overview(req.user)));
+  app.post(
+    '/api/catalog-feeds',
+    parse(
+      z
+        .object({
+          productIds: z.array(z.string().uuid()).min(1).max(100),
+          acknowledgeSharing: z.boolean(),
+        })
+        .strict(),
+    ),
+    async (req, res) =>
+      res
+        .status(201)
+        .json(
+          await createCatalogFeed(
+            platform,
+            req.user,
+            req.input.productIds,
+            req.input.acknowledgeSharing,
+          ),
+        ),
+  );
+  app.get('/api/catalog-feeds', async (req, res) => {
+    platform.requireApprover(req.user);
+    res.json(
+      (await store.list('catalog_feeds', { businessId: req.user.businessId })).map((feed) =>
+        publicFeed(platform, feed),
+      ),
+    );
+  });
+  app.delete('/api/catalog-feeds/:id', async (req, res) => {
+    platform.requireApprover(req.user);
+    await platform.owned('catalog_feeds', req.params.id, req.user);
+    await store.update('catalog_feeds', req.params.id, { status: 'revoked' });
+    await platform.audit(req.user, 'catalog.feed_revoked', req.params.id);
+    res.json({ success: true });
+  });
   const budgetPresets = createBudgetPresets();
   app.get('/api/campaigns/budget-preset', async (req, res) => {
     const integration = await platform.integration(req.user.businessId);
@@ -457,6 +522,47 @@ export function createApp(runtime) {
   );
   app.put('/api/business', parse(businessSchema), async (req, res) =>
     res.json(await platform.updateBusiness(req.user, req.input)),
+  );
+  app.post('/api/product-groups/plans', parse(groupInput), async (req, res) =>
+    res
+      .status(jobs ? 202 : 201)
+      .json(
+        await exclusive(`product-group:${req.user.businessId}`, () =>
+          enqueueProductGroup(runtime, req.user, req.input),
+        ),
+      ),
+  );
+  app.get('/api/jobs/product-groups', async (req, res) =>
+    res.json(
+      (await store.list('jobs', { businessId: req.user.businessId, type: 'product-group-plan' }))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 15)
+        .map(({ input, snapshots, requestHash, ...publicJob }) => publicJob),
+    ),
+  );
+  app.post(
+    '/api/products/image-analysis',
+    parse(
+      z
+        .object({
+          mediaAssetIds: z.array(z.string().uuid()).min(1).max(6),
+          name: z.string().max(500).default(''),
+          description: z.string().max(4000).default(''),
+          category: z.string().max(500).default(''),
+        })
+        .strict(),
+    ),
+    async (req, res) =>
+      res.json(
+        await exclusive(`vision:${req.user.businessId}`, () =>
+          analyzeProductImages(platform, req.user, req.input.mediaAssetIds, {
+            name: req.input.name,
+            description: req.input.description,
+            category: req.input.category,
+            language: req.headers['accept-language']?.startsWith('bn') ? 'bn' : 'en',
+          }),
+        ),
+      ),
   );
   app.post('/api/products', parse(productSchema), async (req, res) =>
     res.status(201).json(await platform.createProduct(req.user, req.input)),

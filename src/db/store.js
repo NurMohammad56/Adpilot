@@ -39,6 +39,8 @@ export const collections = [
   'account_snapshots',
   'campaign_launch_checks',
   'manual_campaigns',
+  'visual_analyses',
+  'catalog_feeds',
 ];
 const stamp = (value) => ({
   ...value,

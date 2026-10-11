@@ -25,9 +25,10 @@ test('Bangla controls preserve product enum values, percentage inputs and worksp
   await expect(page.locator('.workspace-switch strong')).toHaveText('Product usability QA');
   await page.getByRole('button', { name: 'Products', exact: true }).click();
   await page.getByRole('button', { name: 'Add product', exact: true }).click();
+  await page.getByLabel('Calculation mode', { exact: true }).selectOption('manual');
   await page.getByLabel('Product name', { exact: true }).fill('Overview');
   await page.getByLabel('Category / niche', { exact: true }).selectOption('Other');
-  await page.getByLabel('Your custom category').fill('Custom printed accessories');
+  await page.getByLabel('Your custom category', { exact: true }).fill('Custom printed accessories');
   await page
     .getByLabel('Description', { exact: true })
     .fill('A custom printed accessory for everyday use.');
@@ -35,7 +36,9 @@ test('Bangla controls preserve product enum values, percentage inputs and worksp
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('button', { name: 'Add product', exact: true }).click();
   await expect(page.getByLabel('Product name', { exact: true })).toHaveValue('Overview');
-  await expect(page.getByLabel('Your custom category')).toHaveValue('Custom printed accessories');
+  await expect(page.getByLabel('Your custom category', { exact: true })).toHaveValue(
+    'Custom printed accessories',
+  );
   await page.getByRole('button', { name: 'Close dialog' }).click();
   await page.getByRole('button', { name: 'বাংলায় দেখুন' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'bn');
@@ -43,6 +46,7 @@ test('Bangla controls preserve product enum values, percentage inputs and worksp
   await expect(page.getByLabel(bn['Product name'], { exact: true })).toHaveValue('Overview');
   await page.getByLabel(bn['Payment method'], { exact: true }).selectOption('prepaid');
   await page.getByLabel(bn['Desired profit margin (%)'], { exact: true }).fill('25');
+  await page.getByRole('dialog').getByRole('checkbox').last().check();
   const response = page.waitForResponse(
     (result) => result.url().endsWith('/api/products') && result.request().method() === 'POST',
   );

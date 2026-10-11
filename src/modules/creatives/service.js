@@ -7,9 +7,10 @@ export async function generateCopy(product, economics, research, llm) {
       product,
       sellingPrice: economics.sellingPrice,
       findings: research.findings,
+      visualAnalysis: research.visualAnalysis?.report,
       schema: 'ads[{hook,primaryText,headline,language,concept}]',
       rules:
-        'Use only supported claims. Do not promise results, invent discounts, or claim COD/free shipping unless confirmed.',
+        'Use only supported claims. Visual observations are not proof of specifications; do not use uncertain visual claims. Do not promise results, invent discounts, or claim COD/free shipping unless confirmed.',
     },
     copyOutputSchema,
   );
@@ -44,7 +45,9 @@ export async function generateCopy(product, economics, research, llm) {
     id: id(),
     cta: 'SHOP_NOW',
     imageUrl: product.imageUrl || '',
-    ...(product.mediaAssetId ? { mediaAssetId: product.mediaAssetId, thumbnailAssetId: product.thumbnailAssetId || null } : {}),
+    ...(product.mediaAssetId
+      ? { mediaAssetId: product.mediaAssetId, thumbnailAssetId: product.thumbnailAssetId || null }
+      : {}),
     hypothesis: true,
   }));
 }

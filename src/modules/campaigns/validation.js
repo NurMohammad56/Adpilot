@@ -31,6 +31,9 @@ export const planFingerprint = (plan) =>
     researchDecisionHash: plan.researchDecisionHash,
     accountCurrency: plan.accountCurrency,
     launchMode: plan.launchMode,
+    productIds: plan.productIds,
+    productMembers: plan.productMembers,
+    productPolicy: plan.productPolicy,
   });
 export const businessPolicyHash = (business) =>
   hash({
@@ -147,7 +150,13 @@ export function validatePlan(
     errors.push('Interest targeting must be resolved through Meta.');
   if (config.mode === 'live') {
     if (!product.landingUrl) errors.push('Live campaigns require an HTTPS landing page.');
-    if (plan.ads.some((ad) => !ad.imageUrl && !ad.mediaAssetId))
+    if (
+      plan.ads.some((ad) =>
+        ad.format === 'carousel'
+          ? ad.cards.some((card) => !card.imageUrl && !card.mediaAssetId)
+          : !ad.imageUrl && !ad.mediaAssetId,
+      )
+    )
       errors.push('Each live creative requires an uploaded image/video or an HTTPS image.');
     if (!integration?.configured)
       errors.push('Configure and verify the Meta integration before approval.');
@@ -163,6 +172,20 @@ export function validatePlan(
   }
   if (service && !plan.researchVersionId)
     errors.push('Service campaigns require an approved research decision.');
+  for (const ad of plan.ads) {
+    if (ad.format === 'carousel') {
+      if (plan.kind !== 'product-group' || ad.cards?.length < 2 || ad.cards?.length > 10)
+        errors.push('Carousel cards must belong to a reviewed product group.');
+      if (
+        !ad.cards ||
+        new Set(ad.cards.map((c) => c.productId)).size !== ad.cards.length ||
+        ad.cards.some((c) => !plan.productIds?.includes(c.productId))
+      )
+        errors.push('Carousel product cards must match the reviewed group.');
+      if (ad.cards?.some((c) => c.mediaType === 'video' || !c.link?.startsWith('https://')))
+        errors.push('Every carousel card requires an image and an HTTPS product page.');
+    }
+  }
   if (
     plan.ads.some(
       (ad) => ad.mediaType === 'video' && (!ad.thumbnailAssetId || !ad.thumbnailChecksum),

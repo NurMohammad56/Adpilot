@@ -780,6 +780,44 @@ export class LiveMetaAdapter {
   async creativeStory(ad, plan, integration, onStep) {
     const act = `act_${integration.adAccountId}`;
     const callToAction = { type: ad.cta, value: { link: plan.landingUrl } };
+    if (ad.format === 'carousel') {
+      assert(
+        ad.cards?.length >= 2 && ad.cards.length <= 10,
+        422,
+        'CAROUSEL_CARDS',
+        'Choose two to ten product cards.',
+      );
+      const attachments = [];
+      for (const card of ad.cards) {
+        const story = await this.creativeStory(
+          { ...card, cta: ad.cta, primaryText: ad.primaryText },
+          { ...plan, landingUrl: card.link },
+          integration,
+          onStep,
+        );
+        assert(story.link_data, 422, 'CAROUSEL_IMAGE', 'Product carousel cards must use images.');
+        const image = story.link_data;
+        attachments.push({
+          link: card.link,
+          name: card.headline,
+          description: card.description,
+          ...(image.image_hash ? { image_hash: image.image_hash } : { picture: image.picture }),
+          call_to_action: { type: ad.cta, value: { link: card.link } },
+        });
+      }
+      return {
+        page_id: integration.pageId,
+        link_data: {
+          link: plan.landingUrl,
+          name: ad.headline,
+          message: ad.primaryText,
+          call_to_action: callToAction,
+          child_attachments: attachments,
+          multi_share_optimized: false,
+          multi_share_end_card: false,
+        },
+      };
+    }
     if (!ad.mediaAssetId)
       return {
         page_id: integration.pageId,

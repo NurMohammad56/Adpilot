@@ -135,7 +135,7 @@ export class GeminiProvider {
       });
     return { text, grounding: candidate.groundingMetadata || null };
   }
-  async generate(task, context, schema) {
+  async generate(task, context, schema, options = {}) {
     let grounding = null;
     let groundingUnavailable = false;
     const isResearch = ['bangladesh-market-research', 'market-comparison'].includes(task);
@@ -300,6 +300,9 @@ export class GeminiProvider {
                   : {}),
               }),
             },
+            ...(options.images || []).map((image) => ({
+              inlineData: { mimeType: image.mime, data: image.data },
+            })),
           ],
         },
       ],

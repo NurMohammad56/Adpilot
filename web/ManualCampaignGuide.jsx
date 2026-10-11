@@ -6,6 +6,7 @@ import { mediaUrl } from './api.js';
 import { useLanguage } from './i18n.js';
 import { useDraft } from './use-draft.js';
 import './manual-guide.css';
+import { CarouselCards } from './ProductCampaigns.jsx';
 
 export function LaunchModePicker({ value, onChange, disabled }) {
   const bn = useLanguage() === 'bn';
@@ -77,6 +78,13 @@ export function ManualCampaignGuide({ plan, approval, data, busy, link }) {
       `Primary text: ${ad.primaryText}`,
       `CTA: ${ad.cta}`,
       `Media: ${ad.mediaAssetId || ad.imageUrl || 'Required'}`,
+      ...(ad.cards || []).flatMap((card, j) => [
+        `Card ${j + 1}: ${card.name}`,
+        `Headline: ${card.headline}`,
+        `Description: ${card.description}`,
+        `Product URL: ${card.link}`,
+        `Image: ${card.mediaAssetId || card.imageUrl}`,
+      ]),
     ]),
     guide.unknowns,
   ].join('\n\n');
@@ -226,6 +234,17 @@ export function ManualCampaignGuide({ plan, approval, data, busy, link }) {
           <h4>
             {l('Ad', 'বিজ্ঞাপন')} {i + 1}
           </h4>
+          {ad.format === 'carousel' && (
+            <>
+              <p>
+                {l(
+                  'Choose Carousel. Add these cards in this order, with their individual product URLs. Keep automatic card reordering and the extra end card off.',
+                  'Carousel নির্বাচন করুন। এই ক্রমে cards দিন ও প্রতিটির নিজস্ব product URL বসান। Automatic card reordering ও extra end card বন্ধ রাখুন।',
+                )}
+              </p>
+              <CarouselCards cards={ad.cards} copy={copy} />
+            </>
+          )}
           {ad.mediaAssetId &&
             (ad.mediaType === 'video' ? (
               <video src={mediaUrl(ad.mediaAssetId)} controls preload="metadata" />

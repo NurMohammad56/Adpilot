@@ -12,6 +12,10 @@ import { createServicePlan } from './campaigns/service-plan.js';
 import { resolveLocations } from './research/locations.js';
 import { actualResults } from './analytics/outcomes.js';
 import { linkManualCampaign } from './campaigns/manual-launch.js';
+import { autoProductCosts } from './pricing/product-calculator.js';
+import { productVisualContext } from './media/vision.js';
+import { explainConfidence } from './research/confidence.js';
+import { createProductGroup, groupProduct } from './campaigns/product-group.js';
 
 const canApprove = (user) => ['admin', 'approver'].includes(user.role);
 const integrationHash = (integration) =>
@@ -174,7 +178,48 @@ export class Platform {
       return updated;
     });
   }
+  async prepareProduct(user, input) {
+    assert(
+      new Set([input.mediaAssetId, ...(input.mediaAssetIds || [])].filter(Boolean)).size <= 6,
+      422,
+      'IMAGE_SELECTION',
+      'Choose at most six different product images in total.',
+    );
+    if (input.costPlanning?.mode === 'automatic')
+      assert(
+        (input.costPlanning.customerDeliveryCharge || 0) <=
+          (input.costPlanning.courierCharge ?? input.costs.delivery),
+        422,
+        'DELIVERY_CHARGE',
+        'Customer delivery charge must not exceed the actual courier charge in automatic mode.',
+      );
+    if (input.costPlanning) {
+      assert(
+        input.costPlanning.mode !== 'automatic' || input.sellingPrice !== null,
+        422,
+        'SELLING_PRICE_REQUIRED',
+        'Automatic costs require your actual selling price.',
+      );
+      assert(
+        input.costPlanning.acknowledged,
+        422,
+        'COST_ASSUMPTIONS',
+        'Review and acknowledge the cost planning assumptions before saving.',
+      );
+    }
+    for (const id of new Set(input.mediaAssetIds || [])) {
+      const asset = await this.media.asset(user, id);
+      assert(
+        asset.type === 'image',
+        422,
+        'PRODUCT_IMAGE',
+        'Additional product photos must be images.',
+      );
+    }
+    return autoProductCosts(input);
+  }
   async createProduct(user, input) {
+    input = await this.prepareProduct(user, input);
     if (input.mediaAssetId)
       await this.media.bind(user, {
         mediaAssetId: input.mediaAssetId,
@@ -198,6 +243,7 @@ export class Platform {
     });
   }
   async updateProduct(user, productId, input) {
+    input = await this.prepareProduct(user, input);
     if (input.mediaAssetId)
       await this.media.bind(user, {
         mediaAssetId: input.mediaAssetId,
@@ -238,6 +284,13 @@ export class Platform {
       sourceResearch = await this.research.approved(user, previous.researchVersionId);
     const llm = await workspaceLLM(this, user.businessId);
     const product = await this.owned('products', productId, user);
+    if (previous)
+      assert(
+        hash(product) === previous.productSnapshotHash,
+        409,
+        'STALE_PRODUCT_RESEARCH',
+        'The product changed. Generate a new campaign plan so research and images use the current product facts.',
+      );
     const business = await this.store.get('businesses', user.businessId);
     const evidence = await this.store.list('market_research_reports', {
       productId,
@@ -257,6 +310,8 @@ export class Platform {
         'PRODUCT_RESEARCH',
         'Approved research must refer to this product and select Bangladesh.',
       );
+    const visualAnalysis =
+      previous?.research?.visualAnalysis || (await productVisualContext(this, user, product));
     const sourceReport = sourceResearch?.version.report;
     const report = sourceResearch
       ? {
@@ -297,7 +352,25 @@ export class Platform {
           competitors,
           llm,
           this.config.mode === 'demo',
+          visualAnalysis,
+          user.language || 'en',
         ));
+    if (visualAnalysis) report.visualAnalysis = visualAnalysis;
+    const outcomes = await this.store.list('business_outcomes', { businessId: user.businessId });
+    const relatedPlans = (
+      await this.store.list('campaign_plans', { businessId: user.businessId, productId })
+    ).filter((plan) => plan.kind !== 'product-group');
+    const productCampaigns = [
+      ...(await this.store.list('campaigns', { businessId: user.businessId })),
+      ...(await this.store.list('manual_campaigns', { businessId: user.businessId })),
+    ].filter((campaign) => relatedPlans.some((plan) => plan.id === campaign.planId));
+    report.confidenceDetails = explainConfidence({
+      findings: [...evidence, ...report.findings],
+      retrieval: report.retrieval,
+      visualAnalysis,
+      actualResults: outcomes.filter((o) => productCampaigns.some((c) => c.id === o.campaignId)),
+    });
+    report.confidence = report.confidenceDetails.level;
     const economics = calculateEconomics(product, overrides.sellingPrice, report.sourcedPrices);
     const budget = recommendBudget(product, business, economics, overrides);
     const audience = recommendAudience(
@@ -477,6 +550,27 @@ export class Platform {
   }
   async revisePlan(user, planId, input) {
     const previous = await this.owned('campaign_plans', planId, user);
+    if (previous.kind === 'product-group') {
+      assert(
+        input.sellingPrice === undefined || input.sellingPrice === null,
+        422,
+        'GROUP_PRICE',
+        'Edit each product price separately, then create a fresh group plan.',
+      );
+      return createProductGroup(
+        this,
+        user,
+        {
+          productIds: previous.productIds,
+          name: input.name || previous.name,
+          landingUrl: previous.landingUrl,
+          dailyBudget: input.dailyBudget ?? previous.budgetRecommendation.dailyBudget,
+          durationDays: input.durationDays ?? previous.budgetRecommendation.durationDays,
+        },
+        previous,
+        input,
+      );
+    }
     if (previous.kind === 'service') {
       const offer = await this.owned('offers', previous.productId, user);
       return createServicePlan(
@@ -510,11 +604,10 @@ export class Platform {
     );
   }
   async assertFresh(plan, user) {
-    const product = await this.owned(
-      plan.kind === 'service' ? 'offers' : 'products',
-      plan.productId,
-      user,
-    );
+    const product =
+      plan.kind === 'product-group'
+        ? await groupProduct(this, user, plan)
+        : await this.owned(plan.kind === 'service' ? 'offers' : 'products', plan.productId, user);
     if (plan.researchVersionId) {
       const { version } = await this.research.approved(user, plan.researchVersionId);
       const targets = await resolveLocations(

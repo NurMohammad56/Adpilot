@@ -36,10 +36,14 @@ export class LLMService {
   constructor(config) {
     this.config = config;
   }
-  async generate(task, context, schema) {
+  async generate(task, context, schema, options = {}) {
     if (this.config.llmProvider === 'demo') return null;
     if (['gemini', 'openai'].includes(this.config.llmProvider)) {
-      const research = ['bangladesh-market-research', 'market-comparison'].includes(task);
+      const research = [
+        'bangladesh-market-research',
+        'market-comparison',
+        'product-image-analysis',
+      ].includes(task);
       const Provider = this.config.llmProvider === 'openai' ? OpenAIProvider : GeminiProvider;
       return new Provider({
         ...this.config,
@@ -47,7 +51,7 @@ export class LLMService {
           ? this.config.researchModel || this.config.llmModel
           : this.config.llmModel,
         thinkingLevel: research ? this.config.researchThinking || 'high' : 'low',
-      }).generate(task, context, schema);
+      }).generate(task, context, schema, options);
     }
     if (this.config.llmProvider !== 'gateway')
       throw new AppError(

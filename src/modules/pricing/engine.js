@@ -1,6 +1,10 @@
 import { money } from '../../utils/math.js';
+import { autoProductCosts, productCostAssumptions } from './product-calculator.js';
 
 export function calculateEconomics(product, overridePrice, competitorPrices = []) {
+  product = autoProductCosts(
+    overridePrice == null ? product : { ...product, sellingPrice: overridePrice },
+  );
   const c = product.costs;
   const expectedReturnCost = money((c.returnRate / (1 - c.returnRate)) * c.returnCost);
   const baseVariableCost = money(
@@ -54,12 +58,28 @@ export function calculateEconomics(product, overridePrice, competitorPrices = []
     currency: 'BDT',
     baseVariableCost,
     expectedReturnCost,
-    costBreakdown: { product: c.product, packaging: c.packaging, delivery: c.delivery, fixedPayment: c.paymentFixed, operations: c.other, expectedFailureLoss: expectedReturnCost },
-    failureScenarios: [Math.max(0, c.returnRate - 0.05), c.returnRate, Math.min(0.8, c.returnRate + 0.1)]
+    costBreakdown: {
+      product: c.product,
+      packaging: c.packaging,
+      delivery: c.delivery,
+      fixedPayment: c.paymentFixed,
+      operations: c.other,
+      expectedFailureLoss: expectedReturnCost,
+    },
+    failureScenarios: [
+      Math.max(0, c.returnRate - 0.05),
+      c.returnRate,
+      Math.min(0.8, c.returnRate + 0.1),
+    ]
       .filter((rate, index, rates) => rates.indexOf(rate) === index)
-      .map(rate => {
-        const loss = money(rate / (1 - rate) * c.returnCost);
-        const allowableCPA = money(Math.max(0, price * netRatio - (baseVariableCost - expectedReturnCost + loss) - minimumProfit));
+      .map((rate) => {
+        const loss = money((rate / (1 - rate)) * c.returnCost);
+        const allowableCPA = money(
+          Math.max(
+            0,
+            price * netRatio - (baseVariableCost - expectedReturnCost + loss) - minimumProfit,
+          ),
+        );
         return { failureRate: money(rate), expectedFailureLoss: loss, allowableCPA };
       }),
     paymentFee,
@@ -88,6 +108,7 @@ export function calculateEconomics(product, overridePrice, competitorPrices = []
     risks,
     confidence: competitivePrice ? 'Medium' : 'Low',
     assumptions: [
+      ...productCostAssumptions(product),
       'Return cost is expected loss per unsuccessful order, allocated over delivered orders.',
       'Ad allowance is a planning assumption until historical acquisition data exists.',
       'No competitor price is fabricated when sourced prices are unavailable.',

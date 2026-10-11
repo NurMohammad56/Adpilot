@@ -56,6 +56,9 @@ import { GuidedProduct } from './GuidedProduct.jsx';
 import { WorkflowGuide } from './WorkflowGuide.jsx';
 import { AdControlCenter } from './AdControlCenter.jsx';
 import { LaunchModePicker, ManualCampaignGuide } from './ManualCampaignGuide.jsx';
+import { ProductCampaigns, CarouselCards } from './ProductCampaigns.jsx';
+import { ConfidenceNotes } from './ConfidenceNotes.jsx';
+import './product-studio.css';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -614,7 +617,7 @@ function PerformanceChart({ series }) {
   );
 }
 
-function Products({ data, showProduct, generate, addEvidence, busy }) {
+function Products({ data, showProduct, generate, addEvidence, busy, run, onGroupCreated }) {
   return (
     <>
       <PageHeading
@@ -627,11 +630,20 @@ function Products({ data, showProduct, generate, addEvidence, busy }) {
           </button>
         }
       />
+      <ProductCampaigns data={data} api={api} busy={busy} run={run} onCreated={onGroupCreated} />
       <div className="products-grid">
         {data.products.map((product, index) => (
           <article className="panel product-card" key={product.id}>
             <div className={`product-art art-${index % 3}`}>
-              <Package size={52} strokeWidth={1.2} />
+              {product.mediaAssetId ? (
+                <img
+                  className="product-profile-image"
+                  src={mediaUrl(product.mediaAssetId)}
+                  alt={product.name}
+                />
+              ) : (
+                <Package size={52} strokeWidth={1.2} />
+              )}
               <span>{product.category}</span>
               <Badge>Product profile</Badge>
             </div>
@@ -1021,40 +1033,42 @@ function PlanReview({
               { key: 'durationDays', label: 'Test duration (days)', type: 'number' },
               { key: 'ageMin', label: 'Minimum age', type: 'number' },
               { key: 'ageMax', label: 'Maximum age', type: 'number' },
-            ].map((f) => (
-              <Field key={f.key} label={f.label}>
-                <input
-                  type={f.type}
-                  required={!(plan.kind === 'service' && f.key === 'sellingPrice')}
-                  value={changes[f.key] ?? ''}
-                  min={
-                    f.type === 'number'
-                      ? ['sellingPrice', 'dailyBudget'].includes(f.key)
-                        ? 0.01
-                        : 1
-                      : undefined
-                  }
-                  step={
-                    f.type === 'number'
-                      ? ['sellingPrice', 'dailyBudget'].includes(f.key)
-                        ? '0.01'
-                        : '1'
-                      : undefined
-                  }
-                  onChange={(e) =>
-                    setChanges({
-                      ...changes,
-                      [f.key]:
-                        f.type === 'number'
-                          ? e.target.value === '' && f.key === 'sellingPrice'
-                            ? null
-                            : Number(e.target.value)
-                          : e.target.value,
-                    })
-                  }
-                />
-              </Field>
-            ))}
+            ]
+              .filter((f) => !(plan.kind === 'product-group' && f.key === 'sellingPrice'))
+              .map((f) => (
+                <Field key={f.key} label={f.label}>
+                  <input
+                    type={f.type}
+                    required={!(plan.kind === 'service' && f.key === 'sellingPrice')}
+                    value={changes[f.key] ?? ''}
+                    min={
+                      f.type === 'number'
+                        ? ['sellingPrice', 'dailyBudget'].includes(f.key)
+                          ? 0.01
+                          : 1
+                        : undefined
+                    }
+                    step={
+                      f.type === 'number'
+                        ? ['sellingPrice', 'dailyBudget'].includes(f.key)
+                          ? '0.01'
+                          : '1'
+                        : undefined
+                    }
+                    onChange={(e) =>
+                      setChanges({
+                        ...changes,
+                        [f.key]:
+                          f.type === 'number'
+                            ? e.target.value === '' && f.key === 'sellingPrice'
+                              ? null
+                              : Number(e.target.value)
+                            : e.target.value,
+                      })
+                    }
+                  />
+                </Field>
+              ))}
           </div>
           <Field label="Locations (within your delivery footprint)">
             <div className="checkboxes">
@@ -1125,19 +1139,23 @@ function PlanReview({
                   )}
                 </Field>
               ))}
-              <MediaPicker
-                api={api}
-                value={ad.mediaAssetId}
-                thumbnail={ad.thumbnailAssetId}
-                onChange={(mediaAssetId, thumbnailAssetId) =>
-                  setChanges({
-                    ...changes,
-                    ads: changes.ads.map((item, ix) =>
-                      ix === i ? { ...item, mediaAssetId, thumbnailAssetId } : item,
-                    ),
-                  })
-                }
-              />
+              {ad.format === 'carousel' ? (
+                <CarouselCards cards={ad.cards} />
+              ) : (
+                <MediaPicker
+                  api={api}
+                  value={ad.mediaAssetId}
+                  thumbnail={ad.thumbnailAssetId}
+                  onChange={(mediaAssetId, thumbnailAssetId) =>
+                    setChanges({
+                      ...changes,
+                      ads: changes.ads.map((item, ix) =>
+                        ix === i ? { ...item, mediaAssetId, thumbnailAssetId } : item,
+                      ),
+                    })
+                  }
+                />
+              )}
             </div>
           ))}
           <div className="modal-actions">
@@ -1166,7 +1184,10 @@ function PlanReview({
                 {[
                   {
                     label: plan.kind === 'service' ? 'Offer / project price' : 'Product price',
-                    value: taka(p.sellingPrice),
+                    value:
+                      plan.kind === 'product-group'
+                        ? 'See each product below'
+                        : taka(p.sellingPrice),
                   },
                   {
                     label:
@@ -1175,7 +1196,13 @@ function PlanReview({
                         : 'Target CPA / CAC',
                     value: taka(p.targetCPA),
                   },
-                  { label: 'Profit at target CPA', value: taka(p.contributionAtTargetCPA) },
+                  {
+                    label: 'Profit at target CPA',
+                    value:
+                      plan.kind === 'product-group'
+                        ? 'Calculated per product'
+                        : taka(p.contributionAtTargetCPA),
+                  },
                   { label: 'Total test budget', value: taka(b.totalBudget) },
                 ].map((item) => (
                   <div key={item.label}>
@@ -1192,49 +1219,83 @@ function PlanReview({
               )}
               <div className="review-columns">
                 <div>
-                  <h3>Product economics</h3>
-                  <dl className="detail-list">
-                    <div>
-                      <dt>Variable cost + expected failed orders</dt>
-                      <dd>{taka(p.baseVariableCost)}</dd>
+                  <h3>
+                    {plan.kind === 'service'
+                      ? 'Service economics'
+                      : plan.kind === 'product-group'
+                        ? 'Per-product economics'
+                        : 'Product economics'}
+                  </h3>
+                  {plan.kind === 'product-group' ? (
+                    <div className="group-economics">
+                      {plan.productMembers.map((member) => (
+                        <article className="evidence-card" key={member.productId}>
+                          <strong>{member.name}</strong>
+                          <dl className="detail-list">
+                            <div>
+                              <dt>Selling price</dt>
+                              <dd>{taka(member.economics.sellingPrice)}</dd>
+                            </div>
+                            <div>
+                              <dt>Total variable cost</dt>
+                              <dd>{taka(member.economics.baseVariableCost)}</dd>
+                            </div>
+                            <div>
+                              <dt>Minimum profit reserved</dt>
+                              <dd>{taka(member.economics.minimumProfit)}</dd>
+                            </div>
+                            <div>
+                              <dt>Allowable advertising cost per purchase</dt>
+                              <dd>{taka(member.economics.targetCPA)}</dd>
+                            </div>
+                          </dl>
+                        </article>
+                      ))}
                     </div>
-                    <div>
-                      <dt>Expected return / cancellation loss</dt>
-                      <dd>{taka(p.expectedReturnCost)}</dd>
-                    </div>
-                    <div>
-                      <dt>Break-even acquisition cost</dt>
-                      <dd>{taka(p.breakEvenCPA)}</dd>
-                    </div>
-                    <div>
-                      <dt>Target ROAS</dt>
-                      <dd>
-                        {p.targetROAS
-                          ? `${p.targetROAS}×`
-                          : p.viable
-                            ? 'Not available for this goal'
-                            : 'Not viable'}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Recommended selling price</dt>
-                      <dd>{taka(p.priceRange.recommended)}</dd>
-                    </div>
-                    <div>
-                      <dt>Sourced competitive price</dt>
-                      <dd>{taka(p.priceRange.competitive)}</dd>
-                    </div>
-                    <div>
-                      <dt>Minimum viable / premium price</dt>
-                      <dd>
-                        {taka(p.priceRange.minimumViable)} / {taka(p.priceRange.premium)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Promotional / test price</dt>
-                      <dd>{taka(p.priceRange.promotional)}</dd>
-                    </div>
-                  </dl>
+                  ) : (
+                    <dl className="detail-list">
+                      <div>
+                        <dt>Variable cost + expected failed orders</dt>
+                        <dd>{taka(p.baseVariableCost)}</dd>
+                      </div>
+                      <div>
+                        <dt>Expected return / cancellation loss</dt>
+                        <dd>{taka(p.expectedReturnCost)}</dd>
+                      </div>
+                      <div>
+                        <dt>Break-even acquisition cost</dt>
+                        <dd>{taka(p.breakEvenCPA)}</dd>
+                      </div>
+                      <div>
+                        <dt>Target ROAS</dt>
+                        <dd>
+                          {p.targetROAS
+                            ? `${p.targetROAS}×`
+                            : p.viable
+                              ? 'Not available for this goal'
+                              : 'Not viable'}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Recommended selling price</dt>
+                        <dd>{taka(p.priceRange.recommended)}</dd>
+                      </div>
+                      <div>
+                        <dt>Sourced competitive price</dt>
+                        <dd>{taka(p.priceRange.competitive)}</dd>
+                      </div>
+                      <div>
+                        <dt>Minimum viable / premium price</dt>
+                        <dd>
+                          {taka(p.priceRange.minimumViable)} / {taka(p.priceRange.premium)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Promotional / test price</dt>
+                        <dd>{taka(p.priceRange.promotional)}</dd>
+                      </div>
+                    </dl>
+                  )}
                   <p className="small muted">{p.formula}</p>
                   {p.failureScenarios?.length > 0 && (
                     <div className="notice">
@@ -1355,6 +1416,7 @@ function PlanReview({
                 </div>
               </div>
               <ResearchRetrieval retrieval={plan.research.retrieval} />
+              <ConfidenceNotes report={plan.research} />
               <h3 className="form-section">Evidence and assumptions</h3>
               {plan.research.findings.map((finding, i) => (
                 <article className="evidence-card" key={i}>
@@ -1416,7 +1478,9 @@ function PlanReview({
               {plan.ads.map((ad) => (
                 <article className="creative-card" key={ad.id}>
                   <div className="creative-image">
-                    {ad.mediaAssetId ? (
+                    {ad.format === 'carousel' ? (
+                      <CarouselCards cards={ad.cards} />
+                    ) : ad.mediaAssetId ? (
                       ad.mediaType === 'video' ? (
                         <video src={mediaUrl(ad.mediaAssetId)} controls preload="metadata" />
                       ) : (
@@ -2553,7 +2617,13 @@ function App() {
                   {page === 'Overview' && <Overview {...common} />}
                   {page === 'Products' && (
                     <Products
+                      key={data.business.id}
                       {...common}
+                      run={run}
+                      onGroupCreated={async (plan) => {
+                        await refresh();
+                        showPlan(plan);
+                      }}
                       addEvidence={(product) => setModal({ kind: 'evidence', product })}
                       generate={(id) =>
                         run(async () => {

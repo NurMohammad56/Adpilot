@@ -171,7 +171,9 @@ export function manualGuide(plan, integration = {}) {
           ),
           field(
             'Ad setup',
-            'Create ad; single image or video for each creative',
+            plan.kind === 'product-group'
+              ? 'Create ad; Carousel; one product per card'
+              : 'Create ad; single image or video for each creative',
             'Upload the saved creative below. Keep automatic text or creative enhancements off if they would change the approved message.',
             'নিচের saved creative upload করুন। Approved message বদলে দিতে পারে এমন automatic enhancement বন্ধ রাখুন।',
           ),
@@ -185,6 +187,8 @@ export function manualGuide(plan, integration = {}) {
       },
     ],
     creatives: plan.ads.map((ad) => ({
+      format: ad.format,
+      cards: ad.cards,
       id: ad.id,
       headline: ad.headline,
       primaryText: ad.primaryText,

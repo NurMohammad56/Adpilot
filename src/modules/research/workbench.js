@@ -5,6 +5,8 @@ import { evidenceSchema, retrievalSchema } from '../schemas.js';
 import { resolveLocations, regionalCoverage } from './locations.js';
 import { actualResults } from '../analytics/outcomes.js';
 import { countryNames } from './countries.js';
+import { productVisualContext } from '../media/vision.js';
+import { explainConfidence } from './confidence.js';
 export { countryNames } from './countries.js';
 export const countryCode = z.enum(Object.keys(countryNames));
 const words = z.string().trim().min(1).max(4000);
@@ -87,6 +89,16 @@ export class ResearchWorkbench {
   constructor(platform) {
     this.platform = platform;
     this.store = platform.store;
+  }
+  async assertLinkedProduct(user, project, report) {
+    if (!project.productId || !report.linkedProductHash) return;
+    const current = await this.platform.owned('products', project.productId, user);
+    assert(
+      hash(current) === report.linkedProductHash,
+      409,
+      'STALE_PRODUCT_RESEARCH',
+      'The linked product changed. Research it again before reviewing or using this decision.',
+    );
   }
   async create(user, input) {
     await resolveLocations(
@@ -189,6 +201,7 @@ export class ResearchWorkbench {
     );
     return this.store.transaction(async () => {
       const latest = await this.platform.owned('research_projects', project.id, user);
+      await this.assertLinkedProduct(user, project, report);
       assert(
         latest.revision === project.revision &&
           latest.currentVersionId === project.currentVersionId,
@@ -232,6 +245,12 @@ export class ResearchWorkbench {
       ? await this.store.get('research_versions', project.currentVersionId)
       : null;
     const llm = await workspaceLLM(this.platform, user.businessId);
+    const linkedProduct = project.productId
+      ? await this.platform.owned('products', project.productId, user)
+      : null;
+    const visualAnalysis = linkedProduct
+      ? await productVisualContext(this.platform, user, linkedProduct, language)
+      : null;
     const locations = await resolveLocations(
       this.platform,
       user,
@@ -242,9 +261,10 @@ export class ResearchWorkbench {
       businessId: user.businessId,
       researchProjectId: project.id,
     });
-    const campaigns = (await this.store.list('campaigns', { businessId: user.businessId })).filter(
-      (campaign) => plans.some((plan) => plan.id === campaign.planId),
-    );
+    const campaigns = [
+      ...(await this.store.list('campaigns', { businessId: user.businessId })),
+      ...(await this.store.list('manual_campaigns', { businessId: user.businessId })),
+    ].filter((campaign) => plans.some((plan) => plan.id === campaign.planId));
     const measured = campaigns.length
       ? await actualResults(this.platform, user, {
           from: '2000-01-01',
@@ -261,6 +281,18 @@ export class ResearchWorkbench {
         regionalRules:
           'Compare every candidateLocationId exactly once using the saved candidateLocations. Investigate buyer clusters, language, local alternatives, delivery/service coverage and evidence gaps at state/region/city level. Whole-country statistics do not prove regional demand. Never invent Meta location keys, local CPC, conversion estimates or population. Keep locationIds empty when evidence cannot justify narrowing. For small budgets recommend one offer and one ad set; avoid fragmenting spend across regions.',
         evidence: project.evidence,
+        linkedProduct: linkedProduct
+          ? {
+              name: linkedProduct.name,
+              description: linkedProduct.description,
+              category: linkedProduct.category,
+              sellingPrice: linkedProduct.sellingPrice,
+              costs: linkedProduct.costs,
+            }
+          : null,
+        visualAnalysis: visualAnalysis
+          ? { report: visualAnalysis.report, classification: visualAnalysis.classification }
+          : null,
         actualBusinessResults: {
           classification:
             'User-recorded business outcomes and Meta campaign-level spend; completeness is not independently verified.',
@@ -335,6 +367,16 @@ export class ResearchWorkbench {
       classification: 'ai-generated',
     }));
     report.countries = report.countries.map((country) => ({ ...country, confidence: 'Low' }));
+    if (linkedProduct) report.linkedProductHash = hash(linkedProduct);
+    if (visualAnalysis) report.visualAnalysis = visualAnalysis;
+    report.confidenceDetails = explainConfidence({
+      findings: project.evidence,
+      retrieval: report.retrieval,
+      visualAnalysis,
+      actualResults: (measured?.results || []).filter((result) =>
+        campaigns.some((campaign) => campaign.id === result.campaignId),
+      ),
+    });
     return this.saveVersion(user, project, report, instruction || 'Initial comparison', previous);
   }
   async edit(user, versionId, input) {
@@ -355,6 +397,7 @@ export class ResearchWorkbench {
     return this.store.transaction(async () => {
       const version = await this.platform.owned('research_versions', versionId, user);
       const project = await this.platform.owned('research_projects', version.projectId, user);
+      await this.assertLinkedProduct(user, project, version.report);
       assert(
         project.currentVersionId === version.id &&
           version.projectRevision === project.revision &&
@@ -388,6 +431,7 @@ export class ResearchWorkbench {
     return this.store.transaction(async () => {
       const version = await this.platform.owned('research_versions', versionId, user);
       const project = await this.platform.owned('research_projects', version.projectId, user);
+      await this.assertLinkedProduct(user, project, version.report);
       assert(
         version.status === 'pending' &&
           project.currentVersionId === version.id &&
@@ -419,6 +463,7 @@ export class ResearchWorkbench {
   async approved(user, versionId) {
     const version = await this.platform.owned('research_versions', versionId, user);
     const project = await this.platform.owned('research_projects', version.projectId, user);
+    await this.assertLinkedProduct(user, project, version.report);
     assert(
       version.status === 'approved' &&
         project.approvedVersionId === version.id &&

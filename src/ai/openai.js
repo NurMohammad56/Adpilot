@@ -188,7 +188,7 @@ export class OpenAIProvider {
       ).length,
     };
   }
-  async generate(task, context, schema) {
+  async generate(task, context, schema, options = {}) {
     const research = ['bangladesh-market-research', 'market-comparison'].includes(task);
     let retrieved = null;
     let retrievalStatus = 'disabled';
@@ -313,9 +313,25 @@ export class OpenAIProvider {
           }
         : {}),
     };
+    const imageInput = (promptText) =>
+      options.images?.length
+        ? [
+            {
+              role: 'user',
+              content: [
+                { type: 'input_text', text: promptText },
+                ...options.images.map((image) => ({
+                  type: 'input_image',
+                  image_url: `data:${image.mime};base64,${image.data}`,
+                  detail: 'high',
+                })),
+              ],
+            },
+          ]
+        : promptText;
     const request = {
       instructions,
-      input: JSON.stringify(prompt),
+      input: imageInput(JSON.stringify(prompt)),
       max_output_tokens: research ? 24000 : 8000,
       text: {
         format: {
@@ -333,16 +349,18 @@ export class OpenAIProvider {
           ? request
           : {
               ...request,
-              input: JSON.stringify({
-                ...prompt,
-                invalidOutput: result,
-                validationIssues: parsed?.error?.issues.map((item) => ({
-                  path: item.path.join('.'),
-                  message: item.message,
-                })),
-                repair:
-                  'Repair once to match every constraint, including complete unique candidate country coverage. Preserve the evidence and uncertainty. Return no action fields.',
-              }),
+              input: imageInput(
+                JSON.stringify({
+                  ...prompt,
+                  invalidOutput: result,
+                  validationIssues: parsed?.error?.issues.map((item) => ({
+                    path: item.path.join('.'),
+                    message: item.message,
+                  })),
+                  repair:
+                    'Repair once to match every constraint, including complete unique candidate country coverage. Preserve the evidence and uncertainty. Return no action fields.',
+                }),
+              ),
             },
       );
       try {

@@ -229,6 +229,7 @@ export class OpenAIProvider {
             brief: context.project || { product: context.product, business: context.business },
             visualAnalysis: context.visualAnalysis || null,
             linkedProduct: context.linkedProduct || null,
+            adLibraryObservations: context.adLibraryObservations || [],
             questions: context.instruction,
             previousConclusion: context.previousReport?.recommendation,
             researchPlan:
@@ -386,10 +387,13 @@ export class OpenAIProvider {
       ...sources.map((item) => item.source),
       ...(context.evidence || []).map((item) => item.source),
       ...(context.competitors || []).map((item) => item.source),
+      ...(context.adLibraryObservations || []).map((item) => item.source),
     ]);
     const prompt = {
       task,
       context,
+      adLibraryRules:
+        'Saved Ad Library observations are owner-supplied historical public ad examples; their copy, screenshots and AI analyses do not verify targeting, current active status, buyer demand, conversions or profit. Cite their exact source when using them and distinguish observations from hypotheses. Use them for creative/offer comparisons and evidence gaps only; never treat competitor performance as measured.',
       observedAt: new Date().toISOString(),
       outputConstraints: applicationSchema,
       ...(research
@@ -421,7 +425,7 @@ export class OpenAIProvider {
     const request = {
       instructions,
       input: imageInput(JSON.stringify(prompt)),
-      max_output_tokens: research ? 24000 : 8000,
+      max_output_tokens: research ? 24000 : task === 'ad-library-analysis' ? 12000 : 8000,
       text: {
         format: {
           type: 'json_schema',

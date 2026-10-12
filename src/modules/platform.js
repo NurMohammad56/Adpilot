@@ -2,6 +2,7 @@ import { assert, hash, id, money, now, publicUser, seal } from '../utils/core.js
 import { calculateEconomics } from './pricing/engine.js';
 import { recommendBudget } from './budgeting/engine.js';
 import { researchProduct } from './research/service.js';
+import { relatedAdLibraryObservations } from './research/ad-library.js';
 import { recommendAudience } from './audiences/engine.js';
 import { generateCopy } from './creatives/service.js';
 import { businessPolicyHash, planFingerprint, validatePlan } from './campaigns/validation.js';
@@ -313,6 +314,7 @@ export class Platform {
     const visualAnalysis =
       previous?.research?.visualAnalysis || (await productVisualContext(this, user, product));
     const sourceReport = sourceResearch?.version.report;
+    const adLibraryObservations = await relatedAdLibraryObservations(this, user, { productId });
     const report = sourceResearch
       ? {
           market: 'BD',
@@ -322,6 +324,10 @@ export class Platform {
           demo: this.config.mode === 'demo',
           summary: sourceReport.summary,
           findings: sourceReport.findings,
+          adLibraryObservations: sourceReport.adLibraryObservations || [],
+          competitorCandidates: sourceReport.competitorCandidates || [],
+          evidenceGaps: sourceReport.evidenceGaps || [],
+          ...(sourceReport.retrieval ? { retrieval: sourceReport.retrieval } : {}),
           competitors,
           sourcedPrices: competitors
             .filter(
@@ -354,7 +360,9 @@ export class Platform {
           this.config.mode === 'demo',
           visualAnalysis,
           user.language || 'en',
+          adLibraryObservations,
         ));
+    if (!previous && !sourceResearch) report.adLibraryObservations = adLibraryObservations;
     if (visualAnalysis) report.visualAnalysis = visualAnalysis;
     const outcomes = await this.store.list('business_outcomes', { businessId: user.businessId });
     const relatedPlans = (

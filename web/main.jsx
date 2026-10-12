@@ -58,6 +58,7 @@ import { AdControlCenter } from './AdControlCenter.jsx';
 import { LaunchModePicker, ManualCampaignGuide } from './ManualCampaignGuide.jsx';
 import { ProductCampaigns, CarouselCards } from './ProductCampaigns.jsx';
 import { ConfidenceNotes } from './ConfidenceNotes.jsx';
+import { AdLibraryResearch, AdLibraryResearchSources } from './AdLibraryResearch.jsx';
 import './product-studio.css';
 
 let displayCurrency = 'BDT';
@@ -88,6 +89,7 @@ const navItems = [
   { label: 'Overview', icon: LayoutDashboard },
   { label: 'Products', icon: Package },
   { label: 'Research studio', icon: Sparkles },
+  { label: 'Ad Library research', icon: Search },
   { label: 'Media library', icon: Image },
   { label: 'Accounts', icon: Settings2 },
   { label: 'Campaign plans', icon: FileText },
@@ -1417,6 +1419,7 @@ function PlanReview({
               </div>
               <ResearchRetrieval retrieval={plan.research.retrieval} />
               <ConfidenceNotes report={plan.research} />
+              <AdLibraryResearchSources observations={plan.research.adLibraryObservations} />
               <h3 className="form-section">Evidence and assumptions</h3>
               {plan.research.findings.map((finding, i) => (
                 <article className="evidence-card" key={i}>
@@ -2705,6 +2708,9 @@ function App() {
                   )}
                   {page === 'Media library' && (
                     <MediaLibrary key={data.business.id} {...common} api={api} run={run} />
+                  )}
+                  {page === 'Ad Library research' && (
+                    <AdLibraryResearch key={data.business.id} {...common} api={api} run={run} />
                   )}
                   {page === 'Research studio' && (
                     <ResearchDesk

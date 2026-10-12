@@ -3,11 +3,13 @@ import baseTranslations from './locales/bn.json';
 import operationsTranslations from './locales/operations-bn.json';
 import manualTranslations from './locales/manual-bn.json';
 import productTranslations from './locales/product-bn.json';
+import adLibraryTranslations from './locales/ad-library-bn.json';
 const translations = {
   ...baseTranslations,
   ...operationsTranslations,
   ...manualTranslations,
   ...productTranslations,
+  ...adLibraryTranslations,
 };
 
 const listeners = new Set();

@@ -7,6 +7,7 @@ import { actualResults } from '../analytics/outcomes.js';
 import { countryNames } from './countries.js';
 import { productVisualContext } from '../media/vision.js';
 import { explainConfidence } from './confidence.js';
+import { relatedAdLibraryObservations } from './ad-library.js';
 export { countryNames } from './countries.js';
 export const countryCode = z.enum(Object.keys(countryNames));
 const words = z.string().trim().min(1).max(4000);
@@ -273,6 +274,10 @@ export class ResearchWorkbench {
           to: new Date(Date.now() + 14 * 3600000).toISOString().slice(0, 10),
         })
       : null;
+    const adLibraryObservations = await relatedAdLibraryObservations(this.platform, user, {
+      productId: project.productId,
+      projectId: project.id,
+    });
     const generated = await llm.generate(
       'market-comparison',
       {
@@ -283,6 +288,7 @@ export class ResearchWorkbench {
         regionalRules:
           'Compare every candidateLocationId exactly once using the saved candidateLocations. Investigate buyer clusters, language, local alternatives, delivery/service coverage and evidence gaps at state/region/city level. Whole-country statistics do not prove regional demand. Never invent Meta location keys, local CPC, conversion estimates or population. Keep locationIds empty when evidence cannot justify narrowing. For small budgets recommend one offer and one ad set; avoid fragmenting spend across regions.',
         evidence: project.evidence,
+        adLibraryObservations,
         linkedProduct: linkedProduct
           ? {
               name: linkedProduct.name,
@@ -358,6 +364,7 @@ export class ResearchWorkbench {
       ],
     };
     const allowed = new Set(project.evidence.map((item) => item.source));
+    report.adLibraryObservations = adLibraryObservations;
     report.findings = report.findings.map((item) => ({
       ...item,
       source:

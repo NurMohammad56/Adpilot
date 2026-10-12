@@ -3,6 +3,7 @@ import Redis from 'ioredis';
 import { createRuntime } from '../runtime.js';
 import { now } from '../utils/core.js';
 import { runProductGroupJob } from '../modules/campaigns/group-jobs.js';
+import { runAdLibraryAnalysisJob } from '../modules/research/ad-library-jobs.js';
 const runtime = await createRuntime({ seed: false });
 if (runtime.config.mode === 'demo' || !runtime.jobs) {
   process.stderr.write(
@@ -110,6 +111,8 @@ const worker = new Worker(
       } else if (job.name === 'product-group-plan') {
         const plan = await runProductGroupJob(platform, record);
         await store.update('jobs', record.id, { planId: plan.id });
+      } else if (job.name === 'ad-library-analysis') {
+        await runAdLibraryAnalysisJob(platform, record);
       } else if (job.name === 'research-refresh')
         await platform.createPlan(user, job.data.productId);
       else if (job.name === 'daily-report') {
@@ -129,7 +132,7 @@ const worker = new Worker(
         await store.update('jobs', record.id, {
           status: 'failed',
           errorCode: error.code || 'JOB_FAILED',
-          ...(job.name === 'product-group-plan'
+          ...(['product-group-plan', 'ad-library-analysis'].includes(job.name)
             ? {
                 errorMessage: error.code
                   ? error.message

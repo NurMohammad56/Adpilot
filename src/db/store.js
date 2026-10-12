@@ -41,6 +41,7 @@ export const collections = [
   'manual_campaigns',
   'visual_analyses',
   'catalog_feeds',
+  'ad_library_observations',
 ];
 const stamp = (value) => ({
   ...value,
@@ -91,7 +92,11 @@ export class DemoStore {
           (collection === 'campaigns' && r.approvalId === row.approvalId) ||
           (collection === 'manual_campaigns' &&
             r.businessId === row.businessId &&
-            (r.planId === row.planId || r.metaCampaignId === row.metaCampaignId)),
+            (r.planId === row.planId || r.metaCampaignId === row.metaCampaignId)) ||
+          (collection === 'ad_library_observations' &&
+            r.businessId === row.businessId &&
+            r.libraryAdId === row.libraryAdId &&
+            r.country === row.country),
       )
     )
       throw new AppError(409, 'DUPLICATE', 'Record already exists');
@@ -181,6 +186,8 @@ export class MongoStore {
       }
       if (collection === 'ad_performance')
         schema.index({ campaignId: 1, level: 1, entityId: 1, date: 1 }, { unique: true });
+      if (collection === 'ad_library_observations')
+        schema.index({ businessId: 1, libraryAdId: 1, country: 1 }, { unique: true });
       if (collection === 'sessions') {
         schema.add({ expiresAtDate: Date });
         schema.index({ expiresAtDate: 1 }, { expireAfterSeconds: 0 });

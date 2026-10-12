@@ -51,6 +51,7 @@ export async function researchProduct(
   demo,
   visualAnalysis = null,
   language = 'en',
+  adLibraryObservations = [],
 ) {
   const generated = await llm.generate(
     'bangladesh-market-research',
@@ -59,6 +60,7 @@ export async function researchProduct(
       business,
       evidence,
       competitors,
+      adLibraryObservations,
       responseLanguage: language === 'bn' ? 'Bangla' : 'English',
       visualAnalysis: visualAnalysis
         ? { report: visualAnalysis.report, classification: visualAnalysis.classification }
@@ -121,6 +123,7 @@ export async function researchProduct(
     findings: [...evidence, ...aiFindings],
     competitors,
     sourcedPrices,
+    adLibraryObservations,
     competitorCandidates: generated?.competitorCandidates || [],
     evidenceGaps: generated?.evidenceGaps || [],
     competitorAnalysis:

@@ -328,6 +328,7 @@ export class GeminiProvider {
       ...sources.map((source) => source.source),
       ...(context.evidence || []).map((item) => item.source),
       ...(context.competitors || []).map((item) => item.source),
+      ...(context.adLibraryObservations || []).map((item) => item.source),
     ]);
     const normalizeResearch = (output) => {
       if (!isResearch || !Array.isArray(output?.findings)) return output;

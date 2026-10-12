@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { assert, hash, id, now, money } from '../../utils/core.js';
 import { calculateEconomics } from '../pricing/engine.js';
 import { researchProduct } from '../research/service.js';
+import { relatedAdLibraryObservations } from '../research/ad-library.js';
 import { explainConfidence } from '../research/confidence.js';
 import { recommendAudience } from '../audiences/engine.js';
 import { productVisualContext } from '../media/vision.js';
@@ -195,6 +196,19 @@ export async function createProductGroup(platform, user, input, previous = null,
       platform.config.mode === 'demo',
       null,
       user.language || 'en',
+      [
+        ...new Map(
+          (
+            await Promise.all(
+              products.map((product) =>
+                relatedAdLibraryObservations(platform, user, { productId: product.id }),
+              ),
+            )
+          )
+            .flat()
+            .map((ad) => [ad.id, ad]),
+        ).values(),
+      ].slice(0, 12),
     ));
   const relatedPlans = (
     await platform.store.list('campaign_plans', {

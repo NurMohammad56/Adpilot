@@ -6,6 +6,14 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { z } from 'zod';
 import { analyzeProductImages } from './modules/media/vision.js';
+import {
+  adLibraryObservationSchema,
+  adLibraryUpdateSchema,
+  saveAdLibraryObservation,
+  listAdLibraryObservations,
+  archiveAdLibraryObservation,
+} from './modules/research/ad-library.js';
+import { enqueueAdLibraryAnalysis } from './modules/research/ad-library-jobs.js';
 import { groupInput } from './modules/campaigns/product-group.js';
 import { enqueueProductGroup } from './modules/campaigns/group-jobs.js';
 import {
@@ -445,6 +453,49 @@ export function createApp(runtime) {
   app.get('/api/research', async (req, res) =>
     res.json(await store.list('research_projects', { businessId: req.user.businessId })),
   );
+  app.get('/api/ad-library', async (req, res) =>
+    res.json(await listAdLibraryObservations(platform, req.user)),
+  );
+  app.post('/api/ad-library', parse(adLibraryObservationSchema), async (req, res) =>
+    res
+      .status(201)
+      .json(
+        await exclusive(`ad-library-write:${req.user.businessId}`, () =>
+          saveAdLibraryObservation(platform, req.user, req.input),
+        ),
+      ),
+  );
+  app.put('/api/ad-library/:id', parse(adLibraryUpdateSchema), async (req, res) =>
+    res.json(
+      await exclusive(`ad-library-write:${req.user.businessId}`, () =>
+        saveAdLibraryObservation(platform, req.user, req.input, req.params.id),
+      ),
+    ),
+  );
+  app.post(
+    '/api/ad-library/:id/archive',
+    parse(
+      z.object({ archived: z.boolean(), expectedRevision: z.number().int().positive() }).strict(),
+    ),
+    async (req, res) =>
+      res.json(
+        await exclusive(`ad-library-write:${req.user.businessId}`, () =>
+          archiveAdLibraryObservation(
+            platform,
+            req.user,
+            req.params.id,
+            req.input.archived,
+            req.input.expectedRevision,
+          ),
+        ),
+      ),
+  );
+  app.post('/api/ad-library/:id/analyze', parse(z.object({}).strict()), async (req, res) => {
+    const result = await exclusive(`ad-library-analysis:${req.user.businessId}`, () =>
+      enqueueAdLibraryAnalysis(runtime, req.user, req.params.id),
+    );
+    res.status(result.queued ? 202 : 200).json(result);
+  });
   app.post('/api/research', parse(projectSchema), async (req, res) =>
     res.status(201).json(await research.create(req.user, req.input)),
   );

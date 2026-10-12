@@ -40,11 +40,11 @@ export function AdLibraryPicker({
           : 'Selected ads and their current analyses inform the next research for this product or brief. General inspiration is included only when you select it.'}
       </p>
       <div className="guide-actions">
-        <button type="button" className="secondary" disabled={busy} onClick={load}>
+        <button type="button" className="button secondary" disabled={busy} onClick={load}>
           {bn ? 'Saved ad আবার লোড করুন' : 'Refresh saved ads'}
         </button>
         {onOpenLibrary && (
-          <button type="button" className="secondary" onClick={onOpenLibrary}>
+          <button type="button" className="button secondary" onClick={onOpenLibrary}>
             {bn ? 'Ad Library থেকে নতুন ad যোগ করুন' : 'Add or analyze ads in Ad Library'}
           </button>
         )}
@@ -97,13 +97,19 @@ export function AdLibraryPicker({
               </p>
             )}
             <div className="guide-actions">
-              <a href={row.adUrl} target="_blank" rel="noopener noreferrer">
+              <a
+                className="button secondary"
+                href={row.adUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {bn ? 'Original ad' : 'Original ad'}
               </a>
               {row.analysis && (
                 <button
                   type="button"
-                  className="secondary"
+                  className="button secondary"
+                  aria-expanded={expanded === row.id}
                   onClick={() => setExpanded(expanded === row.id ? null : row.id)}
                 >
                   {bn ? 'Analysis দেখুন / বন্ধ করুন' : 'Show / hide analysis'}
@@ -123,7 +129,7 @@ export function AdLibraryPicker({
       )}
       {selected.some((id) => !rows.some((r) => r.id === id)) && (
         <button
-          className="secondary"
+          className="button secondary"
           type="button"
           onClick={() => onChange(selected.filter((id) => rows.some((r) => r.id === id)))}
         >

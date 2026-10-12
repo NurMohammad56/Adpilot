@@ -900,7 +900,7 @@ function PlanReview({
     (!approval || ['pending', 'failed'].includes(approval.status));
   return (
     <>
-      <div className="guide-actions">
+      <div className="report-language-toolbar">
         <LanguageSwitch />
       </div>
       <ReportTranslationNotice translation={translation} />

@@ -60,7 +60,7 @@ export function ReportTranslationNotice({ translation }) {
   if (translation.language !== 'bn') return null;
   return (
     <div className="notice report-translation-notice">
-      <div>
+      <div className="report-translation-text">
         {translation.loading ? (
           <p>বাংলা অনুবাদ হচ্ছে… মূল report এখন দেখা যাচ্ছে।</p>
         ) : translation.error ? (
@@ -73,12 +73,14 @@ export function ReportTranslationNotice({ translation }) {
           </p>
         )}
         {translation.demo && translation.translated && <p>ডেমো: এখানে live AI অনুবাদ করা হয়নি।</p>}
+      </div>
+      <div className="report-translation-actions">
         {translation.error && (
-          <button type="button" className="secondary" onClick={translation.retry}>
+          <button type="button" className="button secondary" onClick={translation.retry}>
             অনুবাদ আবার চেষ্টা করুন
           </button>
         )}
-        <button type="button" className="secondary" onClick={translation.toggleOriginal}>
+        <button type="button" className="button secondary" onClick={translation.toggleOriginal}>
           {translation.showOriginal ? 'বাংলা অনুবাদ দেখুন' : 'মূল report দেখুন'}
         </button>
       </div>

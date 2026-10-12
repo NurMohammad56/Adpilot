@@ -111,12 +111,45 @@
 .ad-library-analysis li {
   margin-bottom: 10px;
 }
+.ad-library-picker {
+  min-width: 0;
+  padding: 20px;
+}
+.ad-library-picker > h3 {
+  margin-top: 0;
+}
+.ad-library-picker .guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+.ad-library-picker .guide-actions > .button {
+  min-height: 44px;
+  max-width: 100%;
+  margin: 0;
+  padding: 10px 16px;
+  text-align: center;
+}
+.ad-library-picker .ad-library-card:last-child {
+  margin-bottom: 0;
+}
+.ad-library-picker .ad-library-analysis {
+  margin-top: 20px;
+}
 @media (max-width: 1000px) {
   .ad-library-layout {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 600px) {
+  .ad-library-picker {
+    padding: 16px;
+  }
+  .ad-library-picker .guide-actions > .button {
+    flex: 1 1 180px;
+  }
   .ad-library-form input,
   .ad-library-form textarea,
   .ad-library-form select {

@@ -134,6 +134,40 @@ input[aria-invalid='true'] {
   font-family: 'Noto Sans Bengali', sans-serif;
   min-width: 76px;
 }
+.report-language-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+.report-translation-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 20px;
+  margin: 0 0 24px;
+}
+.report-translation-text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.report-translation-text p {
+  margin: 0;
+}
+.report-translation-text p + p {
+  margin-top: 8px;
+}
+.report-translation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+}
+.report-translation-actions > .button {
+  margin: 0;
+}
 .login-language {
   position: absolute;
   top: 18px;
@@ -232,6 +266,12 @@ input[aria-invalid='true'] {
   }
 }
 @media (max-width: 600px) {
+  .report-translation-actions {
+    width: 100%;
+  }
+  .report-translation-actions > .button {
+    flex: 1 1 180px;
+  }
   .topbar {
     padding: 14px 18px;
     gap: 10px;

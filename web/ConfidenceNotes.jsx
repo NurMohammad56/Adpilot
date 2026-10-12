@@ -29,6 +29,18 @@ export function ConfidenceNotes({ report }) {
           <dt>{bn ? 'Search-এ পাওয়া source' : 'Retrieved sources'}</dt>
           <dd>{d?.retrievedSourceCount || report?.retrieval?.sourceCount || 0}</dd>
         </div>
+        {report?.retrieval?.citedSourceCount != null && (
+          <div>
+            <dt>
+              {bn
+                ? 'Report-এ cited source / স্বাধীন domain'
+                : 'Cited sources / independent domains'}
+            </dt>
+            <dd>
+              {report.retrieval.citedSourceCount} / {report.retrieval.independentSourceCount}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>{bn ? 'ছবির actual analysis' : 'Actual image analysis'}</dt>
           <dd>
@@ -46,6 +58,72 @@ export function ConfidenceNotes({ report }) {
           <dd>{d?.confirmedSales || 0}</dd>
         </div>
       </dl>
+      {report?.competitorCandidates?.length > 0 && (
+        <section>
+          <h4>
+            {bn
+              ? 'Search-এ পাওয়া competitor — যাচাই বাকি'
+              : 'Discovered competitors — review required'}
+          </h4>
+          <p>
+            {bn
+              ? 'এগুলো original source দেখে যাচাই করুন। এই দাম দিয়ে স্বয়ংক্রিয় profit বা selling price বদলানো হয় না।'
+              : 'Check each original source and whether the offer is comparable. These prices do not automatically change your selling price or profit calculations.'}
+          </p>
+          {report.competitorCandidates.map((item, i) => (
+            <article className="guide-step" key={`${item.source}:${i}`}>
+              <h4>
+                <a href={item.source} target="_blank" rel="noopener noreferrer">
+                  {item.name}
+                </a>
+              </h4>
+              <p>{item.offer}</p>
+              <p>
+                {item.price != null && item.currency
+                  ? `${item.price} ${item.currency}`
+                  : bn
+                    ? 'দাম নিশ্চিত পাওয়া যায়নি'
+                    : 'Price not established'}
+                {item.priceBasis ? ` — ${item.priceBasis}` : ''}
+              </p>
+              <p>{item.comparability}</p>
+              <p>{item.deliveryTerms}</p>
+            </article>
+          ))}
+        </section>
+      )}
+      {report?.evidenceGaps?.length > 0 && (
+        <section>
+          <h4>{bn ? 'কোন তথ্য এখনো কম?' : 'Which evidence is still missing?'}</h4>
+          <ul>
+            {report.evidenceGaps.map((gap, i) => (
+              <li key={i}>{gap}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {report?.retrieval?.sources?.length > 0 && (
+        <details>
+          <summary>
+            {bn ? 'Research-এর original source দেখুন' : 'View original research sources'}
+          </summary>
+          <p>
+            {bn
+              ? 'Cited source report-এ উল্লেখ হয়েছে। অন্য link search-এ পাওয়া discovery lead; সব দাবি যাচাই হয়েছে এমন নয়।'
+              : 'Cited sources appear in the report. Other consulted links are discovery leads; retrieval does not verify every claim.'}
+          </p>
+          <ul>
+            {report.retrieval.sources.map((item) => (
+              <li key={item.source}>
+                <a href={item.source} target="_blank" rel="noopener noreferrer">
+                  {item.title}
+                </a>
+                {item.cited ? ' · Cited' : ' · Discovery lead'}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <ul>
         <li>
           {bn

@@ -64,6 +64,21 @@ test('automatic product form calculates delivery and profit, explains assumption
   await dialog.getByLabel('Actual selling price', { exact: true }).fill('1000');
   await dialog.getByLabel('Product cost', { exact: true }).fill('400');
   await dialog.getByLabel('Packaging', { exact: true }).fill('20');
+  await dialog.getByLabel('Delivery fee preset', { exact: true }).selectOption('dhaka');
+  await expect(dialog.getByLabel('Courier delivery charge', { exact: true })).toHaveValue('80');
+  await expect(
+    dialog.getByLabel('Delivery charge collected from customer', { exact: true }),
+  ).toHaveValue('0');
+  await dialog
+    .getByRole('button', { name: 'Collect the same delivery fee from customer', exact: true })
+    .click();
+  await expect(
+    dialog.getByLabel('Delivery charge collected from customer', { exact: true }),
+  ).toHaveValue('80');
+  await dialog.getByLabel('Delivery fee preset', { exact: true }).selectOption('outside');
+  await expect(dialog.getByLabel('Courier delivery charge', { exact: true })).toHaveValue('120');
+  await dialog.getByLabel('Delivery fee preset', { exact: true }).selectOption('custom');
+  await expect(dialog.getByLabel('Courier delivery charge', { exact: true })).toHaveValue('120');
   await dialog.getByLabel('Courier delivery charge', { exact: true }).fill('100');
   await dialog.getByLabel('Delivery charge collected from customer', { exact: true }).fill('60');
   await expect(dialog.locator('.cost-preview')).toContainText('368.67 BDT');

@@ -72,6 +72,7 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
         : structuredClone(empty),
   );
   const bn = useLanguage() === 'bn';
+  const [customDelivery, setCustomDelivery] = useState(false);
   const [analysis, setAnalysis] = useState(null),
     [imageBusy, setImageBusy] = useState(false),
     [imageError, setImageError] = useState('');
@@ -152,26 +153,6 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
         from your business; examples are not market prices.
       </p>
       <h3 className="form-section">1. Product and delivery</h3>
-      {automatic && (
-        <Field
-          label="Delivery fee preset"
-          hint="Your delivery presets: inside Dhaka 80 BDT, outside Dhaka 120 BDT. This fills the courier cost, not the customer fee or ad targeting. Choose custom to enter another amount."
-        >
-          <select
-            value={value.costPlanning.courierCharge === 80 ? 'dhaka' : value.costPlanning.courierCharge === 120 ? 'outside' : 'custom'}
-            onChange={(e) => {
-              if (e.target.value !== 'custom') {
-                const charge = e.target.value === 'dhaka' ? 80 : 120;
-                planning({ courierCharge: charge, customerDeliveryCharge: Math.min(value.costPlanning.customerDeliveryCharge || 0, charge), acknowledged: false });
-              } else planning({ courierCharge: 0, customerDeliveryCharge: 0, acknowledged: false });
-            }}
-          >
-            <option value="custom">Custom delivery charge</option>
-            <option value="dhaka">Inside Dhaka — 80 BDT</option>
-            <option value="outside">Outside Dhaka — 120 BDT</option>
-          </select>
-        </Field>
-      )}
       <div className="form-grid">
         <Field label="Product name">
           <input
@@ -339,6 +320,42 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
           </Field>
         </div>
       )}
+      {automatic && (
+        <Field
+          label="Delivery fee preset"
+          hint="Your delivery presets: inside Dhaka 80 BDT, outside Dhaka 120 BDT. This fills the courier cost, not the customer fee or ad targeting. Choose custom to enter another amount."
+        >
+          <select
+            value={
+              customDelivery
+                ? 'custom'
+                : value.costPlanning.courierCharge === 80
+                  ? 'dhaka'
+                  : value.costPlanning.courierCharge === 120
+                    ? 'outside'
+                    : 'custom'
+            }
+            onChange={(e) => {
+              if (e.target.value !== 'custom') {
+                setCustomDelivery(false);
+                const charge = e.target.value === 'dhaka' ? 80 : 120;
+                planning({
+                  courierCharge: charge,
+                  customerDeliveryCharge: Math.min(
+                    value.costPlanning.customerDeliveryCharge || 0,
+                    charge,
+                  ),
+                  acknowledged: false,
+                });
+              } else setCustomDelivery(true);
+            }}
+          >
+            <option value="custom">Custom delivery charge</option>
+            <option value="dhaka">Inside Dhaka — 80 BDT</option>
+            <option value="outside">Outside Dhaka — 120 BDT</option>
+          </select>
+        </Field>
+      )}
       <div className="form-grid">
         {[
           ['product', 'Product cost', 'Your purchase or manufacturing cost per unit.'],
@@ -388,7 +405,8 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
                 }
                 onChange={(event) =>
                   automatic && key === 'delivery'
-                    ? planning({ courierCharge: Number(event.target.value), acknowledged: false })
+                    ? (setCustomDelivery(true),
+                      planning({ courierCharge: Number(event.target.value), acknowledged: false }))
                     : setValue({
                         ...value,
                         costs: {
@@ -405,25 +423,36 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
           ))}
       </div>
       {automatic && (
-        <Field
-          label="Delivery charge collected from customer"
-          hint="Enter the delivery fee you collect on a completed order. Use 0 for free delivery. Automatic mode supports charges up to the actual courier charge; keep extra delivery income separate."
-        >
-          <input
-            type="number"
-            min="0"
-            max={value.costPlanning.courierCharge ?? value.costs.delivery}
-            required
-            step="any"
-            value={value.costPlanning.customerDeliveryCharge || 0}
-            onChange={(e) =>
-              planning({ customerDeliveryCharge: Number(e.target.value), acknowledged: false })
+        <>
+          <Field
+            label="Delivery charge collected from customer"
+            hint="Enter the delivery fee you collect on a completed order. Use 0 for free delivery. Automatic mode supports charges up to the actual courier charge; keep extra delivery income separate."
+          >
+            <input
+              type="number"
+              min="0"
+              max={value.costPlanning.courierCharge ?? value.costs.delivery}
+              required
+              step="any"
+              value={value.costPlanning.customerDeliveryCharge || 0}
+              onChange={(e) =>
+                planning({ customerDeliveryCharge: Number(e.target.value), acknowledged: false })
+              }
+            />
+          </Field>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() =>
+              planning({
+                customerDeliveryCharge: value.costPlanning.courierCharge ?? value.costs.delivery,
+                acknowledged: false,
+              })
             }
-          />
-          <button type="button" className="secondary" onClick={() => planning({ customerDeliveryCharge: value.costPlanning.courierCharge ?? value.costs.delivery, acknowledged: false })}>
+          >
             Collect the same delivery fee from customer
           </button>
-        </Field>
+        </>
       )}
       {automatic && (
         <details className="guide-step">

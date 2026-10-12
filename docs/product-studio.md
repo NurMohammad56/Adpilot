@@ -35,3 +35,7 @@ Confidence describes available evidence, not the likelihood of success. AI findi
 ## Validation
 
 Backend checks cover calculator arithmetic, collected delivery fees, server recomputation, images/checksums/workspace boundaries, stale product research, carousel payload/approval budgets, durable request reuse, confidence provenance, catalogue XML and revocation of feed/image capabilities. Browser tests cover product defaults/help/translation, carousel approval and mobile layout. Live checks must never execute or activate paid ads without the separate approved action.
+
+## Delivery fee presets
+
+In automatic product costs, the user-provided courier presets are inside Dhaka 80 BDT and outside Dhaka 120 BDT. Selection recalculates successful delivery costs, failed-order loss and contribution. Custom mode keeps the amount editable. Customer delivery collection is a separate actual input; the explicit same-fee button copies the courier amount. Selecting a lower preset caps an existing customer charge at that new courier amount, within the calculator supported range. Delivery presets do not change ad targeting or mutate saved products without saving. These are this business's entered presets, not carrier tariffs or national averages.

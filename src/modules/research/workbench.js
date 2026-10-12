@@ -7,13 +7,23 @@ import { actualResults } from '../analytics/outcomes.js';
 import { countryNames } from './countries.js';
 import { productVisualContext } from '../media/vision.js';
 import { explainConfidence } from './confidence.js';
-import { relatedAdLibraryObservations } from './ad-library.js';
+import {
+  adLibrarySnapshot,
+  assertAdLibraryFresh,
+  validateAdLibrarySelection,
+  invalidateAdLibraryReports,
+} from './ad-library.js';
 export { countryNames } from './countries.js';
 export const countryCode = z.enum(Object.keys(countryNames));
 const words = z.string().trim().min(1).max(4000);
 export const projectSchema = z
   .object({
     name: z.string().trim().min(2).max(200),
+    adLibraryIds: z
+      .array(z.string().uuid())
+      .max(12)
+      .refine((ids) => new Set(ids).size === ids.length)
+      .optional(),
     kind: z.enum(['physical-product', 'service', 'software']),
     productId: z.string().uuid().nullable().optional(),
     description: words,
@@ -94,6 +104,7 @@ export class ResearchWorkbench {
     this.store = platform.store;
   }
   async assertLinkedProduct(user, project, report) {
+    await assertAdLibraryFresh(this.platform, user, report);
     if (!project.productId || !report.linkedProductHash) return;
     const current = await this.platform.owned('products', project.productId, user);
     assert(
@@ -104,6 +115,7 @@ export class ResearchWorkbench {
     );
   }
   async create(user, input) {
+    await validateAdLibrarySelection(this.platform, user, input.adLibraryIds || []);
     await resolveLocations(
       this.platform,
       user,
@@ -126,6 +138,7 @@ export class ResearchWorkbench {
     });
   }
   async update(user, projectId, input) {
+    await validateAdLibrarySelection(this.platform, user, input.adLibraryIds || []);
     await resolveLocations(
       this.platform,
       user,
@@ -145,11 +158,14 @@ export class ResearchWorkbench {
         revision: project.revision + 1,
         status: 'draft',
         approvedVersionId: null,
+        adLibraryInvalidatedAt: null,
+        staleReason: null,
       });
       await this.platform.audit(user, 'research.brief_updated', projectId, {
         revision: updated.revision,
       });
-      return updated;
+      await invalidateAdLibraryReports(this.platform, user);
+      return this.platform.owned('research_projects', projectId, user);
     });
   }
   validateReport(project, output) {
@@ -226,6 +242,9 @@ export class ResearchWorkbench {
         briefHash: hash(briefOf(project)),
         report,
         reportHash: hash(report),
+        ...(report.adEvidenceRefreshJobId
+          ? { adEvidenceRefreshJobId: report.adEvidenceRefreshJobId }
+          : {}),
         instruction,
         status: 'draft',
         createdBy: user.id,
@@ -235,6 +254,8 @@ export class ResearchWorkbench {
         versionNumber: version.number,
         status: 'draft',
         approvedVersionId: null,
+        adLibraryInvalidatedAt: null,
+        staleReason: null,
       });
       await this.platform.audit(user, 'research.version_created', version.id, {
         version: version.number,
@@ -242,7 +263,13 @@ export class ResearchWorkbench {
       return version;
     });
   }
-  async research(user, projectId, instruction = '', language = 'en') {
+  async research(
+    user,
+    projectId,
+    instruction = '',
+    language = 'en',
+    adEvidenceRefreshJobId = null,
+  ) {
     const project = await this.platform.owned('research_projects', projectId, user);
     const previous = project.currentVersionId
       ? await this.store.get('research_versions', project.currentVersionId)
@@ -274,10 +301,11 @@ export class ResearchWorkbench {
           to: new Date(Date.now() + 14 * 3600000).toISOString().slice(0, 10),
         })
       : null;
-    const adLibraryObservations = await relatedAdLibraryObservations(this.platform, user, {
-      productId: project.productId,
+    const adEvidence = await adLibrarySnapshot(this.platform, user, {
+      productIds: project.productId ? [project.productId] : [],
       projectId: project.id,
     });
+    const adLibraryObservations = adEvidence.observations;
     const generated = await llm.generate(
       'market-comparison',
       {
@@ -365,6 +393,9 @@ export class ResearchWorkbench {
     };
     const allowed = new Set(project.evidence.map((item) => item.source));
     report.adLibraryObservations = adLibraryObservations;
+    report.adLibraryScope = adEvidence.scope;
+    report.adLibraryFingerprint = adEvidence.fingerprint;
+    if (adEvidenceRefreshJobId) report.adEvidenceRefreshJobId = adEvidenceRefreshJobId;
     report.findings = report.findings.map((item) => ({
       ...item,
       source:
@@ -406,6 +437,12 @@ export class ResearchWorkbench {
     return this.store.transaction(async () => {
       const version = await this.platform.owned('research_versions', versionId, user);
       const project = await this.platform.owned('research_projects', version.projectId, user);
+      assert(
+        !version.adLibraryInvalidatedAt,
+        409,
+        'AD_RESEARCH_STALE',
+        'Competitor ad evidence changed. Generate new research and request a fresh review.',
+      );
       await this.assertLinkedProduct(user, project, version.report);
       assert(
         project.currentVersionId === version.id &&
@@ -440,6 +477,12 @@ export class ResearchWorkbench {
     return this.store.transaction(async () => {
       const version = await this.platform.owned('research_versions', versionId, user);
       const project = await this.platform.owned('research_projects', version.projectId, user);
+      assert(
+        !version.adLibraryInvalidatedAt,
+        409,
+        'AD_RESEARCH_STALE',
+        'Competitor ad evidence changed. Generate new research and request a fresh review.',
+      );
       await this.assertLinkedProduct(user, project, version.report);
       assert(
         version.status === 'pending' &&
@@ -472,6 +515,12 @@ export class ResearchWorkbench {
   async approved(user, versionId) {
     const version = await this.platform.owned('research_versions', versionId, user);
     const project = await this.platform.owned('research_projects', version.projectId, user);
+    assert(
+      !version.adLibraryInvalidatedAt,
+      409,
+      'AD_RESEARCH_STALE',
+      'Competitor ad evidence changed. Generate new research and request a fresh review.',
+    );
     await this.assertLinkedProduct(user, project, version.report);
     assert(
       version.status === 'approved' &&

@@ -3,7 +3,10 @@ import Redis from 'ioredis';
 import { createRuntime } from '../runtime.js';
 import { now } from '../utils/core.js';
 import { runProductGroupJob } from '../modules/campaigns/group-jobs.js';
-import { runAdLibraryAnalysisJob } from '../modules/research/ad-library-jobs.js';
+import {
+  runAdLibraryAnalysisJob,
+  runAdEvidenceRefreshJob,
+} from '../modules/research/ad-library-jobs.js';
 const runtime = await createRuntime({ seed: false });
 if (runtime.config.mode === 'demo' || !runtime.jobs) {
   process.stderr.write(
@@ -113,6 +116,13 @@ const worker = new Worker(
         await store.update('jobs', record.id, { planId: plan.id });
       } else if (job.name === 'ad-library-analysis') {
         await runAdLibraryAnalysisJob(platform, record);
+      } else if (job.name === 'ad-evidence-refresh') {
+        const result = await runAdEvidenceRefreshJob(platform, record);
+        await store.update(
+          'jobs',
+          record.id,
+          record.kind === 'product' ? { planId: result.id } : { versionId: result.id },
+        );
       } else if (job.name === 'research-refresh')
         await platform.createPlan(user, job.data.productId);
       else if (job.name === 'daily-report') {
@@ -132,7 +142,9 @@ const worker = new Worker(
         await store.update('jobs', record.id, {
           status: 'failed',
           errorCode: error.code || 'JOB_FAILED',
-          ...(['product-group-plan', 'ad-library-analysis'].includes(job.name)
+          ...(['product-group-plan', 'ad-library-analysis', 'ad-evidence-refresh'].includes(
+            job.name,
+          )
             ? {
                 errorMessage: error.code
                   ? error.message

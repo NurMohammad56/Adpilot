@@ -59,6 +59,7 @@ import { LaunchModePicker, ManualCampaignGuide } from './ManualCampaignGuide.jsx
 import { ProductCampaigns, CarouselCards } from './ProductCampaigns.jsx';
 import { ConfidenceNotes } from './ConfidenceNotes.jsx';
 import { AdLibraryResearch, AdLibraryResearchSources } from './AdLibraryResearch.jsx';
+import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
 import './product-studio.css';
 
 let displayCurrency = 'BDT';
@@ -850,6 +851,8 @@ function PlanReview({
   linkManual,
   onResearch,
 }) {
+  const translation = useReportTranslation('plan', plan.id, plan, data.business.id);
+  const researchDisplay = translation.report?.research || plan.research;
   const [launchMode, setLaunchMode] = useState(
     approval
       ? approval.action === 'manual_campaign'
@@ -878,8 +881,8 @@ function PlanReview({
     ageMax: plan.audienceRecommendation.ageMax,
     ads: plan.ads.map(({ hypothesis, ...ad }) => ad),
   });
-  const p = plan.pricingRecommendation;
-  const b = plan.budgetRecommendation;
+  const p = translation.report?.pricingRecommendation || plan.pricingRecommendation;
+  const b = translation.report?.budgetRecommendation || plan.budgetRecommendation;
   const a = plan.audienceRecommendation;
   const permitted = ['admin', 'approver'].includes(data.user.role);
   const launchCheck = (data.launchChecks || []).find(
@@ -897,6 +900,22 @@ function PlanReview({
     (!approval || ['pending', 'failed'].includes(approval.status));
   return (
     <>
+      <ReportTranslationNotice translation={translation} />
+      {plan.adLibraryInvalidatedAt && (
+        <div className="notice">
+          <div>
+            <strong>Competitor ad evidence changed</strong>
+            <p>This earlier report requires new research and a fresh review before launch.</p>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() => onResearch(plan.researchProjectId)}
+            >
+              Open Research studio
+            </button>
+          </div>
+        </div>
+      )}
       <div className="review-summary">
         <Status value={approval?.status || plan.status} />
         <Badge>
@@ -1414,14 +1433,14 @@ function PlanReview({
                       ? 'Approved market comparison'
                       : 'Bangladesh market research'}
                   </h3>
-                  <p>{plan.research.summary}</p>
+                  <p>{researchDisplay.summary}</p>
                 </div>
               </div>
-              <ResearchRetrieval retrieval={plan.research.retrieval} />
-              <ConfidenceNotes report={plan.research} />
-              <AdLibraryResearchSources observations={plan.research.adLibraryObservations} />
+              <ResearchRetrieval retrieval={researchDisplay.retrieval} />
+              <ConfidenceNotes report={researchDisplay} />
+              <AdLibraryResearchSources observations={researchDisplay.adLibraryObservations} />
               <h3 className="form-section">Evidence and assumptions</h3>
-              {plan.research.findings.map((finding, i) => (
+              {researchDisplay.findings.map((finding, i) => (
                 <article className="evidence-card" key={i}>
                   <div>
                     <strong>{finding.subject}</strong>
@@ -1446,8 +1465,8 @@ function PlanReview({
                 </article>
               ))}
               <h3 className="form-section">Competitor intelligence</h3>
-              <p>{plan.research.competitorAnalysis}</p>
-              {plan.research.competitors.map((c) => (
+              <p>{researchDisplay.competitorAnalysis}</p>
+              {researchDisplay.competitors.map((c) => (
                 <article className="evidence-card" key={c.id}>
                   <strong>
                     {c.name} · {taka(c.price)}
@@ -1462,7 +1481,7 @@ function PlanReview({
               ))}
               <h3 className="form-section">Regional opportunity</h3>
               <div className="segment-grid">
-                {plan.research.regionalScores.map((r) => (
+                {researchDisplay.regionalScores.map((r) => (
                   <div key={r.region}>
                     <strong>{r.region}</strong>
                     <p>Score: {r.score ?? 'Not enough evidence'}</p>
@@ -1514,14 +1533,19 @@ function PlanReview({
           {tab === 'Risks' && (
             <>
               <h3 className="form-section">Risks before spending</h3>
-              {[...new Set([...plan.risks, ...plan.validation.warnings])].map((risk, i) => (
+              {[
+                ...new Set([
+                  ...(translation.report?.risks || plan.risks),
+                  ...plan.validation.warnings,
+                ]),
+              ].map((risk, i) => (
                 <div className="risk-row" key={risk}>
                   <span>{String(i + 1).padStart(2, '0')}</span>
                   <p>{risk}</p>
                 </div>
               ))}
               <h3 className="form-section">Assumptions</h3>
-              {plan.assumptions.map((s) => (
+              {(translation.report?.assumptions || plan.assumptions).map((s) => (
                 <p className="assumption" key={s}>
                   {s}
                 </p>
@@ -2710,10 +2734,17 @@ function App() {
                     <MediaLibrary key={data.business.id} {...common} api={api} run={run} />
                   )}
                   {page === 'Ad Library research' && (
-                    <AdLibraryResearch key={data.business.id} {...common} api={api} run={run} />
+                    <AdLibraryResearch
+                      key={data.business.id}
+                      {...common}
+                      api={api}
+                      run={run}
+                      refresh={refresh}
+                    />
                   )}
                   {page === 'Research studio' && (
                     <ResearchDesk
+                      onOpenLibrary={() => setPage('Ad Library research')}
                       key={data.business.id}
                       {...common}
                       api={api}

@@ -42,6 +42,7 @@ export const collections = [
   'visual_analyses',
   'catalog_feeds',
   'ad_library_observations',
+  'report_translations',
 ];
 const stamp = (value) => ({
   ...value,

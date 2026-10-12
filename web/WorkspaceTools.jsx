@@ -15,6 +15,8 @@ import { MetaConnection } from './MetaConnection.jsx';
 import { AIConnection, ResearchRetrieval } from './AIConnection.jsx';
 import { ConfidenceNotes } from './ConfidenceNotes.jsx';
 import { AdLibraryResearchSources } from './AdLibraryResearch.jsx';
+import { AdLibraryPicker } from './AdLibraryPicker.jsx';
+import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
 import { useDraft } from './use-draft.js';
 import { getLanguage } from './i18n.js';
 import { uploadMedia } from './api.js';
@@ -352,8 +354,9 @@ const emptyBrief = {
   questions: '',
   evidence: [],
   productId: null,
+  adLibraryIds: [],
 };
-export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
+export function ResearchDesk({ data, api, run, busy, refresh, onPlan, onOpenLibrary }) {
   const [locations, setLocations] = useState([]);
   const [countryQuery, setCountryQuery] = useState('');
   const mergeLocations = (rows) =>
@@ -371,7 +374,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
   const brief =
     briefDrafts[briefKey] ||
     (project
-      ? Object.fromEntries(Object.keys(emptyBrief).map((key) => [key, project[key]]))
+      ? Object.fromEntries(Object.keys(emptyBrief).map((key) => [key, project[key] ?? emptyBrief[key]]))
       : emptyBrief);
   const setBrief = (value) => setBriefDrafts((current) => ({ ...current, [briefKey]: value }));
   const [briefEditing, setBriefEditing] = useState(false);
@@ -446,6 +449,13 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
     await refresh();
   }
   const version = versions.find((item) => item.id === versionId);
+  const translation = useReportTranslation(
+    'research',
+    version?.id,
+    version?.report,
+    data.business.id,
+  );
+  const displayReport = translation.report;
   const current = version?.id === project?.currentVersionId;
   const canApprove = ['admin', 'approver'].includes(data.user.role);
   function openDecisionEditor() {
@@ -701,6 +711,15 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                   />
                 </Field>
                 <EvidenceInputs brief={brief} setBrief={setBrief} />
+                <AdLibraryPicker
+                  businessId={data.business.id}
+                  productId={brief.productId}
+                  projectId={project?.id}
+                  selected={brief.adLibraryIds || []}
+                  onChange={(adLibraryIds) => setBrief({ ...brief, adLibraryIds })}
+                  onOpenLibrary={onOpenLibrary}
+                  busy={busy}
+                />
                 <button
                   className="button primary"
                   disabled={busy || !brief.candidateCountries.length}
@@ -730,8 +749,46 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                   <button className="button secondary" onClick={() => setBriefEditing(true)}>
                     Edit brief & evidence
                   </button>
+                  <button className="button secondary" type="button" onClick={onOpenLibrary}>
+                    Ad Library research
+                  </button>
                 </div>
                 <p>{project.description}</p>
+                <AdLibraryPicker
+                  businessId={data.business.id}
+                  productId={project.productId}
+                  projectId={project.id}
+                  selected={project.adLibraryIds || []}
+                  onChange={(adLibraryIds) =>
+                    run(async () => {
+                      const {
+                        id,
+                        businessId,
+                        revision,
+                        status,
+                        currentVersionId,
+                        approvedVersionId,
+                        versionNumber,
+                        createdBy,
+                        createdAt,
+                        updatedAt,
+                        adLibraryInvalidatedAt,
+                        staleReason,
+                        ...unused
+                      } = project;
+                      const input = Object.fromEntries(
+                        Object.keys(emptyBrief).map((key) => [
+                          key,
+                          key === 'adLibraryIds' ? adLibraryIds : (project[key] ?? emptyBrief[key]),
+                        ]),
+                      );
+                      await api(`/research/${project.id}`, 'PUT', input);
+                      await reload(project.id);
+                    }, 'Competitor ads updated. Run research again and request a fresh review.')
+                  }
+                  onOpenLibrary={onOpenLibrary}
+                  busy={busy}
+                />
                 <p className="small muted">
                   Candidate markets:{' '}
                   {project.candidateCountries.map((code) => Countries[code]).join(', ')}
@@ -782,23 +839,35 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
               )}
               {version && (
                 <>
+                  <ReportTranslationNotice translation={translation} />
+                  {version.adLibraryInvalidatedAt && (
+                    <div className="notice">
+                      <div>
+                        <strong>Competitor ad evidence changed</strong>
+                        <p>
+                          Generate a new research version below, then request and approve a fresh
+                          review. The earlier report remains in history.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <article className="panel tools-panel">
                     <div className="tools-row">
                       <h2>Research version {version.number}</h2>
                       <span className="badge">{version.status}</span>
                     </div>
                     <p className="small muted">{version.instruction}</p>
-                    <p>{version.report.summary}</p>
-                    <ResearchRetrieval retrieval={version.report.retrieval} />
-                    <ConfidenceNotes report={version.report} />
-                    <AdLibraryResearchSources observations={version.report.adLibraryObservations} />
+                    <p>{displayReport.summary}</p>
+                    <ResearchRetrieval retrieval={displayReport.retrieval} />
+                    <ConfidenceNotes report={displayReport} />
+                    <AdLibraryResearchSources observations={displayReport.adLibraryObservations} />
                     <div className="notice">
                       AI findings are hypotheses with low confidence. No reliable CPC, demand score
                       or acquisition forecast is invented.
                     </div>
                   </article>
                   <div className="country-comparisons">
-                    {version.report.countries.map((market) => (
+                    {displayReport.countries.map((market) => (
                       <article className="panel tools-panel" key={market.country}>
                         <h2>
                           <Globe size={20} /> {Countries[market.country]}
@@ -832,10 +901,10 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                       </article>
                     ))}
                   </div>
-                  {(version.report.regions || []).length > 0 && (
+                  {(displayReport.regions || []).length > 0 && (
                     <article className="panel tools-panel">
                       <h2>State & region comparison</h2>
-                      {version.report.regions.map((region) => {
+                      {displayReport.regions.map((region) => {
                         const location = locations.find((row) => row.id === region.locationId);
                         return (
                           <section className="research-evidence" key={region.locationId}>
@@ -872,7 +941,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                   )}
                   <article className="panel tools-panel">
                     <h2>Evidence & open questions</h2>
-                    {version.report.findings.map((finding, index) => (
+                    {displayReport.findings.map((finding, index) => (
                       <div className="research-evidence" key={index}>
                         <strong>{finding.subject}</strong>
                         <p>{finding.finding}</p>
@@ -889,7 +958,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                       </div>
                     ))}
                     <ul>
-                      {version.report.openQuestions.map((question, index) => (
+                      {displayReport.openQuestions.map((question, index) => (
                         <li key={index}>{question}</li>
                       ))}
                     </ul>
@@ -1026,7 +1095,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                             ? Countries[version.report.recommendation.country]
                             : 'No country selected yet'}
                         </h3>
-                        <p>{version.report.recommendation.reason}</p>
+                        <p>{displayReport.recommendation.reason}</p>
                         {!!version.report.recommendation.locationIds?.length && (
                           <p className="notice">
                             Target areas:{' '}
@@ -1036,7 +1105,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                           </p>
                         )}
                         <ul>
-                          {version.report.recommendation.nextSteps.map((text, index) => (
+                          {displayReport.recommendation.nextSteps.map((text, index) => (
                             <li key={index}>{text}</li>
                           ))}
                         </ul>
@@ -1050,31 +1119,38 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                               Edit decision in a new version
                             </button>
                           )}
-                          {current && version.status === 'draft' && (
-                            <button
-                              className="button primary"
-                              disabled={busy}
-                              aria-describedby={
-                                !version.report.recommendation.country
-                                  ? 'research-review-guidance'
-                                  : undefined
-                              }
-                              onClick={() => {
-                                if (!version.report.recommendation.country) {
-                                  openDecisionEditor();
-                                  return;
+                          {current &&
+                            version.status === 'draft' &&
+                            !version.adLibraryInvalidatedAt && (
+                              <button
+                                className="button primary"
+                                disabled={busy}
+                                aria-describedby={
+                                  !version.report.recommendation.country
+                                    ? 'research-review-guidance'
+                                    : undefined
                                 }
-                                run(async () => {
-                                  await api(`/research/versions/${version.id}/submit`, 'POST', {});
-                                  await reload(project.id);
-                                }, 'Research decision submitted for human review.');
-                              }}
-                            >
-                              Request decision review
-                            </button>
-                          )}
+                                onClick={() => {
+                                  if (!version.report.recommendation.country) {
+                                    openDecisionEditor();
+                                    return;
+                                  }
+                                  run(async () => {
+                                    await api(
+                                      `/research/versions/${version.id}/submit`,
+                                      'POST',
+                                      {},
+                                    );
+                                    await reload(project.id);
+                                  }, 'Research decision submitted for human review.');
+                                }}
+                              >
+                                Request decision review
+                              </button>
+                            )}
                           {current &&
                             version.status === 'pending' &&
+                            !version.adLibraryInvalidatedAt &&
                             canApprove &&
                             ['approve', 'reject'].map((action) => (
                               <button
@@ -1108,6 +1184,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                             ))}
                           {current &&
                             version.status === 'approved' &&
+                            !version.adLibraryInvalidatedAt &&
                             project.kind !== 'physical-product' && (
                               <button
                                 className="button primary"
@@ -1119,6 +1196,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                             )}
                           {current &&
                             version.status === 'approved' &&
+                            !version.adLibraryInvalidatedAt &&
                             project.kind === 'physical-product' && (
                               <button
                                 className="button primary"
@@ -1155,35 +1233,38 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan }) {
                       </>
                     )}
                   </article>
-                  {campaign && current && version.status === 'approved' && (
-                    <CampaignSetup
-                      key={version.id}
-                      data={data}
-                      project={project}
-                      version={version}
-                      countryName={Countries[version.report.recommendation.country]}
-                      targetNames={(version.report.recommendation.locationIds || []).map(
-                        (id) => locations.find((row) => row.id === id)?.name || id,
-                      )}
-                      fields={campaignFields}
-                      setFields={setCampaignFields}
-                      api={api}
-                      run={run}
-                      busy={busy}
-                      media={media}
-                      refresh={refresh}
-                      onPlan={onPlan}
-                    >
-                      <MediaPicker
+                  {campaign &&
+                    current &&
+                    version.status === 'approved' &&
+                    !version.adLibraryInvalidatedAt && (
+                      <CampaignSetup
+                        key={version.id}
+                        data={data}
+                        project={project}
+                        version={version}
+                        countryName={Countries[version.report.recommendation.country]}
+                        targetNames={(version.report.recommendation.locationIds || []).map(
+                          (id) => locations.find((row) => row.id === id)?.name || id,
+                        )}
+                        fields={campaignFields}
+                        setFields={setCampaignFields}
                         api={api}
-                        value={media.mediaAssetId}
-                        thumbnail={media.thumbnailAssetId}
-                        onChange={(mediaAssetId, thumbnailAssetId) =>
-                          setMedia({ mediaAssetId, thumbnailAssetId })
-                        }
-                      />
-                    </CampaignSetup>
-                  )}
+                        run={run}
+                        busy={busy}
+                        media={media}
+                        refresh={refresh}
+                        onPlan={onPlan}
+                      >
+                        <MediaPicker
+                          api={api}
+                          value={media.mediaAssetId}
+                          thumbnail={media.thumbnailAssetId}
+                          onChange={(mediaAssetId, thumbnailAssetId) =>
+                            setMedia({ mediaAssetId, thumbnailAssetId })
+                          }
+                        />
+                      </CampaignSetup>
+                    )}
                 </>
               )}
             </>

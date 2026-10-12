@@ -2,7 +2,12 @@ import { assert, hash, id, money, now, publicUser, seal } from '../utils/core.js
 import { calculateEconomics } from './pricing/engine.js';
 import { recommendBudget } from './budgeting/engine.js';
 import { researchProduct } from './research/service.js';
-import { relatedAdLibraryObservations } from './research/ad-library.js';
+import {
+  adLibrarySnapshot,
+  assertAdLibraryFresh,
+  invalidateAdLibraryReports,
+  validateAdLibrarySelection,
+} from './research/ad-library.js';
 import { recommendAudience } from './audiences/engine.js';
 import { generateCopy } from './creatives/service.js';
 import { businessPolicyHash, planFingerprint, validatePlan } from './campaigns/validation.js';
@@ -180,6 +185,7 @@ export class Platform {
     });
   }
   async prepareProduct(user, input) {
+    await validateAdLibrarySelection(this, user, input.adLibraryIds || []);
     assert(
       new Set([input.mediaAssetId, ...(input.mediaAssetIds || [])].filter(Boolean)).size <= 6,
       422,
@@ -263,6 +269,7 @@ export class Platform {
         ...input.costs,
       });
       await this.audit(user, 'product.updated', productId, { revision: product.revision });
+      await invalidateAdLibraryReports(this, user);
       return product;
     });
   }
@@ -292,6 +299,7 @@ export class Platform {
         'STALE_PRODUCT_RESEARCH',
         'The product changed. Generate a new campaign plan so research and images use the current product facts.',
       );
+    if (previous) await assertAdLibraryFresh(this, user, previous.research);
     const business = await this.store.get('businesses', user.businessId);
     const evidence = await this.store.list('market_research_reports', {
       productId,
@@ -314,7 +322,8 @@ export class Platform {
     const visualAnalysis =
       previous?.research?.visualAnalysis || (await productVisualContext(this, user, product));
     const sourceReport = sourceResearch?.version.report;
-    const adLibraryObservations = await relatedAdLibraryObservations(this, user, { productId });
+    const adEvidence = await adLibrarySnapshot(this, user, { productIds: [productId] });
+    const adLibraryObservations = adEvidence.observations;
     const report = sourceResearch
       ? {
           market: 'BD',
@@ -325,6 +334,8 @@ export class Platform {
           summary: sourceReport.summary,
           findings: sourceReport.findings,
           adLibraryObservations: sourceReport.adLibraryObservations || [],
+          adLibraryScope: sourceReport.adLibraryScope,
+          adLibraryFingerprint: sourceReport.adLibraryFingerprint,
           competitorCandidates: sourceReport.competitorCandidates || [],
           evidenceGaps: sourceReport.evidenceGaps || [],
           ...(sourceReport.retrieval ? { retrieval: sourceReport.retrieval } : {}),
@@ -362,7 +373,11 @@ export class Platform {
           user.language || 'en',
           adLibraryObservations,
         ));
-    if (!previous && !sourceResearch) report.adLibraryObservations = adLibraryObservations;
+    if (!previous && !sourceResearch) {
+      report.adLibraryObservations = adLibraryObservations;
+      report.adLibraryScope = adEvidence.scope;
+      report.adLibraryFingerprint = adEvidence.fingerprint;
+    }
     if (visualAnalysis) report.visualAnalysis = visualAnalysis;
     const outcomes = await this.store.list('business_outcomes', { businessId: user.businessId });
     const relatedPlans = (
@@ -451,6 +466,9 @@ export class Platform {
       requiresApproval: true,
       status: 'draft',
       createdBy: user.id,
+      ...(overrides.adEvidenceRefreshJobId
+        ? { adEvidenceRefreshJobId: overrides.adEvidenceRefreshJobId }
+        : {}),
       ...(sourceResearch
         ? {
             researchProjectId: sourceResearch.project.id,
@@ -480,6 +498,7 @@ export class Platform {
     return this.store.transaction(async () => {
       // Evidence/API work happened outside the transaction; confirm inputs didn't change underneath it.
       if (sourceResearch) await this.research.approved(user, sourceResearch.version.id);
+      await assertAdLibraryFresh(this, user, report);
       assert(
         hash(await this.store.get('products', productId)) === plan.productSnapshotHash &&
           businessPolicyHash(await this.store.get('businesses', business.id)) ===
@@ -612,6 +631,14 @@ export class Platform {
     );
   }
   async assertFresh(plan, user) {
+    const persisted = await this.owned('campaign_plans', plan.id, user);
+    assert(
+      !persisted.adLibraryInvalidatedAt,
+      409,
+      'AD_RESEARCH_STALE',
+      'Competitor ad evidence changed. Generate new research and request a fresh review.',
+    );
+    await assertAdLibraryFresh(this, user, plan.research);
     const product =
       plan.kind === 'product-group'
         ? await groupProduct(this, user, plan)

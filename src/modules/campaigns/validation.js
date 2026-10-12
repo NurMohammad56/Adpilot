@@ -29,6 +29,12 @@ export const planFingerprint = (plan) =>
     researchVersionId: plan.researchVersionId,
     researchProjectId: plan.researchProjectId,
     researchDecisionHash: plan.researchDecisionHash,
+    ...(plan.research?.adLibraryFingerprint
+      ? {
+          adLibraryFingerprint: plan.research.adLibraryFingerprint,
+          adLibraryScope: plan.research.adLibraryScope,
+        }
+      : {}),
     accountCurrency: plan.accountCurrency,
     launchMode: plan.launchMode,
     productIds: plan.productIds,

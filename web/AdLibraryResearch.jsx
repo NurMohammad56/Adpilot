@@ -10,6 +10,7 @@ import { useDraft } from './use-draft.js';
 import { useLanguage } from './i18n.js';
 import { mediaUrl, uploadMedia } from './api.js';
 import './ad-library.css';
+import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
 
 function dhakaDate(value = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -376,11 +377,13 @@ function ObservationForm({
 export function AdLibraryAnalysis({ row }) {
   const bn = useLanguage() === 'bn';
   const analysis = row.analysis;
+  const translation = useReportTranslation('ad', row.id, analysis?.report, row.businessId);
+  const report = translation.report;
   if (!analysis) return null;
   const sections = [
     ['visibleObservations', 'Observed creative and copy'],
     ['hooks', 'Hooks and message angles'],
-    ['audienceHypotheses', 'Buyer hypotheses — not verified targeting'],
+    ['audienceHypotheses', 'Buyer hypotheses - not verified targeting'],
     ['strengths', 'Useful patterns'],
     ['weaknesses', 'Weaknesses and risks'],
     ['differentiation', 'How your offer can differ'],
@@ -390,6 +393,7 @@ export function AdLibraryAnalysis({ row }) {
   return (
     <article className="panel tools-panel ad-library-analysis">
       <h2>Ad analysis</h2>
+      <ReportTranslationNotice translation={translation} />
       <p>
         <a {...external} href={row.adUrl}>
           {row.pageName} · {row.libraryAdId}
@@ -406,16 +410,16 @@ export function AdLibraryAnalysis({ row }) {
           version again. Earlier AI conclusions are excluded from new research until refreshed.
         </p>
       )}
-      <p>{analysis.report.summary}</p>
+      <p>{report.summary}</p>
       <h3>Offer comparison</h3>
-      <p>{analysis.report.offerAnalysis}</p>
+      <p>{report.offerAnalysis}</p>
       {sections.map(
         ([key, label]) =>
-          analysis.report[key]?.length > 0 && (
+          report[key]?.length > 0 && (
             <section key={key}>
               <h3>{label}</h3>
               <ul>
-                {analysis.report[key].map((text, i) => (
+                {report[key].map((text, i) => (
                   <li key={i}>{text}</li>
                 ))}
               </ul>
@@ -430,7 +434,7 @@ export function AdLibraryAnalysis({ row }) {
   );
 }
 
-export function AdLibraryResearch({ data, api, run, busy, setPage }) {
+export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, showPlan }) {
   const bn = useLanguage() === 'bn';
   const key = `${data.business.id}:${data.user.id}`;
   const [search, setSearch] = useDraft(`adpilot-ad-library-search:${key}`, {
@@ -447,6 +451,7 @@ export function AdLibraryResearch({ data, api, run, busy, setPage }) {
     const next = await api('/ad-library');
     setPayload(next);
     setError('');
+    if (refresh) await refresh();
     return next;
   };
   useEffect(() => {
@@ -475,6 +480,7 @@ export function AdLibraryResearch({ data, api, run, busy, setPage }) {
           .then((value) => {
             if (!cancelled) {
               setPayload(value);
+              if (refresh) refresh().catch(() => {});
               setError('');
             }
           })
@@ -522,6 +528,11 @@ export function AdLibraryResearch({ data, api, run, busy, setPage }) {
     await load();
     if (!row.archived) setSelectedId('');
   }
+  async function renew(kind, id) {
+    const result = await api('/ad-library/refresh-research', 'POST', { kind, id });
+    await load();
+    if (!result.queued && kind === 'product') showPlan(result.result);
+  }
   return (
     <>
       <div className="tools-heading">
@@ -532,8 +543,117 @@ export function AdLibraryResearch({ data, api, run, busy, setPage }) {
           offer.
         </p>
       </div>
+      {(data.plans.some((p) => p.status === 'needs_research') ||
+        data.researchProjects.some((p) => p.status === 'needs_research')) && (
+        <section className="panel tools-panel">
+          <h2>Reports needing fresh research and review</h2>
+          <p>
+            Linked competitor evidence changed. Earlier reports and approvals remain in history;
+            generate a new report and review it again before launching.
+          </p>
+          {[
+            ...new Set(
+              data.plans
+                .filter(
+                  (p) =>
+                    p.status === 'needs_research' &&
+                    !p.researchProjectId &&
+                    p.kind !== 'product-group',
+                )
+                .map((p) => p.productId),
+            ),
+          ].map((id) => (
+            <div className="guide-actions" key={id}>
+              <strong>{data.products.find((p) => p.id === id)?.name}</strong>
+              <button
+                className="button secondary"
+                disabled={
+                  busy ||
+                  payload?.jobs.some(
+                    (j) => j.targetId === id && ['queued', 'running'].includes(j.status),
+                  )
+                }
+                onClick={() => run(() => renew('product', id))}
+              >
+                Regenerate product research
+              </button>
+            </div>
+          ))}
+          {data.researchProjects
+            .filter((p) => p.status === 'needs_research')
+            .map((p) => (
+              <div className="guide-actions" key={p.id}>
+                <strong>{p.name}</strong>
+                <button
+                  className="button secondary"
+                  disabled={
+                    busy ||
+                    payload?.jobs.some(
+                      (j) => j.targetId === p.id && ['queued', 'running'].includes(j.status),
+                    )
+                  }
+                  onClick={() => run(() => renew('research', p.id))}
+                >
+                  Regenerate research brief
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, p.id);
+                    setPage('Research studio');
+                  }}
+                >
+                  Open Research studio
+                </button>
+              </div>
+            ))}
+          {data.plans.some((p) => p.status === 'needs_research' && p.kind === 'product-group') && (
+            <button className="button secondary" onClick={() => setPage('Products')}>
+              Regenerate the product group in Products
+            </button>
+          )}
+        </section>
+      )}
+      {payload?.jobs.some((j) => j.type === 'ad-evidence-refresh') && (
+        <section className="panel tools-panel">
+          <h2>Research regeneration</h2>
+          {payload.jobs
+            .filter((j) => j.type === 'ad-evidence-refresh')
+            .slice(0, 8)
+            .map((j) => (
+              <article className="guide-step" key={j.id}>
+                <p>
+                  {j.status}
+                  {j.errorMessage ? ` · ${j.errorMessage}` : ''}
+                </p>
+                {j.planId && (
+                  <button
+                    className="button secondary"
+                    onClick={() => run(async () => showPlan(await api(`/plans/${j.planId}`)))}
+                  >
+                    Review newly generated plan
+                  </button>
+                )}
+                {j.versionId && (
+                  <button
+                    className="button secondary"
+                    onClick={() => {
+                      sessionStorage.setItem(
+                        `adpilot-research-selection:${data.business.id}`,
+                        j.targetId,
+                      );
+                      setPage('Research studio');
+                    }}
+                  >
+                    Review new research version
+                  </button>
+                )}
+              </article>
+            ))}
+        </section>
+      )}
       <div className="notice ad-library-intro">
-        <strong>Free public Ad Library — no Meta API key needed.</strong>
+        <strong>Free public Ad Library - no Meta API key needed.</strong>
         <p>
           Search opens Meta in another tab. Paste the ad content or upload screenshots here. This
           workspace does not automatically scrape Facebook or import every running ad.

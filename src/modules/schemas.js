@@ -167,6 +167,11 @@ export const businessSchema = z
   .strict();
 export const productSchema = z
   .object({
+    adLibraryIds: z
+      .array(z.string().uuid())
+      .max(12)
+      .refine((ids) => new Set(ids).size === ids.length)
+      .optional(),
     name: text,
     category: text,
     paymentMethod: z.enum(['cod', 'prepaid', 'mixed']).optional(),

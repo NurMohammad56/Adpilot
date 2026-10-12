@@ -8,6 +8,7 @@ import {
 } from '../src/modules/pricing/product-calculator.js';
 import { CampaignField } from './FieldHelp.jsx';
 import { useLanguage } from './i18n.js';
+import { AdLibraryPicker } from './AdLibraryPicker.jsx';
 
 const categories = [
   'Fashion & clothing',
@@ -351,8 +352,8 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
             }}
           >
             <option value="custom">Custom delivery charge</option>
-            <option value="dhaka">Inside Dhaka — 80 BDT</option>
-            <option value="outside">Outside Dhaka — 120 BDT</option>
+            <option value="dhaka">Inside Dhaka - 80 BDT</option>
+            <option value="outside">Outside Dhaka - 120 BDT</option>
           </select>
         </Field>
       )}
@@ -728,6 +729,13 @@ export function GuidedProduct({ product, data, api, busy, onSave }) {
         Saving a product does not launch an ad. Generate a plan, review it and request a separate
         launch approval.
       </div>
+      <AdLibraryPicker
+        businessId={data.business.id}
+        productId={product?.id}
+        selected={value.adLibraryIds || []}
+        onChange={(adLibraryIds) => update('adLibraryIds', adLibraryIds)}
+        busy={busy}
+      />
       {value.costPlanning && (
         <label className="checkbox-row">
           <input

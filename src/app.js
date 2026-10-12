@@ -13,7 +13,11 @@ import {
   listAdLibraryObservations,
   archiveAdLibraryObservation,
 } from './modules/research/ad-library.js';
-import { enqueueAdLibraryAnalysis } from './modules/research/ad-library-jobs.js';
+import {
+  enqueueAdLibraryAnalysis,
+  enqueueAdEvidenceRefresh,
+} from './modules/research/ad-library-jobs.js';
+import { translateStoredReport } from './modules/research/report-translation.js';
 import { groupInput } from './modules/campaigns/product-group.js';
 import { enqueueProductGroup } from './modules/campaigns/group-jobs.js';
 import {
@@ -453,8 +457,37 @@ export function createApp(runtime) {
   app.get('/api/research', async (req, res) =>
     res.json(await store.list('research_projects', { businessId: req.user.businessId })),
   );
+  app.post(
+    '/api/report-translations',
+    parse(
+      z
+        .object({
+          kind: z.enum(['research', 'plan', 'ad']),
+          id: z.string().uuid(),
+          language: z.literal('bn'),
+        })
+        .strict(),
+    ),
+    async (req, res) =>
+      res.json(
+        await exclusive(
+          `translation:${req.user.businessId}:${req.input.kind}:${req.input.id}`,
+          () => translateStoredReport(platform, req.user, req.input.kind, req.input.id),
+        ),
+      ),
+  );
   app.get('/api/ad-library', async (req, res) =>
     res.json(await listAdLibraryObservations(platform, req.user)),
+  );
+  app.post(
+    '/api/ad-library/refresh-research',
+    parse(z.object({ kind: z.enum(['product', 'research']), id: z.string().uuid() }).strict()),
+    async (req, res) => {
+      const result = await exclusive(`ad-evidence-refresh:${req.user.businessId}`, () =>
+        enqueueAdEvidenceRefresh(runtime, req.user, req.input.kind, req.input.id),
+      );
+      res.status(result.queued ? 202 : 201).json(result);
+    },
   );
   app.post('/api/ad-library', parse(adLibraryObservationSchema), async (req, res) =>
     res

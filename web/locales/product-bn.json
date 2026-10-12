@@ -54,8 +54,8 @@
   "The selected share of contribution is reserved as a profit goal; the remainder is an allowable ad cost, not a predicted market CPA.": "খরচ বাদে বেছে নেওয়া অংশ লাভের লক্ষ্য হিসেবে রাখা হয়। অবশিষ্টটি গ্রহণযোগ্য ad cost; বাজারে আসলে এত খরচ হবে এমন পূর্বাভাস নয়।",
   "Delivery fee preset": "ডেলিভারি চার্জ বেছে নিন",
   "Custom delivery charge": "নিজের ডেলিভারি চার্জ লিখুন",
-  "Inside Dhaka — 80 BDT": "ঢাকার ভিতরে — ৮০ টাকা",
-  "Outside Dhaka — 120 BDT": "ঢাকার বাইরে — ১২০ টাকা",
+  "Inside Dhaka - 80 BDT": "ঢাকার ভিতরে - ৮০ টাকা",
+  "Outside Dhaka - 120 BDT": "ঢাকার বাইরে - ১২০ টাকা",
   "Your delivery presets: inside Dhaka 80 BDT, outside Dhaka 120 BDT. This fills the courier cost, not the customer fee or ad targeting. Choose custom to enter another amount.": "আপনার দেওয়া চার্জ: ঢাকার ভিতরে ৮০ টাকা, বাইরে ১২০ টাকা। এতে courier cost বসবে। গ্রাহকের কাছ থেকে কত নেবেন সেটি নিচে আলাদা করে দিন। Ad targeting বদলাবে না। অন্য চার্জও লিখতে পারবেন।",
   "Collect the same delivery fee from customer": "গ্রাহকের কাছ থেকেও একই ডেলিভারি চার্জ নেব"
 }

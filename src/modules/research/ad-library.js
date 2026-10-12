@@ -215,6 +215,7 @@ export async function saveAdLibraryObservation(platform, user, input, recordId =
           archived: false,
           analysis: null,
         });
+    await invalidateAdLibraryReports(platform, user);
     await platform.audit(user, previous ? 'ad_library.updated' : 'ad_library.saved', row.id, {
       libraryAdId,
       productId: row.productId,
@@ -238,6 +239,7 @@ export async function archiveAdLibraryObservation(platform, user, id, archived, 
       revision: row.revision + 1,
       updatedBy: user.id,
     });
+    await invalidateAdLibraryReports(platform, user);
     await platform.audit(user, archived ? 'ad_library.archived' : 'ad_library.restored', id);
     return updated;
   });
@@ -368,6 +370,7 @@ export async function analyzeAdLibraryObservation(
         provenance,
       },
     });
+    await invalidateAdLibraryReports(platform, user);
     await platform.audit(user, 'ad_library.analyzed', id, {
       screenshotCount: images.length,
       provider: input.llm.config.llmProvider,
@@ -414,9 +417,8 @@ export async function listAdLibraryObservations(platform, user) {
       ...row,
       analysisStale: row.analysis ? !(await analysisFresh(platform, user, row)) : false,
     });
-  const jobs = (
-    await platform.store.list('jobs', { businessId: user.businessId, type: 'ad-library-analysis' })
-  )
+  const jobs = (await platform.store.list('jobs', { businessId: user.businessId }))
+    .filter((row) => ['ad-library-analysis', 'ad-evidence-refresh'].includes(row.type))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 30)
     .map(({ inputHash, requestHash, requestedBy, ...publicJob }) => publicJob);
@@ -426,23 +428,35 @@ export async function listAdLibraryObservations(platform, user) {
 export async function relatedAdLibraryObservations(
   platform,
   user,
-  { productId = null, projectId = null } = {},
+  { productId = null, projectId = null, selectedIds = [] } = {},
 ) {
-  if (!productId && !projectId) return [];
+  if (!productId && !projectId && !selectedIds.length) return [];
   const rows = (
     await platform.store.list('ad_library_observations', { businessId: user.businessId })
   )
     .filter(
       (row) =>
         !row.archived &&
-        ((productId && row.productId === productId) || (projectId && row.projectId === projectId)),
+        (selectedIds.includes(row.id) ||
+          (productId && row.productId === productId) ||
+          (projectId && row.projectId === projectId)),
     )
     .sort((a, b) => b.observedAt.localeCompare(a.observedAt))
-    .slice(0, 6);
+    .slice(0, 12);
   const output = [];
   for (const row of rows)
     output.push({
       id: row.id,
+      snapshotHash: hash({
+        facts: observationFacts(row),
+        analysis: (await analysisFresh(platform, user, row)) ? row.analysis?.report : null,
+        screenshots: await Promise.all(
+          row.screenshotAssetIds.map(async (id) => {
+            const a = await platform.store.get('media_assets', id);
+            return { id, checksum: a?.checksum || null, ready: a?.status === 'ready' };
+          }),
+        ),
+      }),
       source: row.adUrl,
       pageName: row.pageName,
       countryObserved: row.country,
@@ -477,4 +491,160 @@ export async function relatedAdLibraryObservations(
         'Owner-supplied competitor ad observation, not verified demand or performance',
     });
   return output;
+}
+
+export async function validateAdLibrarySelection(platform, user, ids = []) {
+  assert(
+    ids.length <= 12 && new Set(ids).size === ids.length,
+    422,
+    'AD_SELECTION',
+    'Choose up to twelve different saved competitor ads.',
+  );
+  for (const id of ids) {
+    const row = await platform.owned('ad_library_observations', id, user);
+    assert(
+      !row.archived,
+      422,
+      'AD_ARCHIVED',
+      'Restore archived ads before selecting them for new research.',
+    );
+  }
+}
+
+export async function adLibrarySnapshot(
+  platform,
+  user,
+  { productIds = [], projectId = null, selectedIds = [] } = {},
+) {
+  const products = await Promise.all(productIds.map((id) => platform.owned('products', id, user)));
+  const project = projectId ? await platform.owned('research_projects', projectId, user) : null;
+  const ids = [
+    ...new Set([
+      ...selectedIds,
+      ...(project?.adLibraryIds || []),
+      ...products.flatMap((p) => p.adLibraryIds || []),
+    ]),
+  ];
+  const observations = [
+    ...new Map(
+      (
+        await Promise.all([
+          relatedAdLibraryObservations(platform, user, { projectId, selectedIds: ids }),
+          ...products.map((p) => relatedAdLibraryObservations(platform, user, { productId: p.id })),
+        ])
+      )
+        .flat()
+        .map((row) => [row.id, row]),
+    ).values(),
+  ]
+    .sort((a, b) => b.observedAt.localeCompare(a.observedAt) || a.id.localeCompare(b.id))
+    .slice(0, 12);
+  const scope = { productIds: products.map((p) => p.id), projectId, selectedIds };
+  return {
+    observations,
+    scope,
+    fingerprint: hash(observations.map((row) => ({ id: row.id, snapshotHash: row.snapshotHash }))),
+  };
+}
+
+export async function assertAdLibraryFresh(platform, user, report) {
+  assert(
+    !report?.adLibraryInvalidatedAt,
+    409,
+    'AD_RESEARCH_STALE',
+    'Competitor ad evidence changed. Generate new research and request a fresh review.',
+  );
+  if (!report?.adLibraryFingerprint || !report.adLibraryScope) return;
+  const current = await adLibrarySnapshot(platform, user, report.adLibraryScope);
+  assert(
+    current.fingerprint === report.adLibraryFingerprint,
+    409,
+    'AD_RESEARCH_STALE',
+    'Competitor ad evidence changed. Generate new research and request a fresh review.',
+  );
+}
+
+async function reportChanged(platform, user, report, scope) {
+  const current = await adLibrarySnapshot(platform, user, report?.adLibraryScope || scope);
+  if (report?.adLibraryFingerprint) return current.fingerprint !== report.adLibraryFingerprint;
+  // Legacy reports also need renewal when a linked example appears or changes.
+  const earlier = report?.adLibraryObservations || [];
+  return (
+    hash(earlier.map((r) => ({ id: r.id, snapshotHash: r.snapshotHash || hash(r) }))) !==
+    hash(current.observations.map((r) => ({ id: r.id, snapshotHash: r.snapshotHash })))
+  );
+}
+
+export async function invalidateAdLibraryReports(platform, user) {
+  const stamp = now();
+  const reason =
+    'Competitor ad evidence changed. Generate new research and request a fresh review.';
+  const projects = await platform.store.list('research_projects', { businessId: user.businessId });
+  for (const project of projects) {
+    if (!project.currentVersionId) continue;
+    const version = await platform.store.get('research_versions', project.currentVersionId);
+    if (!version || version.adLibraryInvalidatedAt) continue;
+    if (
+      await reportChanged(platform, user, version.report, {
+        productIds: project.productId ? [project.productId] : [],
+        projectId: project.id,
+      })
+    ) {
+      await platform.store.update('research_versions', version.id, {
+        adLibraryInvalidatedAt: stamp,
+        staleReason: reason,
+      });
+      await platform.store.update('research_projects', project.id, {
+        status: 'needs_research',
+        approvedVersionId: null,
+        adLibraryInvalidatedAt: stamp,
+        staleReason: reason,
+      });
+      await platform.audit(user, 'research.ad_evidence_changed', version.id);
+    }
+  }
+  const plans = await platform.store.list('campaign_plans', { businessId: user.businessId });
+  for (const plan of plans) {
+    if (plan.adLibraryInvalidatedAt || ['superseded', 'executed'].includes(plan.status)) continue;
+    if (
+      plan.status === 'executing' ||
+      (await platform.store.find('campaigns', { businessId: user.businessId, planId: plan.id })) ||
+      (await platform.store.find('manual_campaigns', {
+        businessId: user.businessId,
+        planId: plan.id,
+      }))
+    )
+      continue;
+    const scope = {
+      productIds:
+        plan.kind === 'product-group'
+          ? plan.productIds
+          : plan.kind === 'service'
+            ? []
+            : [plan.productId],
+      projectId: plan.researchProjectId || null,
+    };
+    if (await reportChanged(platform, user, plan.research, scope)) {
+      await platform.store.update('campaign_plans', plan.id, {
+        status: 'needs_research',
+        adLibraryInvalidatedAt: stamp,
+        staleReason: reason,
+      });
+      for (const approval of await platform.store.list('approval_requests', {
+        businessId: user.businessId,
+        planId: plan.id,
+      })) {
+        if (
+          ['pending', 'approved'].includes(approval.status) &&
+          ['launch_campaign', 'manual_campaign'].includes(approval.action)
+        )
+          await platform.store.update('approval_requests', approval.id, {
+            status: 'superseded',
+            supersededAt: stamp,
+            staleReason: reason,
+          });
+      }
+      await platform.audit(user, 'campaign.ad_evidence_changed', plan.id);
+    }
+  }
 }

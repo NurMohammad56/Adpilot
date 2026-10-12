@@ -62,8 +62,8 @@ export function ConfidenceNotes({ report }) {
         <section>
           <h4>
             {bn
-              ? 'Search-এ পাওয়া competitor — যাচাই বাকি'
-              : 'Discovered competitors — review required'}
+              ? 'Search-এ পাওয়া competitor - যাচাই বাকি'
+              : 'Discovered competitors - review required'}
           </h4>
           <p>
             {bn
@@ -84,7 +84,7 @@ export function ConfidenceNotes({ report }) {
                   : bn
                     ? 'দাম নিশ্চিত পাওয়া যায়নি'
                     : 'Price not established'}
-                {item.priceBasis ? ` — ${item.priceBasis}` : ''}
+                {item.priceBasis ? ` - ${item.priceBasis}` : ''}
               </p>
               <p>{item.comparability}</p>
               <p>{item.deliveryTerms}</p>

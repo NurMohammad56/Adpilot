@@ -257,6 +257,15 @@ export class ResearchWorkbench {
         adLibraryInvalidatedAt: null,
         staleReason: null,
       });
+      for (const plan of await this.store.list('campaign_plans', {
+        businessId: user.businessId,
+        researchProjectId: project.id,
+        status: 'needs_research',
+      }))
+        await this.store.update('campaign_plans', plan.id, {
+          status: 'superseded',
+          supersededByResearchVersionId: version.id,
+        });
       await this.platform.audit(user, 'research.version_created', version.id, {
         version: version.number,
       });

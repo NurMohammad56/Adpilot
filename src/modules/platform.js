@@ -523,6 +523,21 @@ export class Platform {
           await this.store.update('approval_requests', a.id, { status: 'superseded' });
       }
       const saved = await this.store.insert('campaign_plans', plan);
+      for (const earlier of await this.store.list('campaign_plans', {
+        businessId: user.businessId,
+        productId,
+        status: 'needs_research',
+      })) {
+        if (
+          earlier.id !== saved.id &&
+          earlier.kind !== 'product-group' &&
+          (earlier.researchProjectId || null) === (plan.researchProjectId || null)
+        )
+          await this.store.update('campaign_plans', earlier.id, {
+            status: 'superseded',
+            supersededByPlanId: saved.id,
+          });
+      }
       if (this.media) for (const ad of ads) await this.media.verify(user, ad);
       await this.store.insert('market_research_reports', {
         businessId: user.businessId,

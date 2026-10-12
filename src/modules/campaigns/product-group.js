@@ -411,6 +411,17 @@ export async function createProductGroup(platform, user, input, previous = null,
   plan.fingerprint = planFingerprint(plan);
   return platform.store.transaction(async () => {
     await assertAdLibraryFresh(platform, user, report);
+    for (const earlier of await platform.store.list('campaign_plans', {
+      businessId: user.businessId,
+      kind: 'product-group',
+      status: 'needs_research',
+    })) {
+      if (hash([...earlier.productIds].sort()) === hash([...plan.productIds].sort()))
+        await platform.store.update('campaign_plans', earlier.id, {
+          status: 'superseded',
+          supersededByPlanId: plan.id,
+        });
+    }
     if (overrides.planningJobId) {
       const existing = await platform.store.find('campaign_plans', {
         businessId: user.businessId,

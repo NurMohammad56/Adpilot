@@ -31,3 +31,17 @@ Product, product-group and research-brief workflows receive compact, dated linke
 | POST   | `/api/ad-library/:id/analyze` | Return a cached result, run demo analysis, or enqueue live analysis     |
 
 All endpoints use the existing authenticated session, workspace membership/origin checks and operation locks. The board supports up to 300 saved observations per workspace. Research uses bounded recent linked examples to control context size and AI cost, while full notes/reports remain available on the board.
+
+## Reusing general inspiration and renewing reviews
+
+Product creation/editing and Research studio include a Saved competitor ads picker with summaries and optional full analysis. Explicit `adLibraryIds` select examples, including General inspiration, while directly linked ads are included automatically. Saving a general example does not change unrelated research. No ad example is silently applied to every new product; the owner chooses relevant examples. Linked products also carry their selected examples into a brief and product-group research.
+
+Reports save an ad evidence scope and fingerprint. Adding, editing, archiving/restoring or materially changing the analysis of an included ad invalidates affected current research and unlaunched plans. Their earlier report text and approval snapshots remain unchanged for history. Research projects move to `needs_research`, and pending/approved launch approvals are superseded. Both review and launch paths verify evidence freshness, including changes during model work. Existing remote campaigns are not paused, edited or relaunched.
+
+The Ad Library board shows affected offers and provides explicit regeneration buttons. Live regeneration runs as a deduplicated Redis job and records a fresh draft plan/version, which needs a new review and approval. It does not reuse the earlier approval or automatically spend on ads. Existing approved service research must be researched and reviewed again before creating its next campaign. Product groups are regenerated from Products. `POST /api/ad-library/refresh-research` accepts a product/research kind and its owned ID.
+
+## Bangla report display
+
+Switching to Bangla translates generated research reports, campaign report prose and saved ad analyses through the connected AI provider. The translation is a separate cached display; source reports, decisions, targeting identifiers, financial fields, original source URLs, published ad copy and approval hashes remain unchanged. A language switch is also available inside the campaign review modal.
+
+`POST /api/report-translations` accepts a supported report kind/ID and `language: bn`. Only an allowlist of prose fields is translated; numeric values embedded in prose must remain literal. Missing entries, non-Bangla output or changed numeric/source literals reject the translation and preserve the original display. The original-report toggle and retry remain available. Already Bangla prose is retained, and repeated views reuse a source/model-bound translation cache. Translation uses low thinking without search; this incurs the connected provider's normal API usage rather than regenerating market research. Demo translations are explicitly marked as simulated.

@@ -900,6 +900,9 @@ function PlanReview({
     (!approval || ['pending', 'failed'].includes(approval.status));
   return (
     <>
+      <div className="guide-actions">
+        <LanguageSwitch />
+      </div>
       <ReportTranslationNotice translation={translation} />
       {plan.adLibraryInvalidatedAt && (
         <div className="notice">
@@ -2881,6 +2884,11 @@ function App() {
                 }, 'Meta launch checks passed. You can request approval.')
               }
               onResearch={(projectId) => {
+                if (!projectId) {
+                  setModal(null);
+                  setPage('Ad Library research');
+                  return;
+                }
                 sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, projectId);
                 setModal(null);
                 setPage('Research studio');

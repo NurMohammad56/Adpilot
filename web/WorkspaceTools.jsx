@@ -374,7 +374,9 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan, onOpenLibr
   const brief =
     briefDrafts[briefKey] ||
     (project
-      ? Object.fromEntries(Object.keys(emptyBrief).map((key) => [key, project[key] ?? emptyBrief[key]]))
+      ? Object.fromEntries(
+          Object.keys(emptyBrief).map((key) => [key, project[key] ?? emptyBrief[key]]),
+        )
       : emptyBrief);
   const setBrief = (value) => setBriefDrafts((current) => ({ ...current, [briefKey]: value }));
   const [briefEditing, setBriefEditing] = useState(false);
@@ -761,21 +763,6 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan, onOpenLibr
                   selected={project.adLibraryIds || []}
                   onChange={(adLibraryIds) =>
                     run(async () => {
-                      const {
-                        id,
-                        businessId,
-                        revision,
-                        status,
-                        currentVersionId,
-                        approvedVersionId,
-                        versionNumber,
-                        createdBy,
-                        createdAt,
-                        updatedAt,
-                        adLibraryInvalidatedAt,
-                        staleReason,
-                        ...unused
-                      } = project;
                       const input = Object.fromEntries(
                         Object.keys(emptyBrief).map((key) => [
                           key,

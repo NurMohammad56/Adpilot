@@ -54,7 +54,13 @@ export function reportProse(report) {
   const texts = [];
   const visit = (value, path = [], prose = false) => {
     if (typeof value === 'string') {
-      if (prose && value.trim() && !/^https?:\/\//.test(value) && value.length <= 6000)
+      if (
+        prose &&
+        value.trim() &&
+        !/^https?:\/\//.test(value) &&
+        value.length <= 6000 &&
+        !/[\u0980-\u09ff]{4}/.test(value)
+      )
         texts.push({ id: String(texts.length), path, text: value });
     } else if (Array.isArray(value)) value.forEach((item, i) => visit(item, [...path, i], prose));
     else if (value && typeof value === 'object')

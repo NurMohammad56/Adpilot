@@ -569,10 +569,8 @@ async function reportChanged(platform, user, report, scope) {
   if (report?.adLibraryFingerprint) return current.fingerprint !== report.adLibraryFingerprint;
   // Legacy reports also need renewal when a linked example appears or changes.
   const earlier = report?.adLibraryObservations || [];
-  return (
-    hash(earlier.map((r) => ({ id: r.id, snapshotHash: r.snapshotHash || hash(r) }))) !==
-    hash(current.observations.map((r) => ({ id: r.id, snapshotHash: r.snapshotHash })))
-  );
+  const withoutSnapshot = ({ snapshotHash, ...row }) => row;
+  return hash(earlier.map(withoutSnapshot)) !== hash(current.observations.map(withoutSnapshot));
 }
 
 export async function invalidateAdLibraryReports(platform, user) {

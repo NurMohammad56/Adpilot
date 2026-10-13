@@ -65,13 +65,19 @@ test('product facts connect once to research, keyword search, captured prices/hi
   await expect(
     form.getByLabel('Link to your product or research brief', { exact: true }),
   ).not.toHaveValue('');
-  await form.getByLabel('Ad Library link or Library ID', { exact: true }).fill('556677001');
-  await form.getByLabel('Advertiser / Facebook Page name', { exact: true }).fill('Fixture seller');
-  await form.getByLabel('Advertiser Page ID (optional)', { exact: true }).fill('556677099');
+  await form.locator('.quick-ad-capture summary').click();
   await form
-    .getByLabel('Actual ad copy', { exact: true })
-    .fill('Bluetooth earbuds with charging case. Owner-supplied QA observation.');
-  await form.getByLabel('Advertised price amount (optional)', { exact: true }).fill('1500');
+    .getByLabel('Copied ad details', { exact: true })
+    .fill(
+      'Advertiser: Fixture seller\nLibrary ID: 556677001\nPage ID: 556677099\nBluetooth earbuds with charging case. Owner-supplied QA observation.\nActual visible offer: BDT 1500',
+    );
+  await form.getByRole('button', { name: 'Fill form from pasted details', exact: true }).click();
+  await expect(form.getByLabel('Advertised price amount (optional)', { exact: true })).toHaveValue(
+    '1500',
+  );
+  await expect(form.getByLabel('Comparable to your product?', { exact: true })).toHaveValue(
+    'unknown',
+  );
   await form.getByLabel('What is this price for?', { exact: true }).selectOption('unit');
   await form.getByLabel('Comparable to your product?', { exact: true }).selectOption('comparable');
   await form.getByRole('button', { name: 'Save ad observation', exact: true }).click();

@@ -14,6 +14,7 @@ import { useReportTranslation, ReportTranslationNotice } from './ReportTranslati
 import { Pagination, usePagination } from './Pagination.jsx';
 import { ResearchEvidenceWorkbench } from './ResearchEvidence.jsx';
 import { primeAdCapture } from './ad-capture.js';
+import { parseCopiedAd } from '../src/modules/research/ad-capture.js';
 
 function dhakaDate(value = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -89,6 +90,8 @@ function ObservationForm({
     () => draftOf(row),
   );
   const [media, setMedia] = useState(assets);
+  const [copiedDetails, setCopiedDetails] = useState('');
+  const [copiedPrices, setCopiedPrices] = useState([]);
   useEffect(() => setMedia(assets), [assets]);
   useEffect(() => {
     if (!row)
@@ -122,6 +125,90 @@ function ObservationForm({
           }, 'Ad observation saved.');
         }}
       >
+        <details className="quick-ad-capture">
+          <summary>
+            {bn
+              ? 'দ্রুত capture: ad details একবার paste করুন'
+              : 'Quick capture: paste copied ad details once'}
+          </summary>
+          <p>
+            {bn
+              ? 'Ad-এর আসল copy, Library link/ID এবং দেখা দাম একসঙ্গে paste করুন। শুধু link থেকে ad content পাওয়া যাবে না। Screenshot ঐচ্ছিক; ছবি/creative বুঝতে screenshot কাজে লাগে।'
+              : 'Paste actual ad copy, its Library link/ID and visible offer together. A link alone does not supply ad content. Screenshots are optional; they help analyze the visual creative.'}
+          </p>
+          <label>
+            {bn ? 'Copy করা ad details' : 'Copied ad details'}
+            <textarea
+              rows={5}
+              maxLength={20000}
+              value={copiedDetails}
+              onChange={(e) => setCopiedDetails(e.target.value)}
+              placeholder={
+                'Advertiser: Seller name\nLibrary ID: 123456789\nAd copy and actual offer: BDT 1499'
+              }
+            />
+          </label>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy || !copiedDetails.trim()}
+            onClick={() => {
+              const parsed = parseCopiedAd(copiedDetails);
+              setCopiedPrices(parsed.priceCandidates);
+              setDraft((current) => ({
+                ...current,
+                adUrl: parsed.adUrl || current.adUrl,
+                pageName: parsed.pageName || current.pageName,
+                pageId: parsed.pageId || current.pageId,
+                startDateObserved: parsed.startDateObserved || current.startDateObserved,
+                statusObserved:
+                  parsed.statusObserved === 'unknown'
+                    ? current.statusObserved
+                    : parsed.statusObserved,
+                adCopy: parsed.adCopy,
+                ...(parsed.priceCandidates.length === 1
+                  ? {
+                      advertisedPrice: parsed.priceCandidates[0].amount,
+                      priceCurrency: parsed.priceCandidates[0].currency,
+                    }
+                  : {}),
+              }));
+            }}
+          >
+            {bn ? 'Form-এর ঘরগুলো পূরণ করুন' : 'Fill form from pasted details'}
+          </button>
+          <p className="small muted">
+            {bn
+              ? 'Save করার আগে আসল ad-এর সঙ্গে মিলিয়ে নিন। Advertiser বা link না থাকলে নিচে দিন। Price basis ও comparability নিজে যাচাই করুন; এগুলো অনুমান করে বসবে না।'
+              : 'Check against the original before saving. Add a missing advertiser or link below. Price basis and comparability require your review and are not guessed.'}
+          </p>
+          {copiedPrices.length > 1 && (
+            <label>
+              {bn
+                ? 'একাধিক দাম আছে—আসল offer বেছে নিন'
+                : 'Multiple quotes found — choose the actual offer'}
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  const p = copiedPrices[Number(e.target.value)];
+                  if (p)
+                    setDraft((current) => ({
+                      ...current,
+                      advertisedPrice: p.amount,
+                      priceCurrency: p.currency,
+                    }));
+                }}
+              >
+                <option value="">{bn ? 'দাম বেছে নিন' : 'Choose a quoted price'}</option>
+                {copiedPrices.map((p, i) => (
+                  <option value={i} key={i}>
+                    {p.currency} {p.amount} · {p.exactVisibleText}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </details>
         {Number.isFinite(suggestedPrice?.amount) && suggestedPrice.currency && (
           <div className="notice">
             <strong>

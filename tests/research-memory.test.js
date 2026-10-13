@@ -11,6 +11,7 @@ import {
 import { searchStrategy } from '../src/modules/research/search-strategy.js';
 import { searchMetaLibrary } from '../src/modules/research/meta-library.js';
 import { seal } from '../src/utils/core.js';
+import { parseCopiedAd } from '../src/modules/research/ad-capture.js';
 
 const observation = (f, id, extra = {}) => ({
   adUrl: id,
@@ -24,6 +25,26 @@ const observation = (f, id, extra = {}) => ({
   priceBasis: 'unit',
   comparability: 'comparable',
   ...extra,
+});
+
+test('quick capture reads explicit IDs and Bangla prices, redacts credentials and leaves ambiguous ranges/currencies/advertisers unknown', () => {
+  const parsed = parseCopiedAd(
+    'Advertiser: Actual seller\nLibrary ID: ১২৩৪৫৬৭৮৯\nPage ID: ৯৮৭৬৫৪৩২১\nStatus: active\nStart date: 2026-10-01\nদাম ১,৪৯৯ টাকা\nhttps://www.facebook.com/ads/library/?id=123456789&access_token=secret-do-not-retain',
+  );
+  assert.equal(parsed.pageName, 'Actual seller');
+  assert.equal(parsed.pageId, '987654321');
+  assert.equal(parsed.startDateObserved, '2026-10-01');
+  assert.equal(parsed.priceCandidates[0].amount, 1499);
+  assert.equal(parsed.priceCandidates[0].currency, 'BDT');
+  assert(!parsed.adCopy.includes('secret-do-not-retain'));
+  assert(!parsed.adUrl.includes('access_token'));
+  assert.equal(parseCopiedAd('Earbuds for active lifestyles. ৳999–1200').priceCandidates.length, 0);
+  assert.equal(parseCopiedAd('Earbuds $1499').priceCandidates.length, 0);
+  assert.equal(parseCopiedAd('EUR 1.499,23').priceCandidates.length, 0);
+  const ambiguous = parseCopiedAd('Was BDT 1499, now BDT 999');
+  assert.equal(ambiguous.priceCandidates.length, 2);
+  assert.equal(ambiguous.pageName, '');
+  assert.equal(ambiguous.statusObserved, 'unknown');
 });
 
 test('paid research cache reuses matching evidence, merges concurrent calls and isolates tenants/model/settings/freshness', async () => {

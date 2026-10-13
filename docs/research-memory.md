@@ -2,12 +2,14 @@
 
 Products stores the actual offer, images, inventory, costs and selling price. **Research this product** opens or creates a linked physical-product brief; existing briefs are reused without overwriting user edits. Research approval and campaign approval remain separate. Digital Research studio continues to use service/software briefs.
 
+Physical research has one sidebar section with **Discover ideas** and **Research a product** tabs. Discovery finds hypotheses before inventory; individual research validates a selected idea or actual product. Existing discovery reports, shortlists and physical briefs retain their IDs/history. Old Product discovery navigation is mapped to the discovery tab. Tabs support keyboard navigation, English/Bangla and mobile layout.
+
 ## Workflow
 
 1. Add a product once, then choose **Research this product**.
 2. Build the free search checklist. It includes common English/Bangla synonyms, optional owner terms and saved competitor Page searches. **Expand keywords with AI** adds suggestions; it does not claim searches were performed.
 3. Open the public Meta links and inspect actual ads. **Save competitor ads** preserves the product/brief context. Existing unfinished ad content is retained rather than silently discarded.
-4. Save the Library ID/link, advertiser name/Page ID, observed date, copy, offer and screenshots. Record a numeric price only when visible; identify currency, price basis and specification comparability.
+4. Use **Quick capture** to paste copied details once. It reads explicitly labelled Library/Page IDs, advertiser, ISO start date and visible English/Bangla prices; ambiguous quotes stay selectable, ambiguous currencies/ranges are not guessed, and embedded credential parameters are removed. Confirm missing fields, the observed date, price basis and specification comparability before saving. Screenshots are optional for copy/offer analysis and useful for visual creative analysis.
 5. Analyze the saved ad. A clearly visible price can be suggested by the AI with supporting text. Applying it updates the unsaved form only. The owner checks and saves it; comparability is never assigned automatically.
 6. Research the market, discuss remaining questions, edit and approve the decision, then prepare the campaign. Saved evidence is included in both physical-product and digital-service reports. Evidence changes invalidate affected reports and pending approvals under the existing snapshot checks.
 

@@ -153,6 +153,26 @@
   padding-top: 16px;
   border-top: 1px solid #d6e8e2;
 }
+.quick-ad-capture {
+  padding: 16px;
+  background: #f0f8f4;
+  border: 1px solid #cde5dc;
+  border-radius: 12px;
+  margin: 18px 0;
+}
+.quick-ad-capture summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.quick-ad-capture label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0;
+}
+.quick-ad-capture .button {
+  margin-top: 6px;
+}
 .official-ad-search summary {
   cursor: pointer;
   font-weight: 600;

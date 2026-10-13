@@ -8,8 +8,9 @@ test('discovery, shortlist, ad checking, actual-product prefill and Research stu
   await expect(page.locator('.workspace-pulse')).toBeVisible();
   await page
     .getByRole('navigation')
-    .getByRole('button', { name: 'Product discovery', exact: true })
+    .getByRole('button', { name: 'Product research', exact: true })
     .click();
+  await page.getByRole('tab', { name: /Discover ideas/ }).click();
   await page.getByLabel('Product keyword (optional)').fill('Kitchen organiser basket');
   await page.getByRole('button', { name: 'Research product ideas', exact: true }).click();
   const card = page.locator('.opportunity-card').first();
@@ -32,8 +33,9 @@ test('discovery, shortlist, ad checking, actual-product prefill and Research stu
   );
   await page
     .getByRole('navigation')
-    .getByRole('button', { name: 'Product discovery', exact: true })
+    .getByRole('button', { name: 'Product research', exact: true })
     .click();
+  await page.getByRole('tab', { name: /Discover ideas/ }).click();
   await page.getByLabel('Saved report history').selectOption({ index: 1 });
   await expect(card.getByRole('heading', { name: 'Kitchen organiser basket' })).toBeVisible();
   await card.getByRole('button', { name: 'Add actual product', exact: true }).click();
@@ -62,7 +64,8 @@ test('discovery fits Bangla mobile layout and exposes fixed public source links'
   await page.goto('/');
   await page.getByRole('button', { name: 'Explore demo workspace' }).click();
   await expect(page.locator('.workspace-switch strong')).toBeAttached();
-  await page.getByLabel('Workspace section').selectOption('Product discovery');
+  await page.getByLabel('Workspace section').selectOption('Product research');
+  await page.getByRole('tab', { name: /Discover ideas/ }).click();
   await page.getByRole('button', { name: 'বাংলায় দেখুন', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'পরবর্তী product খুঁজুন' })).toBeVisible();
   const link = page.getByRole('link', { name: /Meta Ad Library/ });

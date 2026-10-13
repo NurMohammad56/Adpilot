@@ -64,7 +64,7 @@ import { ConfidenceNotes } from './ConfidenceNotes.jsx';
 import { AdLibraryResearch, AdLibraryResearchSources } from './AdLibraryResearch.jsx';
 import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
 import './product-studio.css';
-import { ProductDiscovery } from './ProductDiscovery.jsx';
+import { ProductResearchHub } from './ProductResearchHub.jsx';
 import { WorkspacePulse } from './WorkspacePulse.jsx';
 import './erp.css';
 import './premium.css';
@@ -100,7 +100,6 @@ const date = (value) =>
 const navItems = [
   { label: 'Overview', icon: LayoutDashboard },
   { label: 'Products', icon: Package },
-  { label: 'Product discovery', icon: Search },
   { label: 'Product research', icon: FlaskConical },
   { label: 'Research studio', icon: Sparkles },
   { label: 'Ad Library research', icon: Search },
@@ -2403,7 +2402,21 @@ function App() {
   const [mode, setMode] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [page, setPage] = useDraft('adpilot-ui-page', 'Overview');
+  const [savedPage, setSavedPage] = useDraft('adpilot-ui-page', 'Overview');
+  const [productTab, setProductTab] = useDraft(
+    `adpilot-product-research-tab:${data?.business?.id || 'signed-out'}`,
+    savedPage === 'Product discovery' ? 'discover' : 'research',
+  );
+  const page = savedPage === 'Product discovery' ? 'Product research' : savedPage;
+  function setPage(next) {
+    if (next === 'Product discovery') {
+      setProductTab('discover');
+      setSavedPage('Product research');
+    } else {
+      if (next === 'Product research') setProductTab('research');
+      setSavedPage(next);
+    }
+  }
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
   const [query, setQuery] = useState('');
@@ -2954,8 +2967,9 @@ function App() {
                     />
                   )}
                   {page === 'Product research' && (
-                    <ResearchDesk
-                      mode="product"
+                    <ProductResearchHub
+                      tab={productTab}
+                      setTab={setProductTab}
                       key={`${data.business.id}:product`}
                       {...common}
                       api={api}
@@ -2965,9 +2979,6 @@ function App() {
                       onOpenLibrary={() => setPage('Ad Library research')}
                       onOpenDiscovery={() => setPage('Product discovery')}
                     />
-                  )}
-                  {page === 'Product discovery' && (
-                    <ProductDiscovery key={data.business.id} {...common} api={api} run={run} />
                   )}
                   {page === 'Settings' && <Settings {...common} run={run} refresh={refresh} />}
                 </>

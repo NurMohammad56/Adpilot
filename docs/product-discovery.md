@@ -4,7 +4,7 @@ Product discovery investigates potential products **before** creating inventory.
 
 ## Workflow
 
-1. Open **Product discovery**, choose a market and sector, and describe constraints or a keyword. Bangladesh and all major retail sectors are defaults.
+1. Open **Product research → Discover ideas**, choose a market and sector, and describe constraints or a keyword. Bangladesh and all major retail sectors are defaults. Discovery and individual-product validation share one sidebar section, with separate tabs and preserved report history.
 2. Review the source hub: Meta Ad Library, Google Trends Explore/Trending Now, TikTok Creative Center/Top Ads, and Daraz for Bangladesh. Country/keyword links are prepared where supported. TikTok requires its own available regional filters.
 3. Optionally load Google's public RSS feed. These are actual dated search surges, including news; they are never labelled product sales or promotion rankings. The fixed Google endpoint is bounded to 8 seconds/512 KB, redirects rejected, and cached for 30 minutes. Outages return explicit unavailable status with no invented measurements.
 4. Expand saved ads/source observations. Select relevant saved ads and enter actual source facts, date and URL. General inspiration is opt-in. URLs alone do not establish product demand.

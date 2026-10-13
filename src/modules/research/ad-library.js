@@ -3,6 +3,7 @@ import { assert, hash, now } from '../../utils/core.js';
 import { workspaceLLM } from '../../integrations/credentials.js';
 import { countryNames } from './countries.js';
 import { canonicalAdLibraryLink } from './ad-library-links.js';
+import { parseCopiedAd } from './ad-capture.js';
 
 const dateOnly = z
   .string()
@@ -392,6 +393,22 @@ export async function analyzeAdLibraryObservation(
       evidenceGaps: ['Confirm the original ad content and observe real buyer response.'],
     },
   );
+  if (report.quotedPrice && report.quotedPrice.amount !== null && !images.length) {
+    const source = `${input.observation.adCopy || ''}\n${input.observation.offer || ''}`;
+    const quote = report.quotedPrice;
+    const candidates = parseCopiedAd(quote.exactVisibleText).priceCandidates;
+    if (
+      !quote.exactVisibleText.trim() ||
+      !source.includes(quote.exactVisibleText) ||
+      !candidates.some((p) => p.amount === quote.amount && p.currency === quote.currency)
+    ) {
+      delete report.quotedPrice;
+      report.evidenceGaps = [
+        ...report.evidenceGaps.slice(0, 11),
+        'The suggested price was not supported by an exact supplied ad quote; check the original offer.',
+      ];
+    }
+  }
   return platform.store.transaction(async () => {
     const current = await adLibraryAnalysisInput(platform, user, id, language);
     assert(

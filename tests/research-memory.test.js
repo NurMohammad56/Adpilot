@@ -7,6 +7,7 @@ import { marketEvidence, comparableAdPrices } from '../src/modules/research/mark
 import {
   saveAdLibraryObservation,
   relatedAdLibraryObservations,
+  analyzeAdLibraryObservation,
 } from '../src/modules/research/ad-library.js';
 import { searchStrategy } from '../src/modules/research/search-strategy.js';
 import { searchMetaLibrary } from '../src/modules/research/meta-library.js';
@@ -261,6 +262,55 @@ test('keyword expansion returns real search links and observed advertisers, neve
       ).advertiserSearches.length,
       0,
     );
+  } finally {
+    await f.close();
+  }
+});
+
+test('AI text-only price suggestions require an exact supplied quote and never change the saved price', async () => {
+  const f = await fixture();
+  try {
+    const row = await saveAdLibraryObservation(
+      f.platform,
+      f.user,
+      observation(f, '445566009', {
+        advertisedPrice: null,
+        adCopy: 'Advertised earbuds price: BDT 1500.',
+      }),
+    );
+    f.platform.llm.generate = async () => ({
+      summary: 'Only supplied source text was analyzed.',
+      visibleObservations: [],
+      hooks: [],
+      offerAnalysis: 'Check actual specifications.',
+      audienceHypotheses: [],
+      strengths: [],
+      weaknesses: [],
+      differentiation: [],
+      testIdeas: [],
+      evidenceGaps: [],
+      quotedPrice: { amount: 999, currency: 'BDT', basis: 'unit', exactVisibleText: 'BDT 1500' },
+    });
+    const rejected = await analyzeAdLibraryObservation(f.platform, f.user, row.id);
+    assert.equal(rejected.analysis.report.quotedPrice, undefined);
+    assert.equal(rejected.advertisedPrice, null);
+    await f.store.update('ad_library_observations', row.id, { analysis: null });
+    f.platform.llm.generate = async () => ({
+      summary: 'Only supplied source text was analyzed.',
+      visibleObservations: [],
+      hooks: [],
+      offerAnalysis: 'Check actual specifications.',
+      audienceHypotheses: [],
+      strengths: [],
+      weaknesses: [],
+      differentiation: [],
+      testIdeas: [],
+      evidenceGaps: [],
+      quotedPrice: { amount: 1500, currency: 'BDT', basis: 'unit', exactVisibleText: 'BDT 1500' },
+    });
+    const accepted = await analyzeAdLibraryObservation(f.platform, f.user, row.id);
+    assert.equal(accepted.analysis.report.quotedPrice.amount, 1500);
+    assert.equal(accepted.advertisedPrice, null);
   } finally {
     await f.close();
   }

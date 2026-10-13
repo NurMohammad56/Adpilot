@@ -309,7 +309,9 @@ export function ProductDiscovery({ data, api, run, busy, setPage, showProduct })
     <>
       <div className="page-heading">
         <div>
-          <div className="breadcrumb">Research / Product discovery</div>
+          <div className="breadcrumb">
+            {bn ? 'Product research / নতুন idea' : 'Product research / Discover ideas'}
+          </div>
           <h1>{bn ? 'পরবর্তী product খুঁজুন' : 'Discover your next product'}</h1>
           <p>
             {bn

@@ -165,8 +165,8 @@ function OpportunityCalculator({ candidateId, country }) {
               value={cost.delivery}
               onChange={(e) => setCost({ ...cost, delivery: e.target.value })}
             >
-              <option value="80">Inside Dhaka — BDT 80</option>
-              <option value="120">Outside Dhaka — BDT 120</option>
+              <option value="80">Inside Dhaka - BDT 80</option>
+              <option value="120">Outside Dhaka - BDT 120</option>
             </select>
           ) : (
             <input
@@ -188,7 +188,7 @@ function OpportunityCalculator({ candidateId, country }) {
         ].map(([label, value]) => (
           <div key={label}>
             <span>{label}</span>
-            <strong>{value == null ? '—' : value.toFixed(2)}</strong>
+            <strong>{value == null ? '-' : value.toFixed(2)}</strong>
           </div>
         ))}
       </div>

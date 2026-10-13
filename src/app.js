@@ -18,6 +18,9 @@ import {
   enqueueAdEvidenceRefresh,
 } from './modules/research/ad-library-jobs.js';
 import { translateStoredReport } from './modules/research/report-translation.js';
+import { marketEvidence, marketEvidenceQuery } from './modules/research/market-evidence.js';
+import { searchStrategy, searchStrategyInput } from './modules/research/search-strategy.js';
+import { searchMetaLibrary, archiveSearchInput } from './modules/research/meta-library.js';
 import {
   discoveryInput,
   enqueueDiscovery,
@@ -492,6 +495,34 @@ export function createApp(runtime) {
   app.get('/api/ad-library', async (req, res) =>
     res.json(await listAdLibraryObservations(platform, req.user)),
   );
+  app.get('/api/ad-library/market', async (req, res) =>
+    res.json(await marketEvidence(platform, req.user, marketEvidenceQuery.parse(req.query))),
+  );
+  app.post('/api/ad-library/api-search', parse(archiveSearchInput), async (req, res) =>
+    res.json(
+      await exclusive(`ad-archive:${req.user.businessId}`, () =>
+        searchMetaLibrary(platform, req.user, req.input),
+      ),
+    ),
+  );
+  app.post('/api/ad-library/search-strategy', parse(searchStrategyInput), async (req, res) =>
+    res.json(
+      await exclusive(`search-strategy:${req.user.businessId}`, () =>
+        searchStrategy(platform, req.user, req.input),
+      ),
+    ),
+  );
+  app.get('/api/ad-library/history/:id', async (req, res) => {
+    const row = await platform.owned('ad_library_observations', req.params.id, req.user);
+    res.json(
+      (
+        await store.list('ad_library_history', {
+          businessId: req.user.businessId,
+          observationId: row.id,
+        })
+      ).sort((a, b) => b.revision - a.revision),
+    );
+  });
   app.get('/api/discovery', async (req, res) =>
     res.json(await listDiscoveries(platform, req.user, trendCountry(req.query.country))),
   );
@@ -615,7 +646,14 @@ export function createApp(runtime) {
   });
   app.post(
     '/api/research/:id/run',
-    parse(z.object({ instruction: z.string().max(5000).default('') }).strict()),
+    parse(
+      z
+        .object({
+          instruction: z.string().max(5000).default(''),
+          fresh: z.boolean().default(false),
+        })
+        .strict(),
+    ),
     async (req, res) =>
       res
         .status(201)
@@ -626,6 +664,8 @@ export function createApp(runtime) {
               req.params.id,
               req.input.instruction,
               req.headers['accept-language']?.startsWith('bn') ? 'bn' : 'en',
+              null,
+              req.input.fresh,
             ),
           ),
         ),
@@ -774,8 +814,51 @@ export function createApp(runtime) {
       res.status(201).json(row);
     },
   );
-  app.post('/api/products/:id/plans', parse(z.object({}).strict()), async (req, res) =>
-    res.status(201).json(await platform.createPlan(req.user, req.params.id)),
+  app.post('/api/products/:id/research-brief', parse(z.object({}).strict()), async (req, res) =>
+    res.json(
+      await exclusive(`product-brief:${req.user.businessId}`, async () => {
+        const product = await platform.owned('products', req.params.id, req.user);
+        const existing = await store.find('research_projects', {
+          businessId: req.user.businessId,
+          productId: product.id,
+          kind: 'physical-product',
+        });
+        if (existing) return { project: existing, reused: true };
+        const evidence = (
+          await store.list('market_research_reports', {
+            businessId: req.user.businessId,
+            productId: product.id,
+            type: 'evidence',
+          })
+        ).map(({ id, businessId, productId, type, createdAt, updatedAt, ...row }) => row);
+        const project = await research.create(req.user, {
+          name: product.name,
+          kind: 'physical-product',
+          productId: product.id,
+          description: product.description,
+          buyerProfile:
+            'Potential buyers for this product in Bangladesh; validate specific buyer needs before targeting.',
+          candidateCountries: ['BD'],
+          questions:
+            'Compare actual competitor offers and prices, buyer need, delivery/COD risks, differentiation and cheap validation steps before spending.',
+          evidence: evidence.slice(0, 30),
+          adLibraryIds: product.adLibraryIds || [],
+        });
+        return { project, reused: false };
+      }),
+    ),
+  );
+  app.post(
+    '/api/products/:id/plans',
+    parse(z.object({ fresh: z.boolean().default(false) }).strict()),
+    async (req, res) =>
+      res
+        .status(201)
+        .json(
+          await exclusive(`product-plan:${req.user.businessId}:${req.params.id}`, () =>
+            platform.createPlan(req.user, req.params.id, { freshResearch: req.input.fresh }),
+          ),
+        ),
   );
   app.get('/api/plans/:id', async (req, res) =>
     res.json(await platform.owned('campaign_plans', req.params.id, req.user)),

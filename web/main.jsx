@@ -71,6 +71,7 @@ import './premium.css';
 import './brand-theme.css';
 import { StatusRemark } from './StatusRemark.jsx';
 import { Pagination, usePagination } from './Pagination.jsx';
+import { MarketSample, ResearchReuseNote } from './ResearchEvidence.jsx';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -652,7 +653,17 @@ function PerformanceChart({ series }) {
   );
 }
 
-function Products({ data, showProduct, generate, addEvidence, busy, run, onGroupCreated }) {
+function Products({
+  data,
+  showProduct,
+  generate,
+  addEvidence,
+  busy,
+  run,
+  onGroupCreated,
+  onResearch,
+}) {
+  const bn = useLanguage() === 'bn';
   const pagination = usePagination(
     [...data.products].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     { pageSize: 6, resetKey: data.business.id },
@@ -670,6 +681,11 @@ function Products({ data, showProduct, generate, addEvidence, busy, run, onGroup
         }
       />
       <ProductCampaigns data={data} api={api} busy={busy} run={run} onCreated={onGroupCreated} />
+      <p className="notice product-flow-note">
+        {bn
+          ? 'একবার product-এর তথ্য দিন → Research this product-এ বাজার, competitor ও buyer যাচাই করুন → সিদ্ধান্ত approve করুন → campaign তৈরি করুন। একই product-এর জন্য আলাদা করে আবার তথ্য দিতে হবে না। Generate campaign plan সরাসরি campaign preparation; market validation বাদ গেলে report সেই সীমা দেখাবে।'
+          : 'Enter your product once → Research this product to compare markets, competitors and buyer needs → approve the decision → prepare the campaign. Product details are reused. Generate campaign plan is the direct preparation path; missing market validation remains an evidence gap.'}
+      </p>
       <div className="products-grid">
         {pagination.items.map((product, index) => (
           <article className="panel product-card" key={product.id}>
@@ -716,6 +732,14 @@ function Products({ data, showProduct, generate, addEvidence, busy, run, onGroup
                   <dd>{taka(product.testBudgetCeiling)}</dd>
                 </div>
               </dl>
+              <button
+                className="button primary full product-research-step"
+                disabled={busy}
+                onClick={() => onResearch(product)}
+              >
+                <FlaskConical size={16} />
+                {bn ? 'এই product-এর market research' : 'Research this product'}
+              </button>
               <button
                 className="button secondary full"
                 disabled={busy}
@@ -1508,6 +1532,8 @@ function PlanReview({
                 </div>
               </div>
               <ResearchRetrieval retrieval={researchDisplay.retrieval} />
+              <ResearchReuseNote report={researchDisplay} />
+              <MarketSample sample={researchDisplay.marketEvidence} />
               <ConfidenceNotes report={researchDisplay} />
               <AdLibraryResearchSources observations={researchDisplay.adLibraryObservations} />
               <h3 className="form-section">Evidence and assumptions</h3>
@@ -2805,6 +2831,21 @@ function App() {
                       key={data.business.id}
                       {...common}
                       run={run}
+                      onResearch={(product) =>
+                        run(async () => {
+                          const result = await api(
+                            `/products/${product.id}/research-brief`,
+                            'POST',
+                            {},
+                          );
+                          await refresh();
+                          sessionStorage.setItem(
+                            `adpilot-product-research-selection:${data.business.id}`,
+                            result.project.id,
+                          );
+                          setPage('Product research');
+                        }, 'Product facts linked. Add competitor evidence, research the market and review the decision.')
+                      }
                       onGroupCreated={async (plan) => {
                         await refresh();
                         showPlan(plan);

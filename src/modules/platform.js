@@ -2,6 +2,7 @@ import { assert, hash, id, money, now, publicUser, seal } from '../utils/core.js
 import { calculateEconomics } from './pricing/engine.js';
 import { recommendBudget } from './budgeting/engine.js';
 import { researchProduct } from './research/service.js';
+import { marketEvidence, evidenceDigest, comparableAdPrices } from './research/market-evidence.js';
 import {
   adLibrarySnapshot,
   assertAdLibraryFresh,
@@ -322,8 +323,22 @@ export class Platform {
     const visualAnalysis =
       previous?.research?.visualAnalysis || (await productVisualContext(this, user, product));
     const sourceReport = sourceResearch?.version.report;
+    const outcomes = await this.store.list('business_outcomes', { businessId: user.businessId });
+    const relatedPlans = (
+      await this.store.list('campaign_plans', { businessId: user.businessId, productId })
+    ).filter((plan) => plan.kind !== 'product-group');
+    const productCampaigns = [
+      ...(await this.store.list('campaigns', { businessId: user.businessId })),
+      ...(await this.store.list('manual_campaigns', { businessId: user.businessId })),
+    ].filter((campaign) => relatedPlans.some((plan) => plan.id === campaign.planId));
+    const actualOutcomes = outcomes.filter((o) =>
+      productCampaigns.some((c) => c.id === o.campaignId),
+    );
     const adEvidence = await adLibrarySnapshot(this, user, { productIds: [productId] });
     const adLibraryObservations = adEvidence.observations;
+    const marketSummary = evidenceDigest(
+      await marketEvidence(this, user, { productId, country: 'BD' }),
+    );
     const report = sourceResearch
       ? {
           market: 'BD',
@@ -372,6 +387,11 @@ export class Platform {
           visualAnalysis,
           user.language || 'en',
           adLibraryObservations,
+          this,
+          user,
+          Boolean(overrides.freshResearch),
+          marketSummary,
+          actualOutcomes,
         ));
     if (!previous && !sourceResearch) {
       report.adLibraryObservations = adLibraryObservations;
@@ -379,19 +399,14 @@ export class Platform {
       report.adLibraryFingerprint = adEvidence.fingerprint;
     }
     if (visualAnalysis) report.visualAnalysis = visualAnalysis;
-    const outcomes = await this.store.list('business_outcomes', { businessId: user.businessId });
-    const relatedPlans = (
-      await this.store.list('campaign_plans', { businessId: user.businessId, productId })
-    ).filter((plan) => plan.kind !== 'product-group');
-    const productCampaigns = [
-      ...(await this.store.list('campaigns', { businessId: user.businessId })),
-      ...(await this.store.list('manual_campaigns', { businessId: user.businessId })),
-    ].filter((campaign) => relatedPlans.some((plan) => plan.id === campaign.planId));
+    report.marketEvidence = sourceReport?.marketEvidence || marketSummary;
+    if (sourceResearch)
+      report.sourcedPrices.push(...comparableAdPrices(report.adLibraryObservations));
     report.confidenceDetails = explainConfidence({
       findings: [...evidence, ...report.findings],
       retrieval: report.retrieval,
       visualAnalysis,
-      actualResults: outcomes.filter((o) => productCampaigns.some((c) => c.id === o.campaignId)),
+      actualResults: actualOutcomes,
     });
     report.confidence = report.confidenceDetails.level;
     const economics = calculateEconomics(product, overrides.sellingPrice, report.sourcedPrices);

@@ -12,6 +12,8 @@ import { mediaUrl, uploadMedia } from './api.js';
 import './ad-library.css';
 import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
 import { Pagination, usePagination } from './Pagination.jsx';
+import { ResearchEvidenceWorkbench } from './ResearchEvidence.jsx';
+import { primeAdCapture } from './ad-capture.js';
 
 function dhakaDate(value = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -24,6 +26,11 @@ function dhakaDate(value = new Date()) {
 const emptyDraft = () => ({
   adUrl: '',
   pageName: '',
+  pageId: '',
+  advertisedPrice: null,
+  priceCurrency: 'BDT',
+  priceBasis: 'unknown',
+  comparability: 'unknown',
   country: 'BD',
   productId: null,
   projectId: null,
@@ -41,13 +48,20 @@ const draftOf = (row) =>
     ? Object.fromEntries(
         Object.keys(emptyDraft()).map((key) => [
           key,
-          key === 'observedDate' ? dhakaDate(row.observedAt) : row[key],
+          key === 'observedDate' ? dhakaDate(row.observedAt) : (row[key] ?? emptyDraft()[key]),
         ]),
       )
     : emptyDraft();
 const publicPayload = (draft) => {
   const { observedDate, ...fields } = draft;
-  return { ...fields, observedAt: new Date(`${observedDate}T00:00:00+06:00`).toISOString() };
+  return {
+    ...fields,
+    advertisedPrice:
+      fields.advertisedPrice === '' || fields.advertisedPrice == null
+        ? null
+        : Number(fields.advertisedPrice),
+    observedAt: new Date(`${observedDate}T00:00:00+06:00`).toISOString(),
+  };
 };
 const Field = ({ label, help, children }) => (
   <CampaignField label={label} help={help}>
@@ -90,6 +104,7 @@ function ObservationForm({
   const hasContent = Boolean(
     draft.adCopy || draft.offer || draft.notes || draft.screenshotAssetIds.length,
   );
+  const suggestedPrice = !row?.analysisStale ? row?.analysis?.report?.quotedPrice : null;
   return (
     <article className="panel tools-panel ad-library-form">
       <h2>{row ? 'Edit saved ad' : '2. Save an ad you found'}</h2>
@@ -107,6 +122,34 @@ function ObservationForm({
           }, 'Ad observation saved.');
         }}
       >
+        {Number.isFinite(suggestedPrice?.amount) && suggestedPrice.currency && (
+          <div className="notice">
+            <strong>
+              {bn ? 'AI যে দামটি পড়েছে' : 'AI read this advertised price'}:{' '}
+              {suggestedPrice.currency} {suggestedPrice.amount}
+            </strong>
+            <p>{suggestedPrice.exactVisibleText}</p>
+            <p>
+              {bn
+                ? 'আসল ad-এর সঙ্গে মিলিয়ে নিন; Apply করলে শুধু form-এ বসবে, নিজে থেকে Save বা comparable হবে না।'
+                : 'Check against the original ad. Apply fills the unsaved form; it does not save or mark specifications comparable.'}
+            </p>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={() =>
+                setDraft((current) => ({
+                  ...current,
+                  advertisedPrice: suggestedPrice.amount,
+                  priceCurrency: suggestedPrice.currency,
+                  priceBasis: suggestedPrice.basis,
+                }))
+              }
+            >
+              {bn ? 'দাম form-এ বসান' : 'Apply price suggestion to form'}
+            </button>
+          </div>
+        )}
         <Field
           label="Ad Library link or Library ID"
           help="Use an individual ad link with ?id= or the numeric Library ID shown in ad details. A keyword search link is not an individual ad."
@@ -134,6 +177,18 @@ function ObservationForm({
               maxLength={200}
               value={draft.pageName}
               onChange={(e) => patch('pageName', e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Advertiser Page ID (optional)"
+            help="Copy the actual numeric competitor Page ID if known. The same ID groups advertiser history and enables Page searches; leave it empty if unknown."
+          >
+            <input
+              inputMode="numeric"
+              pattern="[0-9]{5,30}"
+              maxLength={30}
+              value={draft.pageId}
+              onChange={(e) => patch('pageId', e.target.value.replace(/\D/g, ''))}
             />
           </Field>
           <Field
@@ -232,6 +287,72 @@ function ObservationForm({
             onChange={(e) => patch('offer', e.target.value)}
           />
         </Field>
+        <div className="form-grid">
+          <Field
+            label="Advertised price amount (optional)"
+            help="Enter only the price actually shown. Leave empty when unknown. This records a competitor quote, not your own selling price."
+          >
+            <input
+              type="number"
+              min="0.01"
+              max="100000000"
+              step="0.01"
+              value={draft.advertisedPrice ?? ''}
+              onChange={(e) => patch('advertisedPrice', e.target.value)}
+            />
+          </Field>
+          <Field
+            label="Price currency"
+            help="Use the currency displayed in the original ad. Different currencies are never combined into one price range."
+          >
+            <select
+              value={draft.priceCurrency}
+              onChange={(e) => patch('priceCurrency', e.target.value)}
+            >
+              {[
+                ...new Set([
+                  'BDT',
+                  'USD',
+                  'EUR',
+                  'GBP',
+                  'CAD',
+                  'AUD',
+                  'INR',
+                  'AED',
+                  'SAR',
+                  draft.priceCurrency,
+                ]),
+              ].map((code) => (
+                <option key={code}>{code}</option>
+              ))}
+            </select>
+          </Field>
+          <Field
+            label="What is this price for?"
+            help="Select unit for one product, bundle for several products, project for a service, or subscription for recurring payment. Unknown or bundle prices are excluded from unit comparisons."
+          >
+            <select value={draft.priceBasis} onChange={(e) => patch('priceBasis', e.target.value)}>
+              <option value="unknown">Not checked</option>
+              <option value="unit">One product / unit</option>
+              <option value="bundle">Bundle / several products</option>
+              <option value="project">Service project</option>
+              <option value="subscription">Subscription</option>
+            </select>
+          </Field>
+          <Field
+            label="Comparable to your product?"
+            help="Choose comparable only after checking the same specifications, quantity, condition and delivery terms. A similar-looking photo is insufficient. Recent comparable Bangladesh unit quotes can inform the price comparison, but do not replace your actual costs."
+          >
+            <select
+              value={draft.comparability}
+              onChange={(e) => patch('comparability', e.target.value)}
+            >
+              <option value="unknown">Not checked yet</option>
+              <option value="comparable">Checked: comparable specifications</option>
+              <option value="different">Different product / specifications</option>
+            </select>
+          </Field>
+        </div>
         <Field
           label="Competitor landing page (optional)"
           help="Paste the public HTTPS destination if you checked it. This is a reference link; it is not fetched automatically."
@@ -455,6 +576,7 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
     pageId: '',
   });
   const [selectedId, setSelectedId] = useDraft(`adpilot-ad-library-selection:${key}`, '');
+  const [captureVersion, setCaptureVersion] = useState(0);
   const [payload, setPayload] = useState(null),
     [assets, setAssets] = useState([]),
     [error, setError] = useState(''),
@@ -742,6 +864,30 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
           screenshot. Return here to save it. Some ads or details may be unavailable.
         </p>
       </article>
+      <ResearchEvidenceWorkbench
+        data={data}
+        api={api}
+        run={run}
+        busy={busy}
+        allowScopeSelection
+        onCapture={(row, scope) => {
+          primeAdCapture(data, row, scope);
+          setSelectedId('');
+          setCaptureVersion((version) => version + 1);
+          setTimeout(
+            () =>
+              document
+                .querySelector('.ad-library-form')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+            0,
+          );
+        }}
+        keyword={search.keyword}
+        country={search.country}
+        productId={selected?.productId || undefined}
+        projectId={selected?.projectId || undefined}
+        refreshKey={payload?.observations.map((row) => `${row.id}:${row.revision}`).join(',') || ''}
+      />
       {error && (
         <div role="alert" className="notice">
           {error}
@@ -824,7 +970,7 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
           </aside>
           <div className="ad-library-detail">
             <ObservationForm
-              key={selected?.id || 'new'}
+              key={selected?.id || `new-${captureVersion}`}
               row={selected}
               data={data}
               assets={assets}

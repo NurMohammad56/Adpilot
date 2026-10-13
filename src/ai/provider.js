@@ -47,6 +47,7 @@ export class LLMService {
         'market-comparison',
         'product-image-analysis',
         'ad-library-analysis',
+        'ad-search-strategy',
       ].includes(task);
       const Provider = this.config.llmProvider === 'openai' ? OpenAIProvider : GeminiProvider;
       return new Provider({

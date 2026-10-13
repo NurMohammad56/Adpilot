@@ -1,5 +1,7 @@
 import { now } from '../../utils/core.js';
 import { researchOutputSchema } from '../../ai/provider.js';
+import { cachedResearch } from './cache.js';
+import { comparableAdPrices } from './market-evidence.js';
 export const scoreWeights = {
   demand: 20,
   purchasingPower: 15,
@@ -52,8 +54,16 @@ export async function researchProduct(
   visualAnalysis = null,
   language = 'en',
   adLibraryObservations = [],
+  platform = null,
+  user = null,
+  fresh = false,
+  marketSummary = null,
+  actualOutcomes = [],
 ) {
-  const generated = await llm.generate(
+  const generate = platform
+    ? (...args) => cachedResearch(platform, user, llm, ...args, { fresh })
+    : async (...args) => ({ output: await llm.generate(...args), reuse: null });
+  const { output: generated, reuse } = await generate(
     'bangladesh-market-research',
     {
       product,
@@ -61,6 +71,13 @@ export async function researchProduct(
       evidence,
       competitors,
       adLibraryObservations,
+      savedMarketSample: marketSummary,
+      actualBusinessResults: {
+        classification:
+          'Owner-recorded outcomes, not independently verified. No extrapolated sales or performance guarantees.',
+        recordedCount: actualOutcomes.length,
+        latest: actualOutcomes.slice(-20),
+      },
       responseLanguage: language === 'bn' ? 'Bangla' : 'English',
       visualAnalysis: visualAnalysis
         ? { report: visualAnalysis.report, classification: visualAnalysis.classification }
@@ -110,12 +127,14 @@ export async function researchProduct(
   const sourcedPrices = competitors
     .filter((c) => c.price > 0 && c.source && Date.now() - Date.parse(c.observedAt) < 30 * 86400000)
     .map((c) => c.price);
+  sourcedPrices.push(...comparableAdPrices(adLibraryObservations));
   return {
     market: 'BD',
     marketMode: 'LOCAL_BUSINESS',
     platform: 'META',
     generatedAt: now(),
     ...(generated?.retrieval ? { retrieval: generated.retrieval } : {}),
+    ...(reuse ? { researchReuse: reuse } : {}),
     demo,
     summary:
       generated?.summary ||
@@ -124,6 +143,7 @@ export async function researchProduct(
     competitors,
     sourcedPrices,
     adLibraryObservations,
+    marketEvidence: marketSummary,
     competitorCandidates: generated?.competitorCandidates || [],
     evidenceGaps: generated?.evidenceGaps || [],
     competitorAnalysis:

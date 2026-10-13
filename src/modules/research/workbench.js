@@ -7,6 +7,8 @@ import { actualResults } from '../analytics/outcomes.js';
 import { countryNames } from './countries.js';
 import { productVisualContext } from '../media/vision.js';
 import { explainConfidence } from './confidence.js';
+import { cachedResearch } from './cache.js';
+import { marketEvidence, evidenceDigest } from './market-evidence.js';
 import {
   adLibrarySnapshot,
   assertAdLibraryFresh,
@@ -278,6 +280,7 @@ export class ResearchWorkbench {
     instruction = '',
     language = 'en',
     adEvidenceRefreshJobId = null,
+    fresh = false,
   ) {
     const project = await this.platform.owned('research_projects', projectId, user);
     const previous = project.currentVersionId
@@ -321,7 +324,16 @@ export class ResearchWorkbench {
       projectId: project.id,
     });
     const adLibraryObservations = adEvidence.observations;
-    const generated = await llm.generate(
+    const marketSummary = evidenceDigest(
+      await marketEvidence(this.platform, user, {
+        projectId: project.id,
+        country: project.candidateCountries.length === 1 ? project.candidateCountries[0] : 'ALL',
+      }),
+    );
+    const { output: generated, reuse } = await cachedResearch(
+      this.platform,
+      user,
+      llm,
       'market-comparison',
       {
         project: { ...briefOf(project), candidateLocations: locations },
@@ -334,13 +346,14 @@ export class ResearchWorkbench {
                 'Earlier AI discovery hypothesis; recheck current sources and buyer demand, not an approved or proven offer.',
             }
           : null,
-        previousReport: previous?.report,
+        previousReport: instruction ? previous?.report : null,
         instruction,
         responseLanguage: language === 'bn' ? 'Bangla' : 'English',
         regionalRules:
           'Compare every candidateLocationId exactly once using the saved candidateLocations. Investigate buyer clusters, language, local alternatives, delivery/service coverage and evidence gaps at state/region/city level. Whole-country statistics do not prove regional demand. Never invent Meta location keys, local CPC, conversion estimates or population. Keep locationIds empty when evidence cannot justify narrowing. For small budgets recommend one offer and one ad set; avoid fragmenting spend across regions.',
         evidence: project.evidence,
         adLibraryObservations,
+        savedMarketSample: marketSummary,
         linkedProduct: linkedProduct
           ? {
               name: linkedProduct.name,
@@ -366,6 +379,7 @@ export class ResearchWorkbench {
           'Write human-readable analysis in responseLanguage while preserving country codes and structured field names. Compare only the supplied countries. Investigate actual buyer segments and problem urgency, alternatives and competition, buying readiness, language, payment and sales barriers, delivery capacity and local requirements. Explicitly examine counter-evidence and why this offer could fail in each market. Identify evidence gaps and what would change the recommendation. For B2B services include decision makers, buying cycle, trust signals and a measurable interview/qualified-lead validation plan. For physical products include COD, failed deliveries and fulfillment. Use previousReport and instruction to build on prior analysis. Do not invent demand, CPC, budgets, conversion rates, rankings, verified sources or guaranteed outcomes. A country recommendation is a hypothesis, not approval to publish.',
       },
       comparisonSchema,
+      { fresh },
     );
     const report = generated || {
       summary: `${project.name}: compare candidate markets using the supplied business facts. Demo hypotheses need current evidence.`,
@@ -417,6 +431,8 @@ export class ResearchWorkbench {
     };
     const allowed = new Set(project.evidence.map((item) => item.source));
     report.adLibraryObservations = adLibraryObservations;
+    report.marketEvidence = marketSummary;
+    if (reuse) report.researchReuse = reuse;
     report.adLibraryScope = adEvidence.scope;
     report.adLibraryFingerprint = adEvidence.fingerprint;
     if (adEvidenceRefreshJobId) report.adEvidenceRefreshJobId = adEvidenceRefreshJobId;

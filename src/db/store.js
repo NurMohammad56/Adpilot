@@ -44,6 +44,8 @@ export const collections = [
   'ad_library_observations',
   'report_translations',
   'product_discoveries',
+  'research_cache',
+  'ad_library_history',
 ];
 const stamp = (value) => ({
   ...value,
@@ -102,7 +104,14 @@ export class DemoStore {
           (collection === 'product_discoveries' &&
             typeof row.jobId === 'string' &&
             r.businessId === row.businessId &&
-            r.jobId === row.jobId),
+            r.jobId === row.jobId) ||
+          (collection === 'research_cache' &&
+            r.businessId === row.businessId &&
+            r.requestHash === row.requestHash) ||
+          (collection === 'ad_library_history' &&
+            r.businessId === row.businessId &&
+            r.observationId === row.observationId &&
+            r.revision === row.revision),
       )
     )
       throw new AppError(409, 'DUPLICATE', 'Record already exists');
@@ -199,7 +208,11 @@ export class MongoStore {
           { businessId: 1, jobId: 1 },
           { unique: true, partialFilterExpression: { jobId: { $type: 'string' } } },
         );
-      if (collection === 'sessions') {
+      if (collection === 'research_cache')
+        schema.index({ businessId: 1, requestHash: 1 }, { unique: true });
+      if (collection === 'ad_library_history')
+        schema.index({ businessId: 1, observationId: 1, revision: 1 }, { unique: true });
+      if (['sessions', 'research_cache'].includes(collection)) {
         schema.add({ expiresAtDate: Date });
         schema.index({ expiresAtDate: 1 }, { expireAfterSeconds: 0 });
       }

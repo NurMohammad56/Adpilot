@@ -1,0 +1,203 @@
+.research-evidence-workbench {
+  margin: 20px 0;
+}
+.evidence-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+}
+.evidence-heading p {
+  max-width: 760px;
+  line-height: 1.65;
+}
+.evidence-heading > button {
+  flex-shrink: 0;
+}
+.market-sample {
+  margin: 18px 0;
+  padding: 18px;
+  background: #f3faf7;
+  border: 1px solid #d6e8e2;
+  border-radius: 14px;
+}
+.evidence-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.evidence-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  background: white;
+  border-radius: 12px;
+}
+.evidence-metrics strong {
+  font-size: 24px;
+  color: var(--brand-main);
+}
+.evidence-metrics span {
+  font-size: 13px;
+}
+.market-sample details {
+  margin: 16px 0;
+}
+.market-sample summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px 0;
+}
+.advertiser-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.advertiser-grid article {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #d6e8e2;
+  border-radius: 12px;
+  background: white;
+  overflow-wrap: anywhere;
+}
+.advertiser-grid a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+.advertiser-grid small {
+  font-size: 12px;
+  color: #526e70;
+}
+.price-range {
+  padding: 12px;
+  background: #e1f2e9;
+  border-radius: 10px;
+}
+.extra-search-terms {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+.evidence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.search-checklist {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.search-checklist > div {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #d6e8e2;
+  border-radius: 12px;
+  padding: 14px;
+  overflow-wrap: anywhere;
+  background: #fff;
+}
+.search-checklist label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.search-checklist input {
+  width: auto;
+  min-height: 0;
+}
+.search-checklist a {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  font-weight: 600;
+}
+.search-checklist svg {
+  flex-shrink: 0;
+}
+.research-reuse-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background: #edf8f2;
+  border: 1px solid #cde5dc;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.research-reuse-note span {
+  color: #526e70;
+}
+.product-flow-note {
+  margin: 16px 0;
+  line-height: 1.7;
+}
+.product-research-step {
+  margin: 12px 0;
+}
+.official-ad-search {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #d6e8e2;
+}
+.official-ad-search summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.official-ad-search > .button {
+  margin: 12px 0;
+}
+.official-ad-search .check-label {
+  margin-top: 16px;
+}
+.api-ad-result {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid #d6e8e2;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+.api-ad-result p {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+@media (max-width: 900px) {
+  .search-checklist {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .evidence-heading {
+    flex-direction: column;
+  }
+}
+@media (max-width: 600px) {
+  .advertiser-grid,
+  .search-checklist {
+    grid-template-columns: 1fr;
+  }
+  .evidence-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .market-sample {
+    padding: 12px;
+  }
+  .evidence-actions > .button {
+    width: 100%;
+    justify-content: center;
+  }
+}

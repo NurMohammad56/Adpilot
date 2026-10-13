@@ -20,6 +20,7 @@ import { Pagination, usePagination } from './Pagination.jsx';
 import { TrendSourceHub } from './ProductDiscovery.jsx';
 import { AdLibraryResearchSources } from './AdLibraryResearch.jsx';
 import { AdLibraryPicker } from './AdLibraryPicker.jsx';
+import { ResearchEvidenceWorkbench, ResearchReuseNote, MarketSample } from './ResearchEvidence.jsx';
 import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
 import { useDraft } from './use-draft.js';
 import { getLanguage } from './i18n.js';
@@ -374,6 +375,7 @@ export function ResearchDesk({
   mode = 'digital',
 }) {
   const physical = mode === 'product';
+  const [freshResearch, setFreshResearch] = useState(false);
   const defaults = physical
     ? { ...emptyBrief, kind: 'physical-product', candidateCountries: ['BD'] }
     : emptyBrief;
@@ -551,6 +553,21 @@ export function ResearchDesk({
           />
         </aside>
         <section className="research-main">
+          {project && (
+            <ResearchEvidenceWorkbench
+              data={data}
+              api={api}
+              run={run}
+              busy={busy}
+              keyword={project.name}
+              country={
+                project.candidateCountries.length === 1 ? project.candidateCountries[0] : 'ALL'
+              }
+              projectId={project.id}
+              onOpenLibrary={onOpenLibrary}
+              refreshKey={`${project.revision}:${version?.id || ''}`}
+            />
+          )}
           {!project || briefEditing ? (
             <article className="panel tools-panel">
               <h2>{project ? 'Edit research brief' : 'What would you like to research?'}</h2>
@@ -838,7 +855,11 @@ export function ResearchDesk({
                   onSubmit={(event) => {
                     event.preventDefault();
                     run(async () => {
-                      await api(`/research/${project.id}/run`, 'POST', { instruction: followup });
+                      await api(`/research/${project.id}/run`, 'POST', {
+                        instruction: followup,
+                        fresh: freshResearch,
+                      });
+                      setFreshResearch(false);
                       setFollowup('');
                       await reload(project.id);
                     }, 'New research version created. Earlier decisions are kept in history.');
@@ -852,6 +873,19 @@ export function ResearchDesk({
                       placeholder="Compare US and UK specifically for custom ecommerce clients. What evidence would change the recommendation?"
                     />
                   </Field>
+                  <label className="check-label">
+                    <input
+                      type="checkbox"
+                      checked={freshResearch}
+                      onChange={(e) => setFreshResearch(e.target.checked)}
+                    />
+                    Fresh source check (skip saved research cache)
+                  </label>
+                  <p className="small muted">
+                    Unchanged input and evidence reuse saved analysis for up to 12 hours. A new
+                    question, product change or evidence change triggers new research. Fresh source
+                    check uses a new AI request.
+                  </p>
                   <button className="button primary" disabled={busy}>
                     <RefreshCw size={16} />
                     {version ? 'Research again with this question' : 'Run country research'}
@@ -909,6 +943,8 @@ export function ResearchDesk({
                     <p className="small muted">{version.instruction}</p>
                     <p>{displayReport.summary}</p>
                     <ResearchRetrieval retrieval={displayReport.retrieval} />
+                    <ResearchReuseNote report={displayReport} />
+                    <MarketSample sample={displayReport.marketEvidence} />
                     <ConfidenceNotes report={displayReport} />
                     <AdLibraryResearchSources observations={displayReport.adLibraryObservations} />
                     <details className="research-source-details">

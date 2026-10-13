@@ -1,4 +1,34 @@
 // Public links only. Never retain access tokens or fetch arbitrary submitted URLs.
+export const archiveCountries = [
+  'AT',
+  'BE',
+  'BG',
+  'HR',
+  'CY',
+  'CZ',
+  'DK',
+  'EE',
+  'FI',
+  'FR',
+  'DE',
+  'GR',
+  'HU',
+  'IE',
+  'IT',
+  'LV',
+  'LT',
+  'LU',
+  'MT',
+  'NL',
+  'PL',
+  'PT',
+  'RO',
+  'SK',
+  'SI',
+  'ES',
+  'SE',
+  'GB',
+];
 export function canonicalAdLibraryLink(value) {
   const text = String(value || '').trim();
   if (/^\d{5,30}$/.test(text)) return `https://www.facebook.com/ads/library/?id=${text}`;

@@ -18,6 +18,13 @@ import {
   enqueueAdEvidenceRefresh,
 } from './modules/research/ad-library-jobs.js';
 import { translateStoredReport } from './modules/research/report-translation.js';
+import {
+  discoveryInput,
+  enqueueDiscovery,
+  listDiscoveries,
+  createDiscoveryBrief,
+} from './modules/research/product-discovery.js';
+import { discoveryCountry, getTrendSignals, trendLinks } from './modules/research/trend-sources.js';
 import { groupInput } from './modules/campaigns/product-group.js';
 import { enqueueProductGroup } from './modules/campaigns/group-jobs.js';
 import {
@@ -79,6 +86,11 @@ const credentials = z
   })
   .strict();
 const comment = z.string().trim().max(2000).default('');
+const trendCountry = (value) => {
+  const result = discoveryCountry.safeParse(value || 'BD');
+  assert(result.success, 422, 'TREND_MARKET', 'Choose a supported country.');
+  return result.data;
+};
 const cookieToken = (req) =>
   req.headers.cookie
     ?.split(';')
@@ -462,7 +474,7 @@ export function createApp(runtime) {
     parse(
       z
         .object({
-          kind: z.enum(['research', 'plan', 'ad']),
+          kind: z.enum(['research', 'plan', 'ad', 'discovery']),
           id: z.string().uuid(),
           language: z.literal('bn'),
         })
@@ -478,6 +490,62 @@ export function createApp(runtime) {
   );
   app.get('/api/ad-library', async (req, res) =>
     res.json(await listAdLibraryObservations(platform, req.user)),
+  );
+  app.get('/api/discovery', async (req, res) =>
+    res.json(await listDiscoveries(platform, req.user, trendCountry(req.query.country))),
+  );
+  app.get('/api/discovery/trends', async (req, res) => {
+    const country = trendCountry(req.query.country);
+    res.json({
+      ...(config.mode === 'demo'
+        ? { status: 'demo', country, signals: [], note: 'Demo only. Live feed is not fetched.' }
+        : await getTrendSignals(country)),
+      links: trendLinks(country, String(req.query.keyword || '')),
+    });
+  });
+  app.post('/api/discovery', parse(discoveryInput), async (req, res) => {
+    const result = await exclusive(`discovery:${req.user.businessId}`, () =>
+      enqueueDiscovery(runtime, req.user, req.input),
+    );
+    res.status(result.queued ? 202 : 201).json(result);
+  });
+  app.get('/api/discovery/:id', async (req, res) =>
+    res.json(await platform.owned('product_discoveries', req.params.id, req.user)),
+  );
+  app.post(
+    '/api/discovery/:id/shortlist',
+    parse(z.object({ candidateId: z.string().uuid(), selected: z.boolean() }).strict()),
+    async (req, res) => {
+      res.json(
+        await exclusive(`discovery-shortlist:${req.user.businessId}`, () =>
+          store.transaction(async () => {
+            const row = await platform.owned('product_discoveries', req.params.id, req.user);
+            assert(
+              row.report.candidates.some((candidate) => candidate.id === req.input.candidateId),
+              404,
+              'DISCOVERY_CANDIDATE',
+              'Product idea not found.',
+            );
+            const ids = new Set(row.shortlistedIds);
+            if (req.input.selected) ids.add(req.input.candidateId);
+            else ids.delete(req.input.candidateId);
+            return store.update('product_discoveries', row.id, { shortlistedIds: [...ids] });
+          }),
+        ),
+      );
+    },
+  );
+  app.post(
+    '/api/discovery/:id/brief',
+    parse(z.object({ candidateId: z.string().uuid() }).strict()),
+    async (req, res) =>
+      res
+        .status(201)
+        .json(
+          await exclusive(`discovery-brief:${req.user.businessId}`, () =>
+            createDiscoveryBrief(platform, req.user, req.params.id, req.input.candidateId),
+          ),
+        ),
   );
   app.post(
     '/api/ad-library/refresh-research',

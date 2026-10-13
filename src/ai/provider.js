@@ -42,6 +42,7 @@ export class LLMService {
     if (this.config.llmProvider === 'demo') return null;
     if (['gemini', 'openai'].includes(this.config.llmProvider)) {
       const research = [
+        'product-discovery',
         'bangladesh-market-research',
         'market-comparison',
         'product-image-analysis',

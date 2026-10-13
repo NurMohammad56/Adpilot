@@ -1,0 +1,540 @@
+:root {
+  --green: #1d4ed8;
+  --line: #e2e8f0;
+  --muted: #58677b;
+  --amber: #a16207;
+  background: #f1f5f9;
+  color: #17263b;
+}
+body {
+  background: #f1f5f9;
+}
+.app-shell .sidebar {
+  background: #102036;
+  border-right-color: #213650;
+}
+.app-shell .brand {
+  color: #f8fafc;
+}
+.brand-mark {
+  background: #2563eb;
+  color: #fff;
+  border-radius: 10px;
+}
+.app-shell .workspace-switch {
+  background: #1a2d46;
+  border-color: #344b65;
+  color: #f8fafc;
+}
+.app-shell .workspace-switch small,
+.app-shell .nav-caption {
+  color: #b8c7db;
+}
+.app-shell .nav-item {
+  color: #c6d4e6;
+  border-radius: 9px;
+  margin: 3px 0;
+}
+.app-shell .nav-item:hover {
+  background: #1c3451;
+  color: #fff;
+}
+.app-shell .nav-item.active {
+  background: #244c7f;
+  color: #fff;
+  border-left-color: #60a5fa;
+}
+.app-shell .control-card {
+  background: #173349;
+  border-color: #335a75;
+  color: #c6e8ff;
+}
+.app-shell .control-card p,
+.app-shell .sidebar-user small {
+  color: #b9cadd;
+}
+.app-shell .sidebar-user {
+  border-color: #34465e;
+  color: #e2e8f0;
+}
+.app-shell .main {
+  background: #f1f5f9;
+}
+.app-shell .topbar {
+  background: #fff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 12px #0f172a05;
+}
+.app-shell .page-content {
+  max-width: 1800px;
+}
+.page-heading h1,
+.tools-heading h1 {
+  color: #17263b;
+  font-size: clamp(27px, 2.3vw, 36px);
+}
+.page-heading p,
+.tools-heading p,
+.panel-heading p,
+.stat-card small {
+  color: #58677b;
+}
+.primary {
+  background: #1d4ed8;
+  color: #fff;
+}
+.primary:hover {
+  background: #1e40af;
+}
+.secondary {
+  color: #254366;
+  border-color: #cbd5e1;
+}
+.secondary:hover {
+  background: #eff6ff;
+}
+.panel,
+.stat-card {
+  border-color: #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 3px 14px #13274404;
+}
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #2563eb;
+}
+.stat-card:nth-child(2)::before {
+  background: #0891b2;
+}
+.stat-card:nth-child(3)::before {
+  background: #d97706;
+}
+.stat-card:nth-child(4)::before {
+  background: #7c3aed;
+}
+.stat-card > div > svg {
+  color: #2563eb;
+  background: #eff6ff;
+  box-sizing: content-box;
+  padding: 10px;
+  border-radius: 10px;
+}
+.stat-card strong {
+  color: #17263b;
+}
+.market-strip {
+  background: #eaf1fb;
+  border-color: #d6e3f7;
+}
+.tabs button {
+  color: #58677b;
+}
+.tabs button.selected {
+  color: #1d4ed8;
+  border-color: #2563eb;
+}
+.tools-panel h3,
+.field > span {
+  color: #304760;
+}
+.research-project.selected {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+.research-projects > .button {
+  margin-bottom: 12px;
+}
+.notice {
+  color: #41556e;
+  background: #f0f6ff;
+  border-color: #d8e5f7;
+}
+.workspace-pulse {
+  grid-column: 1 / -1;
+  padding: 24px;
+}
+.workspace-pipeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+  margin: 20px 0 26px;
+}
+.workspace-pipeline > div {
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+}
+.workspace-pipeline span {
+  display: block;
+  color: #53667f;
+  font-size: 14px;
+}
+.workspace-pipeline strong {
+  display: block;
+  font-size: 26px;
+  color: #17263b;
+  margin: 6px 0 12px;
+}
+.pipeline-track,
+.coverage-track {
+  height: 8px;
+  background: #e9eef5;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.pipeline-track i,
+.coverage-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 20px;
+}
+.workspace-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.workspace-next-actions button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  color: #254366;
+}
+.discovery-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin: 24px 0;
+}
+.discovery-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.discovery-sidebar,
+.discovery-results {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  min-width: 0;
+}
+.discovery-form,
+.discovery-evidence,
+.discovery-coverage,
+.discovery-history,
+.discovery-summary,
+.discovery-empty,
+.opportunity-card,
+.research-readiness {
+  padding: 24px;
+  min-width: 0;
+}
+.discovery-form h2 {
+  margin-bottom: 20px;
+}
+.discovery-form small {
+  display: block;
+  margin-top: 14px;
+  color: #58677b;
+  line-height: 1.7;
+}
+.discovery-evidence summary,
+.discovery-summary summary,
+.opportunity-card summary,
+.research-source-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #254366;
+  padding: 10px 0;
+}
+.trend-source-links {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+.trend-source-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 14px;
+  border: 1px solid #dbe5f1;
+  border-radius: 10px;
+  color: #254366;
+  background: #f8fafc;
+}
+.trend-source-link svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.trend-source-link small {
+  display: block;
+  color: #58677b;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.trend-feed {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  overflow-wrap: anywhere;
+}
+.trend-feed li {
+  margin: 8px 0;
+}
+.coverage-bars {
+  display: grid;
+  gap: 12px;
+}
+.coverage-row {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 14px;
+  font-size: 14px;
+}
+.coverage-track > span {
+  background: linear-gradient(90deg, #2563eb, #06b6d4);
+}
+.coverage-row strong {
+  text-align: right;
+}
+.discovery-history .field {
+  margin: 0;
+}
+.discovery-empty {
+  text-align: center;
+  padding: 45px 24px;
+}
+.discovery-empty svg {
+  color: #2563eb;
+  margin-bottom: 14px;
+}
+.discovery-observation {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.discovery-observation .field:has(textarea) {
+  grid-column: 1 / -1;
+}
+.saved-source-observation {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid #e2e8f0;
+  padding: 14px 0;
+  overflow-wrap: anywhere;
+}
+.opportunity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+.opportunity-card {
+  overflow-wrap: anywhere;
+}
+.opportunity-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.opportunity-heading .shortlisted {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+.opportunity-heading .shortlisted svg {
+  fill: #93c5fd;
+}
+.opportunity-proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 18px;
+  font-size: 13px;
+}
+.opportunity-proof span {
+  background: #eff6ff;
+  color: #315987;
+  padding: 5px 9px;
+  border-radius: 6px;
+}
+.opportunity-proof span:last-child {
+  background: #fff7ed;
+  color: #9a5b13;
+}
+.opportunity-card h3 {
+  font-size: 16px;
+  margin-top: 20px;
+}
+.opportunity-card details {
+  border-top: 1px solid #e2e8f0;
+  padding: 8px 0;
+}
+.opportunity-card li {
+  margin: 8px 0;
+}
+.opportunity-competitor {
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  margin: 12px 0;
+}
+.opportunity-competitor p {
+  margin: 8px 0;
+}
+.opportunity-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 18px;
+}
+.opportunity-actions > .button {
+  flex: 1 1 200px;
+}
+.discovery-cost-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.discovery-cost-grid .field {
+  margin-bottom: 10px;
+}
+.discovery-cost-grid .field > span {
+  font-size: 13px;
+}
+.discovery-economics {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+.discovery-economics > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  background: #eff6ff;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.discovery-economics strong {
+  white-space: nowrap;
+}
+.research-readiness {
+  margin-bottom: 22px;
+}
+.readiness-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+.readiness-metrics > div {
+  padding: 16px;
+  border: 1px solid #dbe5f1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.readiness-metrics strong {
+  display: block;
+  font-size: 25px;
+  color: #1d4ed8;
+}
+.readiness-metrics span {
+  font-size: 13px;
+  color: #58677b;
+}
+.research-next-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.research-source-details {
+  margin: 20px 0;
+}
+@media (min-width: 1700px) {
+  .discovery-layout {
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+}
+@media (max-width: 1250px) {
+  .opportunity-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .readiness-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1050px) {
+  .discovery-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .discovery-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .discovery-sidebar,
+  .discovery-observation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .discovery-metrics,
+  .workspace-pipeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .discovery-form,
+  .discovery-evidence,
+  .discovery-coverage,
+  .discovery-history,
+  .discovery-summary,
+  .opportunity-card,
+  .research-readiness,
+  .workspace-pulse {
+    padding: 18px;
+  }
+  .coverage-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 22px;
+    gap: 9px;
+    font-size: 12px;
+  }
+  .discovery-metrics .stat-card {
+    padding: 16px;
+  }
+  .discovery-metrics .stat-card > div {
+    gap: 8px;
+    align-items: start;
+  }
+  .discovery-metrics .stat-card > div > svg {
+    width: 16px;
+    height: 16px;
+    padding: 6px;
+  }
+  .workspace-next-actions button,
+  .research-next-actions .button {
+    width: 100%;
+  }
+  .opportunity-card .badge {
+    white-space: normal;
+  }
+}

@@ -37,6 +37,12 @@ const proseKeys = new Set([
   'deliveryTerms',
   'offer',
   'positioning',
+  'problem',
+  'buyerProfile',
+  'trendEvidence',
+  'sourcingSteps',
+  'validationSteps',
+  'adAngle',
 ]);
 const opaque = new Set([
   'retrieval',
@@ -116,10 +122,15 @@ export async function translateStoredReport(platform, user, kind, id) {
     research: 'research_versions',
     plan: 'campaign_plans',
     ad: 'ad_library_observations',
+    discovery: 'product_discoveries',
   }[kind];
   assert(collection, 422, 'TRANSLATION_KIND', 'Choose a supported report.');
   const row = await platform.owned(collection, id, user);
-  const original = kind === 'research' ? row.report : kind === 'ad' ? row.analysis?.report : row;
+  const original = ['research', 'discovery'].includes(kind)
+    ? row.report
+    : kind === 'ad'
+      ? row.analysis?.report
+      : row;
   assert(original, 422, 'TRANSLATION_REPORT', 'Generate a report before translating it.');
   const sourceHash = hash(original),
     llm = await workspaceLLM(platform, user.businessId);
@@ -182,8 +193,11 @@ export async function translateStoredReport(platform, user, kind, id) {
   await translateBatch();
   const translated = mergeReportTranslation(original, entries, translations);
   const latest = await platform.owned(collection, id, user);
-  const latestSource =
-    kind === 'research' ? latest.report : kind === 'ad' ? latest.analysis?.report : latest;
+  const latestSource = ['research', 'discovery'].includes(kind)
+    ? latest.report
+    : kind === 'ad'
+      ? latest.analysis?.report
+      : latest;
   assert(
     hash(latestSource) === sourceHash,
     409,

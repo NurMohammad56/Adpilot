@@ -283,6 +283,12 @@ export class ResearchWorkbench {
     const previous = project.currentVersionId
       ? await this.store.get('research_versions', project.currentVersionId)
       : null;
+    const discovery = project.discoveryReportId
+      ? await this.platform.owned('product_discoveries', project.discoveryReportId, user)
+      : null;
+    const discoveryCandidate = discovery?.report.candidates.find(
+      (item) => item.id === project.discoveryCandidateId,
+    );
     const llm = await workspaceLLM(this.platform, user.businessId);
     const linkedProduct = project.productId
       ? await this.platform.owned('products', project.productId, user)
@@ -319,6 +325,15 @@ export class ResearchWorkbench {
       'market-comparison',
       {
         project: { ...briefOf(project), candidateLocations: locations },
+        discoveryContext: discoveryCandidate
+          ? {
+              candidate: discoveryCandidate,
+              generatedAt: discovery.createdAt,
+              model: discovery.model,
+              provenance:
+                'Earlier AI discovery hypothesis; recheck current sources and buyer demand, not an approved or proven offer.',
+            }
+          : null,
         previousReport: previous?.report,
         instruction,
         responseLanguage: language === 'bn' ? 'Bangla' : 'English',

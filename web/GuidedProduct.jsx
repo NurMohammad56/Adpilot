@@ -64,13 +64,20 @@ const Field = ({ label, hint, children }) => (
     {children}
   </CampaignField>
 );
-export function GuidedProduct({ product, data, api, busy, onSave }) {
+export function GuidedProduct({ product, initialValues, data, api, busy, onSave }) {
   const [raw, setValue, clearDraft] = useDraft(
-    `adpilot-draft:${data.business.id}:${data.user.id}:product:${product?.id || 'new'}`,
+    `adpilot-draft:${data.business.id}:${data.user.id}:product:${product?.id || initialValues?.draftId || 'new'}`,
     () =>
       product
         ? { ...structuredClone(product), condition: product.condition || 'new' }
-        : structuredClone(empty),
+        : {
+            ...structuredClone(empty),
+            ...Object.fromEntries(
+              Object.entries(initialValues || {}).filter(([key]) =>
+                ['name', 'category', 'description', 'adLibraryIds'].includes(key),
+              ),
+            ),
+          },
   );
   const bn = useLanguage() === 'bn';
   const [customDelivery, setCustomDelivery] = useState(false);

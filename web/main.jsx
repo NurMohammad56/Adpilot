@@ -61,6 +61,9 @@ import { ConfidenceNotes } from './ConfidenceNotes.jsx';
 import { AdLibraryResearch, AdLibraryResearchSources } from './AdLibraryResearch.jsx';
 import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
 import './product-studio.css';
+import { ProductDiscovery } from './ProductDiscovery.jsx';
+import { WorkspacePulse } from './WorkspacePulse.jsx';
+import './erp.css';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -89,6 +92,7 @@ const date = (value) =>
 const navItems = [
   { label: 'Overview', icon: LayoutDashboard },
   { label: 'Products', icon: Package },
+  { label: 'Product discovery', icon: Search },
   { label: 'Research studio', icon: Sparkles },
   { label: 'Ad Library research', icon: Search },
   { label: 'Media library', icon: Image },
@@ -390,6 +394,7 @@ function Overview({ data, setPage, showPlan, showProduct }) {
         ))}
       </div>
       <div className="overview-grid">
+        <WorkspacePulse data={data} setPage={setPage} />
         <article className="panel performance-panel">
           <div className="panel-heading">
             <div>
@@ -2358,7 +2363,8 @@ function App() {
       approval: request || null,
     });
   }
-  const showProduct = (product) => setModal({ kind: 'product', product });
+  const showProduct = (product, initialValues = null) =>
+    setModal({ kind: 'product', product, initialValues });
   async function execute(approval) {
     return run(
       async () => {
@@ -2747,6 +2753,7 @@ function App() {
                   )}
                   {page === 'Research studio' && (
                     <ResearchDesk
+                      onOpenDiscovery={() => setPage('Product discovery')}
                       onOpenLibrary={() => setPage('Ad Library research')}
                       key={data.business.id}
                       {...common}
@@ -2755,6 +2762,9 @@ function App() {
                       refresh={refresh}
                       onPlan={showPlan}
                     />
+                  )}
+                  {page === 'Product discovery' && (
+                    <ProductDiscovery key={data.business.id} {...common} api={api} run={run} />
                   )}
                   {page === 'Settings' && <Settings {...common} run={run} refresh={refresh} />}
                 </>
@@ -2828,10 +2838,11 @@ function App() {
           )}
           {modal.kind === 'product' && (
             <GuidedProduct
-              key={modal.product?.id || 'new'}
+              key={modal.product?.id || modal.initialValues?.draftId || 'new'}
               data={data}
               api={api}
               product={modal.product}
+              initialValues={modal.initialValues}
               busy={busy}
               onSave={(input) =>
                 run(async () => {

@@ -14,6 +14,8 @@ import './workspace-tools.css';
 import { MetaConnection } from './MetaConnection.jsx';
 import { AIConnection, ResearchRetrieval } from './AIConnection.jsx';
 import { ConfidenceNotes } from './ConfidenceNotes.jsx';
+import { ResearchReadiness } from './ResearchReadiness.jsx';
+import { TrendSourceHub } from './ProductDiscovery.jsx';
 import { AdLibraryResearchSources } from './AdLibraryResearch.jsx';
 import { AdLibraryPicker } from './AdLibraryPicker.jsx';
 import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
@@ -356,7 +358,16 @@ const emptyBrief = {
   productId: null,
   adLibraryIds: [],
 };
-export function ResearchDesk({ data, api, run, busy, refresh, onPlan, onOpenLibrary }) {
+export function ResearchDesk({
+  data,
+  api,
+  run,
+  busy,
+  refresh,
+  onPlan,
+  onOpenLibrary,
+  onOpenDiscovery,
+}) {
   const [locations, setLocations] = useState([]);
   const [countryQuery, setCountryQuery] = useState('');
   const mergeLocations = (rows) =>
@@ -479,6 +490,9 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan, onOpenLibr
       </Heading>
       <div className="research-layout">
         <aside className="panel tools-panel research-projects">
+          <button className="button primary full" onClick={onOpenDiscovery}>
+            Discover product opportunities
+          </button>
           <button
             className="button secondary full"
             onClick={() => {
@@ -792,6 +806,7 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan, onOpenLibr
                 >
                   <Field label={version ? 'Discuss / research further' : 'First research question'}>
                     <textarea
+                      id="research-followup"
                       value={followup}
                       onChange={(event) => setFollowup(event.target.value)}
                       placeholder="Compare US and UK specifically for custom ecommerce clients. What evidence would change the recommendation?"
@@ -827,6 +842,14 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan, onOpenLibr
               {version && (
                 <>
                   <ReportTranslationNotice translation={translation} />
+                  <ResearchReadiness
+                    report={displayReport}
+                    onQuestion={(question) => {
+                      setFollowup(question);
+                      document.querySelector('#research-followup')?.focus();
+                    }}
+                    onOpenLibrary={onOpenLibrary}
+                  />
                   {version.adLibraryInvalidatedAt && (
                     <div className="notice">
                       <div>
@@ -848,6 +871,13 @@ export function ResearchDesk({ data, api, run, busy, refresh, onPlan, onOpenLibr
                     <ResearchRetrieval retrieval={displayReport.retrieval} />
                     <ConfidenceNotes report={displayReport} />
                     <AdLibraryResearchSources observations={displayReport.adLibraryObservations} />
+                    <details className="research-source-details">
+                      <summary>Explore trend and competitor sources for this offer</summary>
+                      <TrendSourceHub
+                        country={project.candidateCountries[0]}
+                        keyword={project.name}
+                      />
+                    </details>
                     <div className="notice">
                       AI findings are hypotheses with low confidence. No reliable CPC, demand score
                       or acquisition forecast is invented.

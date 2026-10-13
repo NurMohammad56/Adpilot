@@ -3,6 +3,7 @@ import Redis from 'ioredis';
 import { createRuntime } from '../runtime.js';
 import { now } from '../utils/core.js';
 import { runProductGroupJob } from '../modules/campaigns/group-jobs.js';
+import { runDiscoveryJob } from '../modules/research/product-discovery.js';
 import {
   runAdLibraryAnalysisJob,
   runAdEvidenceRefreshJob,
@@ -114,6 +115,9 @@ const worker = new Worker(
       } else if (job.name === 'product-group-plan') {
         const plan = await runProductGroupJob(platform, record);
         await store.update('jobs', record.id, { planId: plan.id });
+      } else if (job.name === 'product-discovery') {
+        const report = await runDiscoveryJob(platform, record);
+        await store.update('jobs', record.id, { reportId: report.id });
       } else if (job.name === 'ad-library-analysis') {
         await runAdLibraryAnalysisJob(platform, record);
       } else if (job.name === 'ad-evidence-refresh') {
@@ -142,9 +146,12 @@ const worker = new Worker(
         await store.update('jobs', record.id, {
           status: 'failed',
           errorCode: error.code || 'JOB_FAILED',
-          ...(['product-group-plan', 'ad-library-analysis', 'ad-evidence-refresh'].includes(
-            job.name,
-          )
+          ...([
+            'product-group-plan',
+            'ad-library-analysis',
+            'ad-evidence-refresh',
+            'product-discovery',
+          ].includes(job.name)
             ? {
                 errorMessage: error.code
                   ? error.message

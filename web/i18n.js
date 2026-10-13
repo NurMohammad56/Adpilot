@@ -4,12 +4,14 @@ import operationsTranslations from './locales/operations-bn.json';
 import manualTranslations from './locales/manual-bn.json';
 import productTranslations from './locales/product-bn.json';
 import adLibraryTranslations from './locales/ad-library-bn.json';
+import discoveryTranslations from './locales/discovery-bn.json';
 const translations = {
   ...baseTranslations,
   ...operationsTranslations,
   ...manualTranslations,
   ...productTranslations,
   ...adLibraryTranslations,
+  ...discoveryTranslations,
 };
 
 const listeners = new Set();

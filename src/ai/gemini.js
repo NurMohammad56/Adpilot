@@ -138,7 +138,11 @@ export class GeminiProvider {
   async generate(task, context, schema, options = {}) {
     let grounding = null;
     let groundingUnavailable = false;
-    const isResearch = ['bangladesh-market-research', 'market-comparison'].includes(task);
+    const isResearch = [
+      'bangladesh-market-research',
+      'market-comparison',
+      'product-discovery',
+    ].includes(task);
     if (isResearch && this.config.geminiGrounding) {
       try {
         grounding = await this.call({

@@ -215,7 +215,11 @@ export class OpenAIProvider {
     };
   }
   async generate(task, context, schema, options = {}) {
-    const research = ['bangladesh-market-research', 'market-comparison'].includes(task);
+    const research = [
+      'bangladesh-market-research',
+      'market-comparison',
+      'product-discovery',
+    ].includes(task);
     let retrieved = null;
     let retrievalStatus = 'disabled';
     let collectionRounds = 0;
@@ -231,6 +235,7 @@ export class OpenAIProvider {
             linkedProduct: context.linkedProduct || null,
             adLibraryObservations: context.adLibraryObservations || [],
             questions: context.instruction,
+            discoveryRules: task === 'product-discovery' ? context.rules : undefined,
             previousConclusion: context.previousReport?.recommendation,
             researchPlan:
               'Use the four-operation budget across three distinct questions: (1) direct comparable competitor offers, (2) buyer problems/demand and alternatives, (3) fulfillment/payment and contrary evidence. Aim for at least four useful sources from three independent domains, including three actual comparable competitor offers where available. Search Bangladesh product names in Bangla and English, prioritizing seller product pages with current prices, specification, delivery/COD and return terms. For services compare direct competing agencies and platform alternatives in the requested countries/regions; general ecommerce adoption does not prove demand for this offer. For each competitor give name, exact URL, offer, quoted price/currency and basis (unit/project/subscription), comparability limitations and date. Unknown prices must remain unknown. Cite each substantive observation inline; list countries/regions and product-specific claims lacking evidence. Return a digest of at most 900 words with evidence excerpts, data dates (or undated), counter-evidence and next verification questions. Do not invent CPC, conversions, profit, budgets or inaccessible sources. These are source leads, not verified demand. Stop at four search operations even if targets cannot be met.',

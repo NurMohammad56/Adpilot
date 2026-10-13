@@ -43,6 +43,7 @@ export const collections = [
   'catalog_feeds',
   'ad_library_observations',
   'report_translations',
+  'product_discoveries',
 ];
 const stamp = (value) => ({
   ...value,
@@ -97,7 +98,11 @@ export class DemoStore {
           (collection === 'ad_library_observations' &&
             r.businessId === row.businessId &&
             r.libraryAdId === row.libraryAdId &&
-            r.country === row.country),
+            r.country === row.country) ||
+          (collection === 'product_discoveries' &&
+            typeof row.jobId === 'string' &&
+            r.businessId === row.businessId &&
+            r.jobId === row.jobId),
       )
     )
       throw new AppError(409, 'DUPLICATE', 'Record already exists');
@@ -189,6 +194,11 @@ export class MongoStore {
         schema.index({ campaignId: 1, level: 1, entityId: 1, date: 1 }, { unique: true });
       if (collection === 'ad_library_observations')
         schema.index({ businessId: 1, libraryAdId: 1, country: 1 }, { unique: true });
+      if (collection === 'product_discoveries')
+        schema.index(
+          { businessId: 1, jobId: 1 },
+          { unique: true, partialFilterExpression: { jobId: { $type: 'string' } } },
+        );
       if (collection === 'sessions') {
         schema.add({ expiresAtDate: Date });
         schema.index({ expiresAtDate: 1 }, { expireAfterSeconds: 0 });

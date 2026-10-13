@@ -25,7 +25,11 @@ test('sidebar auto hides, opens on hover/keyboard and can be pinned; human appro
   await expect(page.locator('.sidebar')).toHaveCSS('width', '270px');
   await page.mouse.move(700, 400);
   await page.locator('.page-heading h1').click();
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '82px');
   await page.screenshot({ path: '.data/premium-dashboard-desktop.png' });
+  await page.locator('.sidebar').hover();
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '270px');
+  await page.screenshot({ path: '.data/premium-sidebar-expanded.png' });
 });
 test('digital Research studio offers Other and keeps physical briefs in Product research', async ({
   page,
@@ -87,7 +91,7 @@ test('digital Research studio offers Other and keeps physical briefs in Product 
     page.locator('.research-project').filter({ hasText: 'Digital offer QA' }),
   ).toHaveCount(0);
   await page.locator('.research-project').first().click();
-  await expect(page.locator('.status-remark')).toContainText('Draft');
+  await expect(page.locator('.status-remark')).toContainText('Brief ready');
 });
 test('reference-inspired login/register, password visibility and Bangla mobile remain usable', async ({
   page,

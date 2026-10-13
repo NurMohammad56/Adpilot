@@ -68,7 +68,9 @@ import { ProductDiscovery } from './ProductDiscovery.jsx';
 import { WorkspacePulse } from './WorkspacePulse.jsx';
 import './erp.css';
 import './premium.css';
+import './brand-theme.css';
 import { StatusRemark } from './StatusRemark.jsx';
+import { Pagination, usePagination } from './Pagination.jsx';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -256,7 +258,7 @@ function Login({ onLogin, run, busy, mode }) {
             <h2>{register ? 'Create your account' : 'Sign in to AdPilot'}</h2>
             <p>
               {register
-                ? 'Start with your business. Add products and costs next.'
+                ? 'Create a workspace for your products or digital services.'
                 : 'Sign in to review, plan, and grow with confidence.'}
             </p>
             <form
@@ -595,8 +597,8 @@ function PerformanceChart({ series }) {
       >
         <defs>
           <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#439371" stopOpacity=".16" />
-            <stop offset="100%" stopColor="#439371" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--brand-main)" stopOpacity=".16" />
+            <stop offset="100%" stopColor="var(--brand-main)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {[0, 1, 2, 3].map((i) => (
@@ -621,21 +623,21 @@ function PerformanceChart({ series }) {
         <polyline
           points={revenue.map((p) => p.join(',')).join(' ')}
           fill="none"
-          stroke="#408361"
+          stroke="var(--brand-main)"
           strokeWidth="2.5"
           strokeLinejoin="round"
         />
         <polyline
           points={spend.map((p) => p.join(',')).join(' ')}
           fill="none"
-          stroke="#d5a059"
+          stroke="var(--brand-deep)"
+          strokeDasharray="5 4"
           strokeWidth="2.2"
           strokeLinejoin="round"
-          strokeDasharray="5 4"
         />
         {series.map((r, i) => (
           <g key={r.date}>
-            <circle cx={revenue[i][0]} cy={revenue[i][1]} r="3" fill="#408361" />
+            <circle cx={revenue[i][0]} cy={revenue[i][1]} r="3" fill="var(--brand-main)" />
             <text x={revenue[i][0]} y="220" textAnchor="middle" className="chart-label">
               {new Date(`${r.date}T00:00:00+06:00`).toLocaleDateString('en-GB', {
                 timeZone: 'Asia/Dhaka',
@@ -651,6 +653,10 @@ function PerformanceChart({ series }) {
 }
 
 function Products({ data, showProduct, generate, addEvidence, busy, run, onGroupCreated }) {
+  const pagination = usePagination(
+    [...data.products].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    { pageSize: 6, resetKey: data.business.id },
+  );
   return (
     <>
       <PageHeading
@@ -665,7 +671,7 @@ function Products({ data, showProduct, generate, addEvidence, busy, run, onGroup
       />
       <ProductCampaigns data={data} api={api} busy={busy} run={run} onCreated={onGroupCreated} />
       <div className="products-grid">
-        {data.products.map((product, index) => (
+        {pagination.items.map((product, index) => (
           <article className="panel product-card" key={product.id}>
             <div className={`product-art art-${index % 3}`}>
               {product.mediaAssetId ? (
@@ -726,6 +732,7 @@ function Products({ data, showProduct, generate, addEvidence, busy, run, onGroup
           </article>
         ))}
       </div>
+      <Pagination pagination={pagination} label="Products" sizes={[6, 12, 24]} />
       {!data.products.length && (
         <Empty
           icon={Package}
@@ -756,6 +763,7 @@ function PageHeading({ title, text, action }) {
 }
 function Plans({ data, showPlan, setPage }) {
   const plans = data.plans.filter((p) => p.status !== 'superseded');
+  const pagination = usePagination(plans, { pageSize: 6, resetKey: data.business.id });
   return (
     <>
       <PageHeading
@@ -769,7 +777,7 @@ function Plans({ data, showPlan, setPage }) {
         }
       />
       <div className="plan-list">
-        {plans.map((plan) => (
+        {pagination.items.map((plan) => (
           <article className="panel plan-card" key={plan.id}>
             <div className="plan-card-top">
               <span className="mini-icon">
@@ -807,6 +815,7 @@ function Plans({ data, showPlan, setPage }) {
           </article>
         ))}
       </div>
+      <Pagination pagination={pagination} label="Campaign plans" sizes={[6, 12, 24]} />
       {!plans.length && (
         <Empty title="No plans yet" text="Generate a plan from an existing product." />
       )}
@@ -814,7 +823,11 @@ function Plans({ data, showPlan, setPage }) {
   );
 }
 function Approvals({ data, showPlan, busy, execute }) {
-  const approvals = [...data.approvals].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const [statusFilter, setStatusFilter] = useState('all');
+  const approvals = [...data.approvals]
+    .filter((row) => statusFilter === 'all' || row.status === statusFilter)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const pagination = usePagination(approvals, { resetKey: `${data.business.id}:${statusFilter}` });
   return (
     <>
       <PageHeading
@@ -827,7 +840,31 @@ function Approvals({ data, showPlan, busy, execute }) {
         hours.
       </div>
       <div className="approval-list">
-        {approvals.map((a) => (
+        <label className="list-filter">
+          <span>Approval status</span>
+          <select
+            aria-label="Approval status filter"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            <option value="all">All statuses</option>
+            {[
+              'pending',
+              'approved',
+              'executed',
+              'failed',
+              'rejected',
+              'expired',
+              'superseded',
+              'needs_reconciliation',
+            ].map((status) => (
+              <option key={status} value={status}>
+                {status.replaceAll('_', ' ')}
+              </option>
+            ))}
+          </select>
+        </label>
+        {pagination.items.map((a) => (
           <article className="panel approval-row" key={a.id}>
             <span className="mini-icon">
               <ClipboardCheck size={22} />
@@ -864,6 +901,7 @@ function Approvals({ data, showPlan, busy, execute }) {
           text="Submit a validated campaign plan to request review."
         />
       )}
+      <Pagination pagination={pagination} label="Approvals" />
     </>
   );
 }
@@ -1691,6 +1729,14 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
   const rows = [...data.performance]
     .filter((r) => r.level === level)
     .sort((a, b) => b.date.localeCompare(a.date));
+  const pagination = usePagination(rows, {
+    pageSize: 25,
+    resetKey: `${data.business.id}:${level}`,
+  });
+  const campaignPagination = usePagination(data.campaigns, { resetKey: data.business.id });
+  const manualPagination = usePagination(data.manualCampaigns || [], {
+    resetKey: data.business.id,
+  });
   return (
     <>
       <PageHeading
@@ -1704,7 +1750,7 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
             {data.mode === 'demo' ? 'Simulated performance' : 'Meta attribution'}
           </Badge>
         </div>
-        {data.campaigns.map((c) => (
+        {campaignPagination.items.map((c) => (
           <div className="campaign-operation" key={c.id}>
             <div className="grow">
               <h3>{c.name}</h3>
@@ -1741,7 +1787,8 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
             )}
           </div>
         ))}
-        {(data.manualCampaigns || []).map((record) => (
+        <Pagination pagination={campaignPagination} label="Campaign operations" />
+        {manualPagination.items.map((record) => (
           <div className="manual-campaign-row" key={record.id}>
             <div>
               <strong>{record.name}</strong>
@@ -1764,6 +1811,7 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
             </button>
           </div>
         ))}
+        <Pagination pagination={manualPagination} label="Manual campaigns" />
         {!data.campaigns.length && !(data.manualCampaigns || []).length && (
           <Empty
             icon={Megaphone}
@@ -1809,7 +1857,7 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {pagination.items.map((row) => (
                 <tr key={row.id}>
                   <td>{row.date}</td>
                   <td>
@@ -1829,6 +1877,7 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
             </tbody>
           </table>
         </div>
+        <Pagination pagination={pagination} label="Performance history" sizes={[25, 50, 100]} />
         {!rows.length && (
           <Empty
             title="No data at this level yet"
@@ -1840,6 +1889,7 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
   );
 }
 function Optimization({ data, request, busy, setPage }) {
+  const pagination = usePagination(data.optimizations, { resetKey: data.business.id });
   return (
     <>
       <PageHeading
@@ -1854,10 +1904,25 @@ function Optimization({ data, request, busy, setPage }) {
       />
       <div className="notice">
         <Target size={18} />
-        Scaling needs at least 20 purchases. A high click-through rate alone is never a reason to
-        scale.
+        Scaling needs at least 20 tracked conversions and sustainable acquisition costs. A high
+        click-through rate alone is never a reason to scale.
       </div>
-      {data.optimizations.map((o) => (
+      <div className="notice">
+        <div>
+          <strong>How Optimization works</strong>
+          <p>
+            Sync performance in Performance, then Analyze a campaign. This section compares its
+            actual metrics with the approved allowable acquisition cost and shows evidence-backed
+            pause or budget-change proposals. Review the reason, risk and impact before requesting
+            human approval.
+          </p>
+          <p>
+            If acquisition economics or enough performance data are missing, no recommendation is
+            invented. Nothing changes on Meta until an approved action is executed.
+          </p>
+        </div>
+      </div>
+      {pagination.items.map((o) => (
         <article className="panel optimization-card" key={o.id}>
           <div className="inline">
             <span className="mini-icon">
@@ -1875,7 +1940,8 @@ function Optimization({ data, request, busy, setPage }) {
               Target CPA<strong>{taka(o.evidence.targetCPA)}</strong>
             </span>
             <span>
-              Purchases<strong>{o.evidence.purchases}</strong>
+              {o.evidence.leads != null ? 'Leads' : 'Purchases'}
+              <strong>{o.evidence.leads ?? o.evidence.purchases}</strong>
             </span>
             {o.payload.dailyBudget && (
               <span>
@@ -1894,6 +1960,7 @@ function Optimization({ data, request, busy, setPage }) {
           )}
         </article>
       ))}
+      <Pagination pagination={pagination} label="Optimization" />
       {!data.optimizations.length && (
         <article className="panel">
           <Empty
@@ -1912,6 +1979,7 @@ function Optimization({ data, request, busy, setPage }) {
   );
 }
 function Audit({ data }) {
+  const pagination = usePagination(data.audit, { pageSize: 25, resetKey: data.business.id });
   return (
     <>
       <PageHeading
@@ -1924,7 +1992,7 @@ function Audit({ data }) {
           <Badge>{data.audit.length} recent events</Badge>
         </div>
         <div className="audit-list">
-          {data.audit.map((row) => (
+          {pagination.items.map((row) => (
             <div className="audit-row" key={row.id}>
               <span className="audit-dot">
                 <Check size={12} />
@@ -1942,6 +2010,7 @@ function Audit({ data }) {
             </div>
           ))}
         </div>
+        <Pagination pagination={pagination} label="Audit log" sizes={[25, 50, 100]} />
       </article>
     </>
   );
@@ -2313,6 +2382,7 @@ function App() {
   const [toast, setToast] = useState(null);
   const [query, setQuery] = useState('');
   const [sidebarPinned, setSidebarPinned] = useDraft('adpilot-sidebar-pinned', false);
+  const [sidebarDismissed, setSidebarDismissed] = useState(false);
   async function refresh() {
     const value = await api('/overview');
     displayCurrency = value.integration.currency || 'BDT';
@@ -2465,6 +2535,8 @@ function App() {
     );
   }
   const pending = data?.approvals.filter((a) => a.status === 'pending').length || 0;
+  const optimizationPending =
+    data?.optimizations.filter((item) => item.status === 'proposed').length || 0;
   const common = { data, busy, setPage, showPlan, showProduct };
   if (loading)
     return (
@@ -2479,12 +2551,17 @@ function App() {
     <>
       {data ? (
         <div className={`app-shell ${sidebarPinned ? 'sidebar-pinned' : 'sidebar-auto'}`}>
-          <aside className="sidebar" aria-label="Main navigation">
+          <aside
+            className={`sidebar ${sidebarDismissed ? 'is-dismissed' : ''}`}
+            aria-label="Main navigation"
+            onMouseLeave={() => setSidebarDismissed(false)}
+          >
             <a
               className="brand"
               href="#"
               onClick={(e) => {
                 e.preventDefault();
+                if (e.detail) setSidebarDismissed(true);
                 setPage('Overview');
               }}
             >
@@ -2496,9 +2573,22 @@ function App() {
               </span>
             </a>
             <button
+              type="button"
+              className="icon-button sidebar-local-pin"
+              aria-label={sidebarPinned ? 'Allow hover navigation' : 'Keep navigation expanded'}
+              aria-pressed={Boolean(sidebarPinned)}
+              title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+              onClick={() => setSidebarPinned(!sidebarPinned)}
+            >
+              <PanelLeft size={18} />
+            </button>
+            <button
               className="workspace-switch"
               aria-label="Manage workspace accounts"
-              onClick={() => setPage('Accounts')}
+              onClick={(event) => {
+                if (event.detail) setSidebarDismissed(true);
+                setPage('Accounts');
+              }}
             >
               <span className="workspace-avatar">
                 {data.business.name.slice(0, 2).toUpperCase()}
@@ -2517,17 +2607,27 @@ function App() {
                   aria-label={label}
                   title={translateText(label)}
                   className={page === label ? 'nav-item active' : 'nav-item'}
-                  onClick={() => {
+                  onClick={(event) => {
+                    if (event.detail) setSidebarDismissed(true);
                     setPage(label);
                     setQuery('');
                   }}
                 >
                   <Icon size={18} />
-                  <span>{label}</span>
-                  {label === 'Approvals' && pending > 0 && (
-                    <span className="nav-count">{pending}</span>
+                  <span className="nav-label">{label}</span>
+                  {((label === 'Approvals' && pending > 0) || label === 'Optimization') && (
+                    <span className="nav-badges">
+                      {label === 'Optimization' && <span className="ai-label">AI</span>}
+                      {(label === 'Approvals' ? pending : optimizationPending) > 0 && (
+                        <span
+                          className="nav-count"
+                          aria-label={`${label === 'Approvals' ? pending : optimizationPending} pending ${label === 'Approvals' ? 'approvals' : 'recommendations'}`}
+                        >
+                          {label === 'Approvals' ? pending : optimizationPending}
+                        </span>
+                      )}
+                    </span>
                   )}
-                  {label === 'Optimization' && <span className="ai-label">AI</span>}
                 </button>
               ))}
             </nav>
@@ -2535,18 +2635,24 @@ function App() {
               <button
                 aria-label="Settings"
                 className={page === 'Settings' ? 'nav-item active' : 'nav-item'}
-                onClick={() => setPage('Settings')}
+                onClick={(event) => {
+                  if (event.detail) setSidebarDismissed(true);
+                  setPage('Settings');
+                }}
               >
                 <Settings2 size={18} />
-                <span>Settings</span>
+                <span className="nav-label">Settings</span>
               </button>
               <button
                 className="nav-item"
                 aria-label="Workspace guide"
-                onClick={() => setModal({ kind: 'help' })}
+                onClick={(event) => {
+                  if (event.detail) setSidebarDismissed(true);
+                  setModal({ kind: 'help' });
+                }}
               >
                 <CircleHelp size={18} />
-                <span>Workspace guide</span>
+                <span className="nav-label">Workspace guide</span>
               </button>
               <div className="sidebar-user">
                 <span className="user-avatar">

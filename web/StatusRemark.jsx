@@ -2,6 +2,10 @@ import React from 'react';
 import { CircleHelp, CheckCircle2, Clock3 } from 'lucide-react';
 import { useLanguage, translateText } from './i18n.js';
 const remarks = {
+  brief_ready: [
+    'Brief ready',
+    'Confirm your offer details and candidate markets, then run research to generate a report.',
+  ],
   draft: [
     'Draft',
     'Review the findings and missing evidence, edit if needed, then request a human review.',

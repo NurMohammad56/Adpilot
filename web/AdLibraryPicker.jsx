@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from './api.js';
 import { useLanguage } from './i18n.js';
 import { AdLibraryAnalysis } from './AdLibraryResearch.jsx';
+import { Pagination, usePagination } from './Pagination.jsx';
 export function AdLibraryPicker({
   businessId,
   selected = [],
@@ -15,6 +16,13 @@ export function AdLibraryPicker({
   const [rows, setRows] = useState([]),
     [error, setError] = useState(''),
     [expanded, setExpanded] = useState(null);
+  const [query, setQuery] = useState('');
+  const filtered = rows.filter((row) =>
+    `${row.pageName} ${row.adCopy} ${row.offer} ${row.country}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  const pagination = usePagination(filtered, { pageSize: 6, resetKey: `${businessId}:${query}` });
   async function load() {
     try {
       const data = await api('/ad-library');
@@ -50,7 +58,27 @@ export function AdLibraryPicker({
         )}
       </div>
       {error && <p role="alert">{error}</p>}
-      {rows.map((row) => {
+      {rows.length > 6 && (
+        <label className="field">
+          <span>{bn ? 'Saved ads খুঁজুন' : 'Search saved ad examples'}</span>
+          <input
+            aria-label="Search saved ad examples"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.preventDefault();
+            }}
+          />
+        </label>
+      )}
+      {selected.length > 0 && (
+        <p className="small muted">
+          {bn
+            ? `নির্বাচিত ${selected.length}টি ad; পৃষ্ঠা বদলালেও selection থাকবে।`
+            : `${selected.length} ads selected; selections remain when you change pages.`}
+        </p>
+      )}
+      {pagination.items.map((row) => {
         const linked =
           (productId && row.productId === productId) || (projectId && row.projectId === projectId);
         return (
@@ -120,6 +148,7 @@ export function AdLibraryPicker({
           </article>
         );
       })}
+      <Pagination pagination={pagination} label="Saved ad examples" sizes={[6, 12, 24]} />
       {!rows.length && !error && (
         <p>
           {bn

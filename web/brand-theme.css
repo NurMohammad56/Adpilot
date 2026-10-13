@@ -1,0 +1,109 @@
+/* Login and workspace use the same emerald/teal palette. Risk status colours keep their meaning. */
+body {
+  background: #edf6f7;
+}
+.primary,
+.login-card .primary {
+  background: var(--brand-action);
+  border-color: var(--brand-action);
+}
+.primary:hover,
+.login-card .primary:hover {
+  background: var(--brand-main);
+  border-color: var(--brand-main);
+}
+.secondary {
+  color: #267968;
+  border-color: #cde5dc;
+}
+.secondary:hover {
+  background: #eff8f4;
+}
+.page-heading h1,
+.tools-heading h1,
+.login-card h2 {
+  color: #12675f;
+}
+.app-shell .sidebar {
+  border-color: #ffffff2e;
+}
+.app-shell .workspace-switch small,
+.app-shell .nav-caption {
+  color: #e0f3ef;
+}
+.app-shell .sidebar-user {
+  border-color: #ffffff2e;
+}
+.app-shell .sidebar-user small {
+  color: #e0f3ef;
+}
+.sidebar nav {
+  scrollbar-color: #cce8df80 transparent !important;
+}
+.sidebar nav::-webkit-scrollbar-thumb {
+  background: #cce8df80;
+}
+.stat-card::before {
+  background: var(--brand-main);
+}
+.stat-card:nth-child(2)::before {
+  background: var(--brand-accent);
+}
+.stat-card:nth-child(3)::before {
+  background: #63af97;
+}
+.stat-card:nth-child(4)::before {
+  background: var(--brand-deep);
+}
+.stat-card > div > svg {
+  color: var(--brand-main);
+  background: #e6f5ef;
+}
+.tabs button.selected {
+  color: var(--brand-main);
+  border-color: var(--brand-main);
+}
+.readiness-metrics strong,
+.discovery-empty svg,
+.status-remark svg {
+  color: var(--brand-main);
+}
+.coverage-track > span {
+  background: var(--brand-gradient);
+}
+.opportunity-heading .shortlisted {
+  color: var(--brand-main);
+  background: #d8f3e9;
+}
+.opportunity-heading .shortlisted svg {
+  fill: #9ad5be;
+}
+.opportunity-proof span:first-child {
+  background: #e6f5ef;
+  color: #267968;
+}
+.opportunity-competitor,
+.trend-source-link,
+.readiness-metrics > div {
+  background: #f3faf6;
+  border-color: #d6e8e2;
+}
+.research-project.selected {
+  background: #e6f5ef;
+  border-color: #81bda5;
+}
+.discovery-economics > div {
+  background: #eff8f4;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #329b83;
+  box-shadow: 0 0 0 3px #329b8314;
+}
+.legend-revenue {
+  background: var(--brand-main);
+}
+.legend-spend {
+  background: var(--brand-deep);
+}

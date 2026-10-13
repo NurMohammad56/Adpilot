@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CampaignField } from './FieldHelp.jsx';
 import { useDraft } from './use-draft.js';
 import { getLanguage } from './i18n.js';
+import { Pagination, usePagination } from './Pagination.jsx';
 
 const today = (timeZone = 'Asia/Dhaka') =>
   new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
@@ -81,6 +82,12 @@ export function AdControlCenter({ data, api, run, busy, setPage }) {
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
+  const outcomePagination = usePagination(report?.outcomes || [], {
+    resetKey: `${data.business.id}:${period.from}:${period.to}`,
+  });
+  const inventoryPagination = usePagination(items, {
+    resetKey: `${data.business.id}:${inventory}:${query}`,
+  });
   return (
     <>
       <div className="tools-heading">
@@ -384,7 +391,7 @@ export function AdControlCenter({ data, api, run, busy, setPage }) {
           </article>
           <article className="panel tools-panel">
             <h2>Outcome history</h2>
-            {(report?.outcomes || []).map((row) => (
+            {outcomePagination.items.map((row) => (
               <div className="research-evidence" key={row.id}>
                 <strong>{row.reference}</strong>
                 <p>
@@ -442,6 +449,7 @@ export function AdControlCenter({ data, api, run, busy, setPage }) {
                 </div>
               </div>
             ))}
+            <Pagination pagination={outcomePagination} label="Customer outcomes" />
             {!report?.outcomes.length && <p>No customer outcomes recorded for these dates.</p>}
           </article>
         </>
@@ -506,7 +514,7 @@ export function AdControlCenter({ data, api, run, busy, setPage }) {
                     check again. Other retrieved sections remain available.
                   </p>
                 )}
-                {items.map((row) => (
+                {inventoryPagination.items.map((row) => (
                   <section className="research-evidence" key={row.id}>
                     <strong>{row.name}</strong>
                     <p>
@@ -541,6 +549,7 @@ export function AdControlCenter({ data, api, run, busy, setPage }) {
                     )}
                   </section>
                 ))}
+                <Pagination pagination={inventoryPagination} label="Account inventory" />
                 {!items.length && <p>No matching items in the checked account inventory.</p>}
               </>
             ) : (

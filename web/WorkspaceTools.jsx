@@ -16,6 +16,7 @@ import { AIConnection, ResearchRetrieval } from './AIConnection.jsx';
 import { ConfidenceNotes } from './ConfidenceNotes.jsx';
 import { ResearchReadiness } from './ResearchReadiness.jsx';
 import { StatusRemark } from './StatusRemark.jsx';
+import { Pagination, usePagination } from './Pagination.jsx';
 import { TrendSourceHub } from './ProductDiscovery.jsx';
 import { AdLibraryResearchSources } from './AdLibraryResearch.jsx';
 import { AdLibraryPicker } from './AdLibraryPicker.jsx';
@@ -260,6 +261,7 @@ export function MediaPicker({ api, value, thumbnail, onChange }) {
 export function MediaLibrary({ data, api, run, busy }) {
   const [assets, setAssets] = useState([]);
   const [loadError, setLoadError] = useState('');
+  const pagination = usePagination(assets, { pageSize: 12, resetKey: data.business.id });
   const load = () => api('/media').then(setAssets);
   useEffect(() => {
     load().catch((error) => setLoadError(error.message));
@@ -318,7 +320,7 @@ export function MediaLibrary({ data, api, run, busy }) {
         </form>
       </article>
       <div className="media-grid">
-        {assets.map((asset) => (
+        {pagination.items.map((asset) => (
           <article className="panel media-card" key={asset.id}>
             <div className="media-preview">
               {asset.type === 'image' ? (
@@ -335,6 +337,7 @@ export function MediaLibrary({ data, api, run, busy }) {
           </article>
         ))}
       </div>
+      <Pagination pagination={pagination} label="Media library" sizes={[12, 24, 48]} />
       {!assets.length && (
         <div className="panel tools-panel">
           <h3>Your media library is empty</h3>
@@ -383,6 +386,10 @@ export function ResearchDesk({
       ...rows,
     ]);
   const [projects, setProjects] = useState([]);
+  const projectPagination = usePagination(projects, {
+    pageSize: 8,
+    resetKey: `${data.business.id}:${mode}`,
+  });
   const [project, setProject] = useState(null);
   const [briefDrafts, setBriefDrafts] = useDraft(
     `adpilot-draft:${data.business.id}:${data.user.id}:${physical ? 'product' : 'research'}-briefs`,
@@ -524,7 +531,7 @@ export function ResearchDesk({
             <Plus size={16} />
             New research brief
           </button>
-          {projects.map((item) => (
+          {projectPagination.items.map((item) => (
             <button
               key={item.id}
               className={`research-project ${project?.id === item.id ? 'selected' : ''}`}
@@ -537,6 +544,11 @@ export function ResearchDesk({
               </small>
             </button>
           ))}
+          <Pagination
+            pagination={projectPagination}
+            label={physical ? 'Product research briefs' : 'Digital research briefs'}
+            sizes={[8, 16, 32]}
+          />
         </aside>
         <section className="research-main">
           {!project || briefEditing ? (
@@ -780,7 +792,8 @@ export function ResearchDesk({
                 value={
                   version?.adLibraryInvalidatedAt
                     ? 'needs_research'
-                    : version?.status || project.status
+                    : version?.status ||
+                      (project.status === 'draft' ? 'brief_ready' : project.status)
                 }
               />
               <article className="panel tools-panel">

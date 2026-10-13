@@ -11,6 +11,7 @@ import { useLanguage } from './i18n.js';
 import { mediaUrl, uploadMedia } from './api.js';
 import './ad-library.css';
 import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
+import { Pagination, usePagination } from './Pagination.jsx';
 
 function dhakaDate(value = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -506,6 +507,11 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
     };
   }, [polling, data.business.id]);
   const selected = payload?.observations.find((row) => row.id === selectedId);
+  const savedAds = (payload?.observations || []).filter((row) => showArchived || !row.archived);
+  const pagination = usePagination(savedAds, {
+    pageSize: 8,
+    resetKey: `${data.business.id}:${showArchived}`,
+  });
   const selectedJob = payload?.jobs.find((job) => job.observationId === selectedId);
   const pending = ['queued', 'running'].includes(selectedJob?.status);
   const keywordSuggestions = [
@@ -525,6 +531,7 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
     await load();
     setAssets(await api('/media'));
     setSelectedId(saved.id);
+    pagination.setPage(1);
     return saved;
   }
   async function analyze(row) {
@@ -771,38 +778,37 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
               />
               Show archived observations
             </label>
-            {payload.observations
-              .filter((row) => showArchived || !row.archived)
-              .map((row) => (
-                <article
-                  className={`ad-library-card ${row.id === selectedId ? 'selected' : ''}`}
-                  key={row.id}
-                >
-                  <button className="ad-library-select" onClick={() => setSelectedId(row.id)}>
-                    <strong>{row.pageName}</strong>
-                    <span>
-                      {row.country} · {dhakaDate(row.observedAt)}
-                    </span>
-                    <small>{row.adCopy.slice(0, 140) || row.offer || 'Saved reference'}</small>
+            {pagination.items.map((row) => (
+              <article
+                className={`ad-library-card ${row.id === selectedId ? 'selected' : ''}`}
+                key={row.id}
+              >
+                <button className="ad-library-select" onClick={() => setSelectedId(row.id)}>
+                  <strong>{row.pageName}</strong>
+                  <span>
+                    {row.country} · {dhakaDate(row.observedAt)}
+                  </span>
+                  <small>{row.adCopy.slice(0, 140) || row.offer || 'Saved reference'}</small>
+                </button>
+                <small>
+                  {bn ? 'আপনার দেখা status:' : 'Status you observed:'} {row.statusObserved}{' '}
+                  {row.archived ? '· Archived' : ''}
+                </small>
+                <div className="guide-actions">
+                  <a {...external} href={row.adUrl}>
+                    Original ad
+                  </a>
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() => run(() => archive(row))}
+                  >
+                    {row.archived ? 'Restore observation' : 'Archive observation'}
                   </button>
-                  <small>
-                    {bn ? 'আপনার দেখা status:' : 'Status you observed:'} {row.statusObserved}{' '}
-                    {row.archived ? '· Archived' : ''}
-                  </small>
-                  <div className="guide-actions">
-                    <a {...external} href={row.adUrl}>
-                      Original ad
-                    </a>
-                    <button
-                      className="secondary"
-                      disabled={busy}
-                      onClick={() => run(() => archive(row))}
-                    >
-                      {row.archived ? 'Restore observation' : 'Archive observation'}
-                    </button>
-                  </div>
-                </article>
-              ))}
+                </div>
+              </article>
+            ))}
+            <Pagination pagination={pagination} label="Saved competitor ads" sizes={[8, 16, 32]} />
             {!payload.observations.length && (
               <p>
                 No competitor ads saved yet. Start with three relevant ads from different sellers.

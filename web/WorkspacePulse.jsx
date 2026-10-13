@@ -34,7 +34,12 @@ export function WorkspacePulse({ data, setPage }) {
               <i
                 style={{
                   width: `${(100 * count) / max}%`,
-                  background: ['#2563eb', '#0891b2', '#d97706', '#16a34a'][index],
+                  background: [
+                    'var(--brand-main)',
+                    'var(--brand-accent)',
+                    '#63af97',
+                    'var(--brand-deep)',
+                  ][index],
                 }}
               />
             </div>

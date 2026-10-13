@@ -1,5 +1,13 @@
 :root {
-  --green: #087f88;
+  --brand-main: #087766;
+  --brand-accent: #159782;
+  --brand-action: #109b7d;
+  --brand-deep: #147d80;
+  --brand-gradient: linear-gradient(145deg, #087766, #159782 64%, #147d80);
+  --workspace-background:
+    radial-gradient(ellipse at 10% 20%, #cae8ec 0, transparent 45%),
+    radial-gradient(ellipse at 95% 95%, #d2f0e7 0, transparent 50%), #edf6f7;
+  --green: var(--brand-main);
   --muted: #526976;
   --line: #dce9ed;
   background: #edf7fa;
@@ -9,7 +17,7 @@ body {
   background: #edf7fa;
 }
 .app-shell .main {
-  background: linear-gradient(145deg, #eff8fa 0%, #def2f7 65%, #eaf6f8 100%);
+  background: var(--workspace-background);
 }
 .app-shell .page-content {
   padding: 28px 32px 40px;
@@ -183,7 +191,7 @@ body {
 }
 .app-shell .sidebar {
   width: 82px;
-  background: #133c48;
+  background: var(--brand-gradient);
   border-color: #254e5a;
   padding: 24px 12px 0;
   z-index: 80;
@@ -193,7 +201,7 @@ body {
     box-shadow 220ms;
 }
 .app-shell.sidebar-pinned .sidebar,
-.app-shell .sidebar:hover,
+.app-shell .sidebar:hover:not(.is-dismissed),
 .app-shell .sidebar:has(:focus-visible) {
   width: 270px;
   box-shadow: 12px 0 36px #133c481a;
@@ -221,7 +229,7 @@ body {
   flex: 0 0 34px;
   width: 34px;
   height: 34px;
-  background: #6abcca;
+  background: #ffffff24;
   color: #fff;
 }
 .sidebar-brand-name {
@@ -234,8 +242,8 @@ body {
   width: 58px;
   min-height: 60px;
   padding: 10px;
-  background: #1d4a57;
-  border-color: #35616d;
+  background: #ffffff16;
+  border-color: #ffffff35;
   border-radius: 14px;
   margin-top: 25px;
   overflow: hidden;
@@ -295,22 +303,79 @@ body {
 .app-shell .nav-item > svg {
   flex: 0 0 18px;
 }
-.app-shell .nav-item > span:not(.nav-count):not(.ai-label) {
+.app-shell .nav-item > .nav-label {
   position: absolute;
   left: 52px;
+  right: 12px;
+  text-overflow: ellipsis;
+  overflow: hidden;
   opacity: 0;
   transition: opacity 160ms;
 }
+.app-shell .nav-item:has(.nav-badges) > .nav-label {
+  right: 76px;
+}
+.sidebar .nav-badges {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 1;
+  pointer-events: none;
+}
+.sidebar .nav-badges .nav-count,
+.sidebar .nav-badges .ai-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  width: auto;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0 3px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 1;
+}
+.sidebar .nav-badges .nav-count {
+  background: #fff0d8;
+  color: #7b4f09;
+}
+.sidebar .nav-badges .ai-label {
+  background: #d8f3e9;
+  color: #086955;
+}
+.app-shell.sidebar-pinned .sidebar .nav-badges,
+.app-shell .sidebar:hover:not(.is-dismissed) .nav-badges,
+.app-shell .sidebar:has(:focus-visible) .nav-badges {
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  gap: 6px;
+}
+.app-shell.sidebar-pinned .sidebar .nav-badges > span,
+.app-shell .sidebar:hover:not(.is-dismissed) .nav-badges > span,
+.app-shell .sidebar:has(:focus-visible) .nav-badges > span {
+  min-width: 20px;
+  height: 22px;
+  padding: 0 5px;
+  font-size: 11px;
+}
 .app-shell .nav-item.active {
-  background: #2c6271;
+  background: #ffffff24;
   box-shadow: inset 3px 0 #8bd1db;
 }
 .app-shell .nav-item:hover {
-  background: #255765;
+  background: #ffffff1c;
 }
 .app-shell .nav-item .nav-count,
 .app-shell .nav-item .ai-label {
-  opacity: 0;
+  opacity: 1;
 }
 .app-shell .sidebar-bottom {
   padding-top: 12px;
@@ -328,42 +393,58 @@ body {
 .app-shell .sidebar-user > button {
   display: none;
 }
-.app-shell .sidebar:hover .sidebar-brand-name,
+.sidebar-local-pin {
+  display: none;
+  position: absolute;
+  top: 29px;
+  right: 18px;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #719aa6;
+  border-radius: 8px;
+  color: #e4f4f7;
+}
+.app-shell .sidebar:hover:not(.is-dismissed) .sidebar-local-pin,
+.app-shell.sidebar-pinned .sidebar-local-pin,
+.app-shell .sidebar:has(:focus-visible) .sidebar-local-pin {
+  display: inline-flex;
+}
+.app-shell .sidebar:hover:not(.is-dismissed) .sidebar-brand-name,
 .app-shell.sidebar-pinned .sidebar-brand-name,
 .app-shell .sidebar:has(:focus-visible) .sidebar-brand-name,
-.app-shell .sidebar:hover .workspace-details,
+.app-shell .sidebar:hover:not(.is-dismissed) .workspace-details,
 .app-shell.sidebar-pinned .workspace-details,
 .app-shell .sidebar:has(:focus-visible) .workspace-details,
-.app-shell .sidebar:hover .nav-caption,
+.app-shell .sidebar:hover:not(.is-dismissed) .nav-caption,
 .app-shell.sidebar-pinned .nav-caption,
 .app-shell .sidebar:has(:focus-visible) .nav-caption,
-.app-shell .sidebar:hover .nav-item > span,
+.app-shell .sidebar:hover:not(.is-dismissed) .nav-item > span,
 .app-shell.sidebar-pinned .nav-item > span,
 .app-shell .sidebar:has(:focus-visible) .nav-item > span {
   opacity: 1;
 }
-.app-shell .sidebar:hover .workspace-switch,
+.app-shell .sidebar:hover:not(.is-dismissed) .workspace-switch,
 .app-shell.sidebar-pinned .workspace-switch,
 .app-shell .sidebar:has(:focus-visible) .workspace-switch {
   width: 246px;
 }
-.app-shell .sidebar:hover .nav-item,
+.app-shell .sidebar:hover:not(.is-dismissed) .nav-item,
 .app-shell.sidebar-pinned .nav-item,
 .app-shell .sidebar:has(:focus-visible) .nav-item {
   width: 246px;
 }
-.app-shell .sidebar:hover .sidebar-user,
+.app-shell .sidebar:hover:not(.is-dismissed) .sidebar-user,
 .app-shell.sidebar-pinned .sidebar-user,
 .app-shell .sidebar:has(:focus-visible) .sidebar-user {
   justify-content: flex-start;
   padding: 15px 22px;
 }
-.app-shell .sidebar:hover .sidebar-user > span:nth-child(2),
+.app-shell .sidebar:hover:not(.is-dismissed) .sidebar-user > span:nth-child(2),
 .app-shell.sidebar-pinned .sidebar-user > span:nth-child(2),
 .app-shell .sidebar:has(:focus-visible) .sidebar-user > span:nth-child(2) {
   display: block;
 }
-.app-shell .sidebar:hover .sidebar-user > button,
+.app-shell .sidebar:hover:not(.is-dismissed) .sidebar-user > button,
 .app-shell.sidebar-pinned .sidebar-user > button,
 .app-shell .sidebar:has(:focus-visible) .sidebar-user > button {
   display: inline-flex;
@@ -374,9 +455,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 68px 32px 36px;
-  background:
-    radial-gradient(ellipse at 10% 20%, #cae8ec 0, transparent 45%),
-    radial-gradient(ellipse at 95% 95%, #d2f0e7 0, transparent 50%), #edf6f7;
+  background: var(--workspace-background);
 }
 .login-page {
   width: min(1120px, 100%);
@@ -391,7 +470,7 @@ body {
 }
 .login-story {
   min-height: 650px;
-  background: linear-gradient(145deg, #087766, #159782 64%, #147d80);
+  background: var(--brand-gradient);
   color: white;
   padding: 46px 52px;
   border-radius: 0 150px 150px 0;

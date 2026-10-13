@@ -5,6 +5,7 @@ import manualTranslations from './locales/manual-bn.json';
 import productTranslations from './locales/product-bn.json';
 import adLibraryTranslations from './locales/ad-library-bn.json';
 import discoveryTranslations from './locales/discovery-bn.json';
+import premiumTranslations from './locales/premium-bn.json';
 const translations = {
   ...baseTranslations,
   ...operationsTranslations,
@@ -12,6 +13,7 @@ const translations = {
   ...productTranslations,
   ...adLibraryTranslations,
   ...discoveryTranslations,
+  ...premiumTranslations,
 };
 
 const listeners = new Set();

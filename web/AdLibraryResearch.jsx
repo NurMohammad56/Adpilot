@@ -437,6 +437,17 @@ export function AdLibraryAnalysis({ row }) {
 export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, showPlan }) {
   const bn = useLanguage() === 'bn';
   const key = `${data.business.id}:${data.user.id}`;
+  const openWorkbench = (projectId, kind) => {
+    const physical =
+      (kind || data.researchProjects?.find((item) => item.id === projectId)?.kind) ===
+      'physical-product';
+    if (projectId)
+      sessionStorage.setItem(
+        `adpilot-${physical ? 'product-research' : 'research'}-selection:${data.business.id}`,
+        projectId,
+      );
+    setPage(physical ? 'Product research' : 'Research studio');
+  };
   const [search, setSearch] = useDraft(`adpilot-ad-library-search:${key}`, {
     keyword: data.products[0]?.name.slice(0, 100) || '',
     country: 'BD',
@@ -599,8 +610,7 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
                 <button
                   className="secondary"
                   onClick={() => {
-                    sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, p.id);
-                    setPage('Research studio');
+                    openWorkbench(p.id, p.kind);
                   }}
                 >
                   Open Research studio
@@ -638,11 +648,7 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
                   <button
                     className="button secondary"
                     onClick={() => {
-                      sessionStorage.setItem(
-                        `adpilot-research-selection:${data.business.id}`,
-                        j.targetId,
-                      );
-                      setPage('Research studio');
+                      openWorkbench(j.targetId);
                     }}
                   >
                     Review new research version

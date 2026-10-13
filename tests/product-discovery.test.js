@@ -9,6 +9,7 @@ import {
   normalizeDiscovery,
   createDiscoveryBrief,
   listDiscoveries,
+  getDiscoveryReport,
 } from '../src/modules/research/product-discovery.js';
 import {
   getTrendSignals,
@@ -136,6 +137,7 @@ test('queued discovery deduplicates, recovers saved results and refuses stale se
       createDiscoveryBrief(f.platform, f.user, generated.id, generated.report.candidates[0].id),
       { code: 'AD_RESEARCH_STALE' },
     );
+    assert.equal((await getDiscoveryReport(f.platform, f.user, generated.id)).evidenceStale, true);
     const stale = { ...record, id: 'different-job-id' };
     await assert.rejects(runDiscoveryJob(f.platform, stale), { code: 'STALE_DISCOVERY' });
   } finally {

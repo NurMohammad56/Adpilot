@@ -553,7 +553,15 @@ export function ProductDiscovery({ data, api, run, busy, setPage, showProduct })
               ))}
             </details>
           </section>
-          <SampleCoverage rows={library.sectorCoverage} total={library.sampleSize} />
+          <details className="panel discovery-sector-details">
+            <summary>
+              {bn
+                ? 'Sector অনুযায়ী saved ad coverage দেখুন'
+                : 'Explore saved ad coverage by sector'}{' '}
+              ({library.sampleSize || 0})
+            </summary>
+            <SampleCoverage rows={library.sectorCoverage} total={library.sampleSize} />
+          </details>
           <section className="panel discovery-history">
             <label className="field">
               <span>{bn ? 'Saved report history' : 'Saved report history'}</span>
@@ -585,6 +593,23 @@ export function ProductDiscovery({ data, api, run, busy, setPage, showProduct })
           {selected && (
             <>
               <ReportTranslationNotice translation={translation} />
+              {selected.evidenceStale && (
+                <div className="notice">
+                  <div>
+                    <strong>
+                      {bn ? 'নির্বাচিত ad evidence বদলেছে' : 'Selected ad evidence changed'}
+                    </strong>
+                    <p>
+                      {bn
+                        ? 'এই historical report থেকে নতুন brief করার আগে বর্তমান evidence দিয়ে আবার research করুন।'
+                        : 'Research again with current evidence before creating a brief from this historical report.'}
+                    </p>
+                    <button className="button secondary" onClick={() => setInput(selected.input)}>
+                      {bn ? 'এই report-এর input লোড করুন' : 'Load this report’s inputs'}
+                    </button>
+                  </div>
+                </div>
+              )}
               <section className="panel discovery-summary">
                 <div className="tools-row">
                   <h2>{bn ? 'আপনার product opportunities' : 'Your product opportunities'}</h2>
@@ -642,14 +667,13 @@ export function ProductDiscovery({ data, api, run, busy, setPage, showProduct })
                           className={`icon-button ${shortlisted ? 'shortlisted' : ''}`}
                           disabled={busy}
                           onClick={() =>
-                            run(async () =>
-                              setSelected(
-                                await api(`/discovery/${selected.id}/shortlist`, 'POST', {
-                                  candidateId: candidate.id,
-                                  selected: !shortlisted,
-                                }),
-                              ),
-                            )
+                            run(async () => {
+                              await api(`/discovery/${selected.id}/shortlist`, 'POST', {
+                                candidateId: candidate.id,
+                                selected: !shortlisted,
+                              });
+                              await openReport(selected.id);
+                            })
                           }
                         >
                           <Bookmark size={21} />
@@ -745,17 +769,17 @@ export function ProductDiscovery({ data, api, run, busy, setPage, showProduct })
                         </button>
                         <button
                           className="button secondary"
-                          disabled={busy}
+                          disabled={busy || selected.evidenceStale}
                           onClick={() =>
                             run(async () => {
                               const brief = await api(`/discovery/${selected.id}/brief`, 'POST', {
                                 candidateId: candidate.id,
                               });
                               sessionStorage.setItem(
-                                `adpilot-research-selection:${data.business.id}`,
+                                `adpilot-product-research-selection:${data.business.id}`,
                                 brief.id,
                               );
-                              setPage('Research studio');
+                              setPage('Product research');
                             })
                           }
                         >

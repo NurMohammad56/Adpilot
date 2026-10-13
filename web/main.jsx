@@ -33,6 +33,9 @@ import {
   Megaphone,
   MoreHorizontal,
   Package,
+  PanelLeft,
+  Eye,
+  EyeOff,
   Plus,
   RefreshCw,
   Search,
@@ -64,6 +67,8 @@ import './product-studio.css';
 import { ProductDiscovery } from './ProductDiscovery.jsx';
 import { WorkspacePulse } from './WorkspacePulse.jsx';
 import './erp.css';
+import './premium.css';
+import { StatusRemark } from './StatusRemark.jsx';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -93,6 +98,7 @@ const navItems = [
   { label: 'Overview', icon: LayoutDashboard },
   { label: 'Products', icon: Package },
   { label: 'Product discovery', icon: Search },
+  { label: 'Product research', icon: FlaskConical },
   { label: 'Research studio', icon: Sparkles },
   { label: 'Ad Library research', icon: Search },
   { label: 'Media library', icon: Image },
@@ -118,7 +124,7 @@ function Status({ value }) {
   return (
     <Badge tone={tone}>
       <i />
-      {value?.replaceAll('_', ' ')}
+      <StatusRemark value={value} compact />
     </Badge>
   );
 }
@@ -206,104 +212,123 @@ function Modal({ title, subtitle, onClose, children, wide = false }) {
 }
 function Login({ onLogin, run, busy, mode }) {
   const [register, setRegister] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
   return (
-    <div className="login-page">
-      <div className="login-story">
-        <div className="brand">
-          <span className="brand-mark">
-            <Zap size={21} fill="currentColor" />
-          </span>
-          adpilot<span className="brand-dot">.</span>
-        </div>
-        <div>
-          <Badge tone="green">BUILT FOR BANGLADESH</Badge>
-          <h1>
-            Your next campaign.
-            <br />
-            <em>A better decision.</em>
-          </h1>
-          <p>
-            Know your margins. Test with a plan.
-            <br />
-            Keep every advertising decision in your hands.
-          </p>
-          <div className="login-proof">
-            <ShieldCheck size={20} /> AI recommends. You approve.
+    <div className="auth-shell">
+      <div className={`login-page ${register ? 'register-view' : ''}`}>
+        <div className="login-story">
+          <div className="brand">
+            <span className="brand-mark">
+              <Zap size={21} fill="currentColor" />
+            </span>
+            adpilot<span className="brand-dot">.</span>
           </div>
-        </div>
-        <span className="login-footer">
-          Facebook & Instagram · Research, review and approved campaigns
-        </span>
-      </div>
-      <div className="login-form">
-        <div className="login-card">
-          <span className="eyebrow">WELCOME TO YOUR WORKSPACE</span>
-          <h2>{register ? 'Build your business workspace' : 'Let’s get to work'}</h2>
-          <p>
-            {register
-              ? 'Start with your business. Add products and costs next.'
-              : 'Sign in to review, plan, and grow with confidence.'}
-          </p>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const values = Object.fromEntries(new FormData(event.currentTarget));
-              run(async () =>
-                onLogin(await api(`/auth/${register ? 'register' : 'login'}`, 'POST', values)),
-              );
-            }}
-          >
-            {register && (
-              <>
-                <Field label="Your name">
-                  <input name="name" required minLength={2} />
-                </Field>
-                <Field label="Business name">
-                  <input name="businessName" required minLength={2} />
-                </Field>
-              </>
-            )}
-            <Field label="Email address">
-              <input
-                type="email"
-                name="email"
-                autoComplete="email"
-                required
-                placeholder="you@business.com"
-              />
-            </Field>
-            <Field label="Password" hint="Use at least 12 characters.">
-              <input
-                type="password"
-                name="password"
-                autoComplete={register ? 'new-password' : 'current-password'}
-                minLength={12}
-                maxLength={128}
-                required
-              />
-            </Field>
-            <button className="button primary full" disabled={busy}>
-              {register ? 'Create workspace' : 'Sign in'}
+          <div>
+            <span className="auth-orbit">
+              <Zap size={42} />
+            </span>
+            <h1>{register ? 'Your next chapter starts here.' : 'Welcome back.'}</h1>
+            <p>
+              Research your market. Review the evidence. Keep every campaign decision in your hands.
+            </p>
+            <div className="login-proof">
+              <ShieldCheck size={20} /> AI recommends. You approve.
+            </div>
+            <button
+              className="auth-story-action"
+              type="button"
+              onClick={() => setRegister(!register)}
+            >
+              {register ? 'Go to sign in' : 'Create your workspace'}
               <ArrowRight size={17} />
             </button>
-          </form>
-          <button className="text-button" onClick={() => setRegister(!register)}>
-            {register ? 'Already have an account? Sign in' : 'New here? Create a workspace'}
-          </button>
-          {mode === 'demo' && (
-            <div className="demo-entry">
-              <span>Take a look around first</span>
-              <button
-                className="button secondary full"
-                disabled={busy}
-                onClick={() => run(async () => onLogin(await api('/auth/demo', 'POST', {})))}
-              >
-                <FlaskConical size={17} />
-                Explore demo workspace
-              </button>
-              <small>Sample business, simulated results, zero real ad spend.</small>
+          </div>
+          <span className="login-footer">
+            Facebook & Instagram · Research, review and approved campaigns
+          </span>
+        </div>
+        <div className="login-form">
+          <div className="login-card">
+            <div className="auth-mobile-brand">
+              <Zap size={24} /> adpilot.
             </div>
-          )}
+            <span className="eyebrow">WELCOME TO YOUR WORKSPACE</span>
+            <h2>{register ? 'Create your account' : 'Sign in to AdPilot'}</h2>
+            <p>
+              {register
+                ? 'Start with your business. Add products and costs next.'
+                : 'Sign in to review, plan, and grow with confidence.'}
+            </p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const values = Object.fromEntries(new FormData(event.currentTarget));
+                run(async () =>
+                  onLogin(await api(`/auth/${register ? 'register' : 'login'}`, 'POST', values)),
+                );
+              }}
+            >
+              {register && (
+                <>
+                  <Field label="Your name">
+                    <input name="name" required minLength={2} />
+                  </Field>
+                  <Field label="Business name">
+                    <input name="businessName" required minLength={2} />
+                  </Field>
+                </>
+              )}
+              <Field label="Email address">
+                <input
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@business.com"
+                />
+              </Field>
+              <Field label="Password" hint="Use at least 12 characters.">
+                <input
+                  type={passwordVisible ? 'text' : 'password'}
+                  aria-label="Password"
+                  name="password"
+                  autoComplete={register ? 'new-password' : 'current-password'}
+                  minLength={12}
+                  maxLength={128}
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+                  onClick={() => setPasswordVisible(!passwordVisible)}
+                >
+                  {passwordVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </Field>
+              <button className="button primary full" disabled={busy}>
+                {register ? 'Create workspace' : 'Sign in'}
+                <ArrowRight size={17} />
+              </button>
+            </form>
+            <button className="text-button" onClick={() => setRegister(!register)}>
+              {register ? 'Already have an account? Sign in' : 'New here? Create a workspace'}
+            </button>
+            {mode === 'demo' && (
+              <div className="demo-entry">
+                <span>Take a look around first</span>
+                <button
+                  className="button secondary full"
+                  disabled={busy}
+                  onClick={() => run(async () => onLogin(await api('/auth/demo', 'POST', {})))}
+                >
+                  <FlaskConical size={17} />
+                  Explore demo workspace
+                </button>
+                <small>Sample business, simulated results, zero real ad spend.</small>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -2287,6 +2312,7 @@ function App() {
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
   const [query, setQuery] = useState('');
+  const [sidebarPinned, setSidebarPinned] = useDraft('adpilot-sidebar-pinned', false);
   async function refresh() {
     const value = await api('/overview');
     displayCurrency = value.integration.currency || 'BDT';
@@ -2452,8 +2478,8 @@ function App() {
   return (
     <>
       {data ? (
-        <div className="app-shell">
-          <aside className="sidebar">
+        <div className={`app-shell ${sidebarPinned ? 'sidebar-pinned' : 'sidebar-auto'}`}>
+          <aside className="sidebar" aria-label="Main navigation">
             <a
               className="brand"
               href="#"
@@ -2465,13 +2491,19 @@ function App() {
               <span className="brand-mark">
                 <Zap size={20} fill="currentColor" />
               </span>
-              adpilot<span className="brand-dot">.</span>
+              <span className="sidebar-brand-name">
+                adpilot<span className="brand-dot">.</span>
+              </span>
             </a>
-            <button className="workspace-switch" onClick={() => setPage('Accounts')}>
+            <button
+              className="workspace-switch"
+              aria-label="Manage workspace accounts"
+              onClick={() => setPage('Accounts')}
+            >
               <span className="workspace-avatar">
                 {data.business.name.slice(0, 2).toUpperCase()}
               </span>
-              <span>
+              <span className="workspace-details">
                 <strong>{data.business.name}</strong>
                 <small>Business workspace</small>
               </span>
@@ -2482,6 +2514,8 @@ function App() {
               {navItems.map(({ label, icon: Icon }) => (
                 <button
                   key={label}
+                  aria-label={label}
+                  title={translateText(label)}
                   className={page === label ? 'nav-item active' : 'nav-item'}
                   onClick={() => {
                     setPage(label);
@@ -2498,29 +2532,21 @@ function App() {
               ))}
             </nav>
             <div className="sidebar-bottom">
-              <div className="control-card">
-                <ShieldCheck size={21} />
-                <strong>Human in the loop</strong>
-                <p>
-                  Smart recommendations.
-                  <br />
-                  Your final say.
-                </p>
-                <Badge tone="green">
-                  <i />
-                  Guardrails active
-                </Badge>
-              </div>
               <button
+                aria-label="Settings"
                 className={page === 'Settings' ? 'nav-item active' : 'nav-item'}
                 onClick={() => setPage('Settings')}
               >
                 <Settings2 size={18} />
-                Settings
+                <span>Settings</span>
               </button>
-              <button className="nav-item" onClick={() => setModal({ kind: 'help' })}>
+              <button
+                className="nav-item"
+                aria-label="Workspace guide"
+                onClick={() => setModal({ kind: 'help' })}
+              >
                 <CircleHelp size={18} />
-                Workspace guide
+                <span>Workspace guide</span>
               </button>
               <div className="sidebar-user">
                 <span className="user-avatar">
@@ -2551,6 +2577,16 @@ function App() {
           </aside>
           <main className="main">
             <header className="topbar">
+              <button
+                className="icon-button sidebar-pin"
+                type="button"
+                aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+                aria-pressed={Boolean(sidebarPinned)}
+                title={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+                onClick={() => setSidebarPinned(!sidebarPinned)}
+              >
+                <PanelLeft size={21} />
+              </button>
               <div className="search-box">
                 <Search size={16} />
                 <input
@@ -2562,6 +2598,13 @@ function App() {
                 <kbd>⌕</kbd>
               </div>
               <div className="topbar-right">
+                <span
+                  className="human-approval-label"
+                  title="Campaign actions require your approval"
+                >
+                  <ShieldCheck size={15} />
+                  <span>Human approval</span>
+                </span>
                 <LanguageSwitch />
                 <span className="mode-label">
                   <span className="live-dot" />
@@ -2763,6 +2806,19 @@ function App() {
                       onPlan={showPlan}
                     />
                   )}
+                  {page === 'Product research' && (
+                    <ResearchDesk
+                      mode="product"
+                      key={`${data.business.id}:product`}
+                      {...common}
+                      api={api}
+                      run={run}
+                      refresh={refresh}
+                      onPlan={showPlan}
+                      onOpenLibrary={() => setPage('Ad Library research')}
+                      onOpenDiscovery={() => setPage('Product discovery')}
+                    />
+                  )}
                   {page === 'Product discovery' && (
                     <ProductDiscovery key={data.business.id} {...common} api={api} run={run} />
                   )}
@@ -2900,9 +2956,15 @@ function App() {
                   setPage('Ad Library research');
                   return;
                 }
-                sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, projectId);
+                const physical =
+                  data.researchProjects?.find((item) => item.id === projectId)?.kind ===
+                  'physical-product';
+                sessionStorage.setItem(
+                  `adpilot-${physical ? 'product-research' : 'research'}-selection:${data.business.id}`,
+                  projectId,
+                );
                 setModal(null);
-                setPage('Research studio');
+                setPage(physical ? 'Product research' : 'Research studio');
               }}
               submit={(plan, launchMode) =>
                 run(async () => {

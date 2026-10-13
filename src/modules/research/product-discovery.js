@@ -379,6 +379,16 @@ export async function listDiscoveries(platform, user, country = 'BD') {
       .map(publicJob),
   };
 }
+export async function getDiscoveryReport(platform, user, reportId) {
+  const row = await platform.owned('product_discoveries', reportId, user);
+  try {
+    await assertAdLibraryFresh(platform, user, row.report);
+    return { ...row, evidenceStale: false };
+  } catch (error) {
+    if (error.code !== 'AD_RESEARCH_STALE') throw error;
+    return { ...row, evidenceStale: true };
+  }
+}
 export async function createDiscoveryBrief(platform, user, reportId, candidateId) {
   const row = await platform.owned('product_discoveries', reportId, user);
   await assertAdLibraryFresh(platform, user, row.report);

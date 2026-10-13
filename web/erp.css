@@ -99,6 +99,25 @@ body {
   border-radius: 14px;
   box-shadow: 0 3px 14px #13274404;
 }
+.panel-heading h2 {
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+.app-shell .nav-item.active {
+  box-shadow: inset 3px 0 #60a5fa;
+}
+.discovery-sector-details > summary {
+  cursor: pointer;
+  padding: 20px 24px;
+  font-weight: 600;
+  color: #254366;
+}
+.discovery-sector-details .discovery-coverage {
+  border: 0;
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0;
+  box-shadow: none;
+}
 .stat-card {
   position: relative;
   overflow: hidden;

@@ -15,6 +15,7 @@ import { MetaConnection } from './MetaConnection.jsx';
 import { AIConnection, ResearchRetrieval } from './AIConnection.jsx';
 import { ConfidenceNotes } from './ConfidenceNotes.jsx';
 import { ResearchReadiness } from './ResearchReadiness.jsx';
+import { StatusRemark } from './StatusRemark.jsx';
 import { TrendSourceHub } from './ProductDiscovery.jsx';
 import { AdLibraryResearchSources } from './AdLibraryResearch.jsx';
 import { AdLibraryPicker } from './AdLibraryPicker.jsx';
@@ -367,7 +368,13 @@ export function ResearchDesk({
   onPlan,
   onOpenLibrary,
   onOpenDiscovery,
+  mode = 'digital',
 }) {
+  const physical = mode === 'product';
+  const defaults = physical
+    ? { ...emptyBrief, kind: 'physical-product', candidateCountries: ['BD'] }
+    : emptyBrief;
+  const selectionKey = `adpilot-${physical ? 'product-research' : 'research'}-selection:${data.business.id}`;
   const [locations, setLocations] = useState([]);
   const [countryQuery, setCountryQuery] = useState('');
   const mergeLocations = (rows) =>
@@ -378,17 +385,22 @@ export function ResearchDesk({
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
   const [briefDrafts, setBriefDrafts] = useDraft(
-    `adpilot-draft:${data.business.id}:${data.user.id}:research-briefs`,
-    { new: emptyBrief },
+    `adpilot-draft:${data.business.id}:${data.user.id}:${physical ? 'product' : 'research'}-briefs`,
+    { new: defaults },
   );
   const briefKey = project?.id || 'new';
-  const brief =
+  const savedBrief =
     briefDrafts[briefKey] ||
     (project
       ? Object.fromEntries(
           Object.keys(emptyBrief).map((key) => [key, project[key] ?? emptyBrief[key]]),
         )
-      : emptyBrief);
+      : defaults);
+  const brief = (
+    physical ? savedBrief.kind !== 'physical-product' : savedBrief.kind === 'physical-product'
+  )
+    ? defaults
+    : savedBrief;
   const setBrief = (value) => setBriefDrafts((current) => ({ ...current, [briefKey]: value }));
   const [briefEditing, setBriefEditing] = useState(false);
   const [versions, setVersions] = useState([]);
@@ -428,14 +440,16 @@ export function ResearchDesk({
   );
   const loadProjects = async () => {
     setLocations(await api('/research/locations'));
-    const values = await api('/research');
+    const values = (await api('/research')).filter((item) =>
+      physical ? item.kind === 'physical-product' : item.kind !== 'physical-product',
+    );
     setProjects(values);
     return values;
   };
   useEffect(() => {
     loadProjects()
       .then((values) => {
-        const saved = sessionStorage.getItem(`adpilot-research-selection:${data.business.id}`);
+        const saved = sessionStorage.getItem(selectionKey);
         const selected = values.find((item) => item.id === saved);
         if (selected) return select(selected);
       })
@@ -447,7 +461,7 @@ export function ResearchDesk({
   }, [data.business.id]);
   async function select(selected) {
     setProject(selected);
-    sessionStorage.setItem(`adpilot-research-selection:${data.business.id}`, selected.id);
+    sessionStorage.setItem(selectionKey, selected.id);
     const history = await api(`/research/${selected.id}/versions`);
     setVersions(history);
     setVersionId(selected.currentVersionId || history.at(-1)?.id || '');
@@ -484,21 +498,25 @@ export function ResearchDesk({
   }
   return (
     <>
-      <Heading title="Research studio">
-        Discuss an offer, compare countries, refine the evidence and keep every decision version.
+      <Heading title={physical ? 'Product research' : 'Research studio'}>
+        {physical
+          ? 'Validate physical product demand, suppliers and delivery before planning a campaign.'
+          : 'For digital services and software: compare client markets, investigate buyer needs and refine your offer.'}{' '}
         Research approval and campaign launch approval are separate.
       </Heading>
       <div className="research-layout">
         <aside className="panel tools-panel research-projects">
-          <button className="button primary full" onClick={onOpenDiscovery}>
-            Discover product opportunities
-          </button>
+          {physical && (
+            <button className="button primary full" onClick={onOpenDiscovery}>
+              Discover product opportunities
+            </button>
+          )}
           <button
             className="button secondary full"
             onClick={() => {
-              sessionStorage.removeItem(`adpilot-research-selection:${data.business.id}`);
+              sessionStorage.removeItem(selectionKey);
               setProject(null);
-              setBriefDrafts((current) => ({ ...current, new: emptyBrief }));
+              setBriefDrafts((current) => ({ ...current, new: defaults }));
               setVersions([]);
               setBriefEditing(false);
             }}
@@ -543,7 +561,7 @@ export function ResearchDesk({
                   }, 'Brief saved. Run research or add a focused question.');
                 }}
               >
-                {!project && (
+                {!project && !physical && (
                   <Field
                     label="Start with a guided example"
                     hint="Examples help write a brief. The suggested countries are candidates to investigate, not recommended markets."
@@ -579,13 +597,12 @@ export function ResearchDesk({
                               'Business operators with a recurring workflow problem and a budget for software.',
                             candidateCountries: ['BD', 'US', 'GB', 'IN'],
                           },
-                          product: {
-                            kind: 'physical-product',
+                          other: {
+                            kind: 'service',
                             name: '',
                             description: '',
-                            buyerProfile:
-                              'Bangladesh buyers who can be reached and served within our delivery coverage.',
-                            candidateCountries: ['BD'],
+                            buyerProfile: '',
+                            candidateCountries: brief.candidateCountries,
                           },
                         };
                         if (examples[event.target.value])
@@ -596,7 +613,7 @@ export function ResearchDesk({
                       <option value="ecommerce">Custom ecommerce development</option>
                       <option value="website">Business website development</option>
                       <option value="software">Software / subscription service</option>
-                      <option value="product">Bangladesh product selling</option>
+                      <option value="other">Other digital service / custom offer</option>
                     </select>
                   </Field>
                 )}
@@ -610,12 +627,15 @@ export function ResearchDesk({
                 </Field>
                 <Field label="Offer type">
                   <select
+                    disabled={physical}
                     value={brief.kind}
                     onChange={(event) => setBrief({ ...brief, kind: event.target.value })}
                   >
-                    <option value="service">Service / client project</option>
-                    <option value="software">Software / digital application</option>
-                    <option value="physical-product">Physical product research</option>
+                    {!physical && <option value="service">Service / client project</option>}
+                    {!physical && <option value="software">Software / digital application</option>}
+                    {physical && (
+                      <option value="physical-product">Physical product research</option>
+                    )}
                   </select>
                 </Field>
                 {brief.kind === 'physical-product' && (
@@ -756,6 +776,13 @@ export function ResearchDesk({
             </article>
           ) : (
             <>
+              <StatusRemark
+                value={
+                  version?.adLibraryInvalidatedAt
+                    ? 'needs_research'
+                    : version?.status || project.status
+                }
+              />
               <article className="panel tools-panel">
                 <div className="tools-row">
                   <div>

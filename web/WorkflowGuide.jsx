@@ -19,18 +19,23 @@ export function WorkflowGuide({ data, onNavigate }) {
     ['Ad control center', '7. Record real customer outcomes', false],
   ];
   return (
-    <div className="panel stepper">
-      <strong>Workspace journey · {data.business.name}</strong>
-      <span>
-        For Bangladesh products, begin with actual costs. For international services, begin with
-        country research. Both flows require a reviewed campaign and separate launch approval.
-      </span>
-      {steps.map(([page, label, completed]) => (
-        <button key={page} className={completed ? 'active' : ''} onClick={() => onNavigate(page)}>
-          {completed ? '✓ ' : ''}
-          {label}
-        </button>
-      ))}
-    </div>
+    <details className="panel workspace-journey">
+      <summary>
+        Workspace journey · {data.business.name}
+        <span>Setup, research, review and results</span>
+      </summary>
+      <div className="stepper">
+        <span>
+          For Bangladesh products, begin with actual costs. For international services, begin with
+          country research. Both flows require a reviewed campaign and separate launch approval.
+        </span>
+        {steps.map(([page, label, completed]) => (
+          <button key={page} className={completed ? 'active' : ''} onClick={() => onNavigate(page)}>
+            {completed ? '✓ ' : ''}
+            {label}
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }

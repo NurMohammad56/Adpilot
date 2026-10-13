@@ -23,6 +23,7 @@ import {
   enqueueDiscovery,
   listDiscoveries,
   createDiscoveryBrief,
+  getDiscoveryReport,
 } from './modules/research/product-discovery.js';
 import { discoveryCountry, getTrendSignals, trendLinks } from './modules/research/trend-sources.js';
 import { groupInput } from './modules/campaigns/product-group.js';
@@ -510,7 +511,7 @@ export function createApp(runtime) {
     res.status(result.queued ? 202 : 201).json(result);
   });
   app.get('/api/discovery/:id', async (req, res) =>
-    res.json(await platform.owned('product_discoveries', req.params.id, req.user)),
+    res.json(await getDiscoveryReport(platform, req.user, req.params.id)),
   );
   app.post(
     '/api/discovery/:id/shortlist',

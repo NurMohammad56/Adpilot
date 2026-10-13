@@ -257,6 +257,14 @@ export async function linkManualCampaign(
     };
   }
   return platform.store.transaction(async () => {
+    const latestApproval = await platform.owned('approval_requests', approvalId, user);
+    await platform.owned('campaign_plans', approval.planId, user);
+    assert(
+      latestApproval.status === 'approved' && latestApproval.snapshotHash === approval.snapshotHash,
+      409,
+      'APPROVAL_CHANGED',
+      'The manual guide approval changed while checking Meta. Reload the current review.',
+    );
     // Serialize competing links with other launch/budget transactions.
     const business = await platform.store.get('businesses', user.businessId);
     await platform.store.update('businesses', business.id, {

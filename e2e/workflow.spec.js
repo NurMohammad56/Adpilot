@@ -8,7 +8,8 @@ test('review, revise, approve and launch a product plan through the dashboard', 
   await page.getByRole('button', { name: 'Explore demo workspace' }).click();
   await expect(page.getByRole('heading', { name: 'Your campaigns, in focus.' })).toBeVisible();
   await page.getByRole('button', { name: 'Products', exact: true }).click();
-  await page.getByRole('button', { name: 'Generate campaign plan' }).last().click();
+  await page.locator('.product-card').filter({ has: page.getByRole('heading', { name: 'Desk Organizer', exact: true }) })
+    .getByRole('button', { name: 'Generate campaign plan', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Research', exact: true }).click();

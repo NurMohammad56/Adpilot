@@ -9,6 +9,7 @@ import { productVisualContext } from '../media/vision.js';
 import { explainConfidence } from './confidence.js';
 import { cachedResearch } from './cache.js';
 import { marketEvidence, evidenceDigest } from './market-evidence.js';
+import { calculateEconomics } from '../pricing/engine.js';
 import {
   adLibrarySnapshot,
   assertAdLibraryFresh,
@@ -28,6 +29,10 @@ export const projectSchema = z
       .optional(),
     kind: z.enum(['physical-product', 'service', 'software']),
     productId: z.string().uuid().nullable().optional(),
+    productCategory: z.string().trim().max(150).optional(),
+    researchGoal: z
+      .enum(['business-decision', 'competitor-positioning', 'pricing-profit', 'small-budget-test'])
+      .optional(),
     description: words,
     buyerProfile: words,
     candidateCountries: z
@@ -361,8 +366,21 @@ export class ResearchWorkbench {
               category: linkedProduct.category,
               sellingPrice: linkedProduct.sellingPrice,
               costs: linkedProduct.costs,
+              inventory: linkedProduct.inventory,
             }
           : null,
+        ...(project.kind === 'physical-product'
+          ? {
+              productValidation: {
+                researchGoal: project.researchGoal || 'business-decision',
+                category: linkedProduct?.category || project.productCategory || null,
+                unitEconomics:
+                  linkedProduct?.sellingPrice > 0 ? calculateEconomics(linkedProduct) : null,
+                rules:
+                  'Use saved competitor observations and their existing analysis as evidence, not as a new task to re-analyze every ad. Answer the selected researchGoal for this physical item: buyer need, comparable specifications/offers, price differences, sourcing/quality, delivery coverage, COD failures, returns, payment fees, inventory and differentiation. Explain whether the actual selling price leaves advertising room after costs and required profit. Calculated unitEconomics are constraints based on owner inputs, not measured CAC, predicted sales or guaranteed profit. State when supplier costs, customer demand or comparable prices are missing. For small-budget-test outline one measurable hypothesis and stop/continue criteria without inventing ad costs or spending money. Do not use software project prices, enterprise procurement cycles or B2B service leads unless the supplied buyer profile explicitly targets wholesalers/business buyers.',
+              },
+            }
+          : {}),
         visualAnalysis: visualAnalysis
           ? { report: visualAnalysis.report, classification: visualAnalysis.classification }
           : null,
@@ -395,7 +413,9 @@ export class ResearchWorkbench {
           'Verify language, sales process and local requirements',
         ],
         testApproach:
-          'Interview prospective buyers, inspect dated competitor sources, then test one offer and measure qualified conversions.',
+          project.kind === 'physical-product'
+            ? 'Check a supplier sample and real buyer needs, compare equivalent competitor prices and delivery terms, then test one product and measure delivered orders, return losses and actual acquisition cost.'
+            : 'Interview prospective buyers, inspect dated competitor sources, then test one offer and measure qualified conversions.',
         confidence: 'Low',
       })),
       findings: project.evidence,

@@ -11,6 +11,8 @@ import {
   listManagedRecords,
 } from '../src/modules/records.js';
 import { saveAdLibraryObservation } from '../src/modules/research/ad-library.js';
+import { cachedResearch } from '../src/modules/research/cache.js';
+import { z } from 'zod';
 
 const remove = async (f, kind, id) => {
   const preview = await deletionPreview(f.platform, f.user, kind, id);
@@ -306,6 +308,60 @@ test('removing the current research version clears its review and retains monoto
     assert.equal(latest.status, 'draft');
     const next = await f.research.research(f.user, project.id);
     assert.equal(next.number, version.number + 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test('in-flight insight sync and cached AI output cannot recreate records after deletion', async () => {
+  const f = await fixture();
+  try {
+    const { plan, approval } = await approved(f);
+    await f.platform.executeApproved(approval.id, 'create_campaign');
+    const campaign = (await f.store.list('campaigns'))[0];
+    await f.store.update('campaigns', campaign.id, { status: 'paused' });
+    let releaseSync, enteredSync;
+    const entered = new Promise((resolve) => {
+      enteredSync = resolve;
+    });
+    f.meta.insights = async () => {
+      enteredSync();
+      return new Promise((resolve) => {
+        releaseSync = resolve;
+      });
+    };
+    const sync = f.platform.syncInsights(f.user, campaign.id);
+    await entered;
+    await remove(f, 'plans', plan.id);
+    releaseSync([]);
+    await assert.rejects(sync, { status: 404 });
+    assert.equal((await f.store.list('ad_performance')).length, 0);
+    let releaseAI, enteredAI;
+    const started = new Promise((resolve) => {
+      enteredAI = resolve;
+    });
+    const llm = {
+      config: {},
+      generate: async () => {
+        enteredAI();
+        return new Promise((resolve) => {
+          releaseAI = resolve;
+        });
+      },
+    };
+    const result = cachedResearch(
+      f.platform,
+      f.user,
+      llm,
+      'market-research',
+      { name: f.product.name },
+      z.object({ summary: z.string() }),
+    );
+    await started;
+    await remove(f, 'products', f.product.id);
+    releaseAI({ summary: 'A late result with deleted private inputs.' });
+    await result;
+    assert.equal((await f.store.list('research_cache')).length, 0);
   } finally {
     await f.close();
   }

@@ -220,8 +220,11 @@ async function prepare(platform, user, kind, id) {
   }
   const updates = [];
   const patch = (name, row, changes) => {
-    if (!marked(name).has(row.id) && Object.keys(changes).length)
-      updates.push({ collection: name, id: row.id, before: hash(row), changes });
+    if (!marked(name).has(row.id) && Object.keys(changes).length) {
+      const previous = updates.find((item) => item.collection === name && item.id === row.id);
+      if (previous) Object.assign(previous.changes, changes);
+      else updates.push({ collection: name, id: row.id, before: hash(row), changes });
+    }
   };
   const removeIds = (values, ids) => (values || []).filter((id) => !ids.has(id));
   // Keep independently saved ads; unlink deleted products/briefs instead of discarding evidence.
@@ -255,6 +258,18 @@ async function prepare(platform, user, kind, id) {
     const changes = {};
     if (row.adLibraryIds?.some((id) => marked('ad_library_observations').has(id)))
       changes.adLibraryIds = removeIds(row.adLibraryIds, marked('ad_library_observations'));
+    if (marked('product_discoveries').has(row.discoveryReportId)) {
+      changes.discoveryReportId = null;
+      changes.discoveryCandidateId = null;
+    }
+    if (row.candidateLocationIds?.some((id) => marked('targeting_locations').has(id))) {
+      changes.candidateLocationIds = removeIds(
+        row.candidateLocationIds,
+        marked('targeting_locations'),
+      );
+      changes.approvedVersionId = null;
+      changes.status = 'needs_research';
+    }
     if (marked('research_versions').has(row.currentVersionId)) {
       changes.currentVersionId = null;
       changes.approvedVersionId = null;
@@ -283,6 +298,49 @@ async function prepare(platform, user, kind, id) {
           staleReason: 'Saved competitor evidence was deleted.',
         },
       });
+  const changedProducts = new Set(
+    updates.filter((item) => item.collection === 'products').map((item) => item.id),
+  );
+  if (collection === 'market_research_reports' && root.type === 'evidence')
+    changedProducts.add(root.productId);
+  const staleReason =
+    'Saved product facts or evidence were deleted. Generate fresh research and request a new review.';
+  for (const project of all.research_projects)
+    if (changedProducts.has(project.productId)) {
+      patch('research_projects', project, {
+        status: 'needs_research',
+        approvedVersionId: null,
+        staleReason,
+      });
+      if (project.currentVersionId) {
+        const version = all.research_versions.find((v) => v.id === project.currentVersionId);
+        if (version)
+          patch('research_versions', version, { adLibraryInvalidatedAt: true, staleReason });
+      }
+    }
+  for (const plan of all.campaign_plans) {
+    if (
+      ['executed', 'executing', 'superseded'].includes(plan.status) ||
+      all.campaigns.some((c) => c.planId === plan.id && !c.deletedAt) ||
+      all.manual_campaigns.some((c) => c.planId === plan.id)
+    )
+      continue;
+    if (
+      contains(plan, changedProducts, ['productId', 'productIds']) ||
+      plan.audienceRecommendation?.geoTargets?.some((target) =>
+        marked('targeting_locations').has(target.id),
+      )
+    ) {
+      patch('campaign_plans', plan, {
+        status: 'needs_research',
+        adLibraryInvalidatedAt: true,
+        staleReason,
+      });
+      for (const approval of all.approval_requests)
+        if (approval.planId === plan.id && ['pending', 'approved'].includes(approval.status))
+          patch('approval_requests', approval, { status: 'superseded', staleReason });
+    }
+  }
   for (const row of all.campaign_plans) {
     if (marked('campaign_plans').has(row.id)) continue;
     const requests = all.approval_requests.filter(
@@ -304,7 +362,8 @@ async function prepare(platform, user, kind, id) {
     marked('research_projects').size ||
     marked('ad_library_observations').size ||
     marked('media_assets').size ||
-    marked('product_discoveries').size
+    marked('product_discoveries').size ||
+    collection === 'market_research_reports'
   ) {
     // Cached outputs can contain deleted private inputs, so discard workspace cache copies too.
     add('research_cache', () => true);
@@ -360,7 +419,9 @@ async function prepare(platform, user, kind, id) {
     rows: rows
       .map(({ collection, row }) => [collection, row.id, hash(row)])
       .sort((a, b) => `${a[0]}:${a[1]}`.localeCompare(`${b[0]}:${b[1]}`)),
-    updates,
+    updates: [...updates].sort((a, b) =>
+      `${a.collection}:${a.id}`.localeCompare(`${b.collection}:${b.id}`),
+    ),
     blockers,
   });
   return {

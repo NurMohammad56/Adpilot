@@ -41,26 +41,28 @@ function OfficialAdSearch({ data, api, run, busy, keyword, country, onCapture })
           ? 'বাংলাদেশের সাধারণ product ads এই API coverage-এ নেই। বাংলাদেশে উপরের public search ব্যবহার করুন। UK/EU search-এর জন্য eligible token ও Meta-এর পৃথক access লাগতে পারে।'
           : 'Commercial Bangladesh ads are outside this API coverage. Use the public searches above for Bangladesh. UK/EU search may require separate Meta eligibility and an eligible token.'}
       </p>
-      <a {...external} href="https://www.facebook.com/ads/library/api/">
-        {bn ? 'Meta API coverage ও access' : 'Meta API coverage and access'}
-      </a>
-      <label className="check-label">
-        <input
-          type="checkbox"
-          checked={fresh}
-          onChange={(e) => setFresh(e.target.checked)}
-          disabled={!supported}
-        />
-        {bn ? 'API-তে আবার check করুন (cache বাদ দিন)' : 'Check the API again (skip cache)'}
-      </label>
-      <button
-        type="button"
-        className="button secondary"
-        disabled={busy || !supported || keyword.trim().length < 2}
-        onClick={() => run(search)}
-      >
-        {bn ? 'Official API-তে খুঁজুন' : 'Search official API'}
-      </button>
+      <div className="official-ad-search-controls">
+        <a {...external} href="https://www.facebook.com/ads/library/api/">
+          {bn ? 'Meta API coverage ও access' : 'Meta API coverage and access'}
+        </a>
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={fresh}
+            onChange={(e) => setFresh(e.target.checked)}
+            disabled={!supported}
+          />
+          {bn ? 'API-তে আবার check করুন (cache বাদ দিন)' : 'Check the API again (skip cache)'}
+        </label>
+        <button
+          type="button"
+          className="button secondary"
+          disabled={busy || !supported || keyword.trim().length < 2}
+          onClick={() => run(search)}
+        >
+          {bn ? 'Official API-তে খুঁজুন' : 'Search official API'}
+        </button>
+      </div>
       {error && (
         <p className="notice" role="alert">
           {error}

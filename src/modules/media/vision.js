@@ -87,16 +87,28 @@ export async function analyzeProductImages(platform, user, ids, facts = {}) {
     discrepancies: [],
     creativeSuggestions: [],
   };
-  const saved = await platform.store.insert('visual_analyses', {
-    businessId: user.businessId,
-    inputHash,
-    assets: assets.map((a) => ({ id: a.id, checksum: a.checksum })),
-    report,
-    provider: llm.config.llmProvider,
-    model: llm.config.researchModel || llm.config.llmModel,
-    classification: 'Visual AI observations, not verified specifications or demand',
-    demo: platform.config.mode === 'demo',
-    analyzedAt: now(),
+  const saved = await platform.store.transaction(async () => {
+    await platform.mutationGuard(user);
+    for (const asset of assets) {
+      const latest = await platform.media.asset(user, asset.id);
+      assert(
+        latest.checksum === asset.checksum,
+        409,
+        'MEDIA_CHANGED',
+        'Product images changed during analysis.',
+      );
+    }
+    return platform.store.insert('visual_analyses', {
+      businessId: user.businessId,
+      inputHash,
+      assets: assets.map((a) => ({ id: a.id, checksum: a.checksum })),
+      report,
+      provider: llm.config.llmProvider,
+      model: llm.config.researchModel || llm.config.llmModel,
+      classification: 'Visual AI observations, not verified specifications or demand',
+      demo: platform.config.mode === 'demo',
+      analyzedAt: now(),
+    });
   });
   await platform.audit(user, 'media.visually_analyzed', saved.id, {
     imageCount: images.length,

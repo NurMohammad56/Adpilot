@@ -50,7 +50,9 @@ test('discovery, shortlist, ad checking, actual-product prefill and Research stu
   await expect(
     page.getByRole('heading', { name: 'Kitchen organiser basket', exact: true }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Run country research', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Validate product business potential', exact: true })
+    .click();
   await expect(page.locator('.research-readiness')).toBeVisible();
   await page.getByRole('button', { name: 'Compare real competitors', exact: true }).click();
   await expect(page.locator('#research-followup')).toHaveValue(

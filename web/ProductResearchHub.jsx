@@ -81,7 +81,41 @@ export function ProductResearchHub({ tab, setTab, ...props }) {
             }}
           />
         ) : (
-          <ResearchDesk {...props} mode="product" onOpenDiscovery={() => setTab('discover')} />
+          <>
+            <div className="product-research-purpose">
+              <strong>
+                {bn
+                  ? 'Ad Library থেকে ব্যবসার সিদ্ধান্ত পর্যন্ত'
+                  : 'From competitor evidence to a business decision'}
+              </strong>
+              <p>
+                {bn
+                  ? 'Ad Library research-এ প্রতিযোগীর বিজ্ঞাপনের hook, offer ও creative বোঝা হয়। এখানে সেই saved evidence-এর সঙ্গে আপনার প্রোডাক্টের দাম, খরচ, buyer need ও delivery risk মিলিয়ে ব্যবসা ও ছোট test-এর সিদ্ধান্ত নেওয়া হয়।'
+                  : 'Ad Library research explains competitors’ hooks, offers and creatives. Product research combines that saved evidence with your prices, costs, buyer needs and delivery risks to decide what to validate before a small sales test.'}
+              </p>
+              <ol>
+                <li>
+                  {bn
+                    ? 'Saved product-এর বাস্তব তথ্য ব্যবহার করুন'
+                    : 'Reuse your saved product facts'}
+                </li>
+                <li>
+                  {bn ? 'Saved competitor evidence যুক্ত করুন' : 'Use saved competitor evidence'}
+                </li>
+                <li>
+                  {bn
+                    ? 'ব্যবসার সিদ্ধান্ত যাচাই ও approve করুন'
+                    : 'Review and approve the business decision'}
+                </li>
+              </ol>
+              <small>
+                {bn
+                  ? 'একই ad-এর analysis আবার দিতে হবে না। নতুন প্রশ্ন বা নতুন evidence-এ research বদলাবে; অপরিবর্তিত analysis cache থেকে reuse হয়।'
+                  : 'No need to enter or analyze the same ad again. New questions or evidence change the research; unchanged analysis is reused from cache.'}
+              </small>
+            </div>
+            <ResearchDesk {...props} mode="product" onOpenDiscovery={() => setTab('discover')} />
+          </>
         )}
       </section>
     </>

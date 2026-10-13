@@ -6,6 +6,8 @@ import productTranslations from './locales/product-bn.json';
 import adLibraryTranslations from './locales/ad-library-bn.json';
 import discoveryTranslations from './locales/discovery-bn.json';
 import premiumTranslations from './locales/premium-bn.json';
+import recordTranslations from './locales/records-bn.json';
+import productResearchTranslations from './locales/product-research-bn.json';
 const translations = {
   ...baseTranslations,
   ...operationsTranslations,
@@ -14,6 +16,8 @@ const translations = {
   ...adLibraryTranslations,
   ...discoveryTranslations,
   ...premiumTranslations,
+  ...recordTranslations,
+  ...productResearchTranslations,
 };
 
 const listeners = new Set();

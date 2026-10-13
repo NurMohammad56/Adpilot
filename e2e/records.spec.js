@@ -107,7 +107,7 @@ test('individual approval, plan, saved ad and media deletion work; Settings expo
   await confirm(page);
   await expect(page.locator('.approval-row')).toHaveCount(0);
   await nav(page, 'Campaign plans');
-  await expect(page.locator('.plan-card')).toContainText('draft');
+  await expect(page.locator('.plan-card')).toContainText('Draft');
   await page
     .locator('.plan-card')
     .getByRole('button', { name: /^Delete / })

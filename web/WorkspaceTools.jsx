@@ -29,6 +29,11 @@ import { CampaignSetup } from './CampaignSetup.jsx';
 import { CampaignField } from './FieldHelp.jsx';
 import { RegionPicker } from './RegionPicker.jsx';
 import { DeleteRecord } from './DeleteRecord.jsx';
+import {
+  ProductResearchFields,
+  ProductFacts,
+  productResearchGoals,
+} from './ProductResearchFields.jsx';
 const Field = ({ label, children, hint, help }) =>
   help ? (
     <CampaignField label={label} help={help} hint={hint}>
@@ -376,12 +381,19 @@ export function ResearchDesk({
   onPlan,
   onOpenLibrary,
   onOpenDiscovery,
+  showProduct,
   mode = 'digital',
 }) {
   const physical = mode === 'product';
   const [freshResearch, setFreshResearch] = useState(false);
   const defaults = physical
-    ? { ...emptyBrief, kind: 'physical-product', candidateCountries: ['BD'] }
+    ? {
+        ...emptyBrief,
+        kind: 'physical-product',
+        candidateCountries: ['BD'],
+        productCategory: '',
+        researchGoal: 'business-decision',
+      }
     : emptyBrief;
   const selectionKey = `adpilot-${physical ? 'product-research' : 'research'}-selection:${data.business.id}`;
   const [locations, setLocations] = useState([]);
@@ -405,15 +417,18 @@ export function ResearchDesk({
   const savedBrief =
     briefDrafts[briefKey] ||
     (project
-      ? Object.fromEntries(
-          Object.keys(emptyBrief).map((key) => [key, project[key] ?? emptyBrief[key]]),
-        )
+      ? Object.fromEntries(Object.keys(defaults).map((key) => [key, project[key] ?? defaults[key]]))
       : defaults);
-  const brief = (
+  const compatibleBrief = (
     physical ? savedBrief.kind !== 'physical-product' : savedBrief.kind === 'physical-product'
   )
     ? defaults
     : savedBrief;
+  const brief = { ...defaults, ...compatibleBrief };
+  const existingProductBrief =
+    physical && !project && brief.productId
+      ? projects.find((item) => item.productId === brief.productId)
+      : null;
   const setBrief = (value) => setBriefDrafts((current) => ({ ...current, [briefKey]: value }));
   const [briefEditing, setBriefEditing] = useState(false);
   const [versions, setVersions] = useState([]);
@@ -535,7 +550,7 @@ export function ResearchDesk({
             }}
           >
             <Plus size={16} />
-            New research brief
+            {physical ? 'New product research' : 'New research brief'}
           </button>
           {projectPagination.items.map((item) => (
             <div key={item.id} className="research-record-item">
@@ -577,6 +592,16 @@ export function ResearchDesk({
         </aside>
         <section className="research-main">
           {project && (
+            <ProductFacts
+              product={
+                physical && !briefEditing
+                  ? data.products.find((item) => item.id === project.productId)
+                  : null
+              }
+              onEdit={showProduct}
+            />
+          )}
+          {project && (
             <ResearchEvidenceWorkbench
               data={data}
               api={api}
@@ -593,24 +618,77 @@ export function ResearchDesk({
           )}
           {!project || briefEditing ? (
             <article className="panel tools-panel">
-              <h2>{project ? 'Edit research brief' : 'What would you like to research?'}</h2>
+              <h2>
+                {physical
+                  ? project
+                    ? 'Edit product research details'
+                    : 'Which product should we validate?'
+                  : project
+                    ? 'Edit research brief'
+                    : 'What would you like to research?'}
+              </h2>
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
-                  run(async () => {
-                    const saved = await api(
-                      project ? `/research/${project.id}` : '/research',
-                      project ? 'PUT' : 'POST',
-                      brief,
-                    );
-                    setBriefDrafts((current) => {
-                      const updated = { ...current };
-                      delete updated[briefKey];
-                      return updated;
-                    });
-                    await loadProjects();
-                    await select(saved);
-                  }, 'Brief saved. Run research or add a focused question.');
+                  run(
+                    async () => {
+                      const input =
+                        physical && !brief.buyerProfile.trim()
+                          ? {
+                              ...brief,
+                              buyerProfile: `Buyer hypothesis not yet validated: people considering ${brief.name}. Identify actual buyer needs and segments in the selected markets.`,
+                            }
+                          : brief;
+                      let saved;
+                      if (physical && !project && brief.productId) {
+                        const linked = await api(
+                          `/products/${brief.productId}/research-brief`,
+                          'POST',
+                          {},
+                        );
+                        if (linked.reused) {
+                          await loadProjects();
+                          await select(linked.project);
+                          return;
+                        }
+                        const evidence = [
+                          ...new Map(
+                            [...(input.evidence || []), ...(linked.project.evidence || [])].map(
+                              (item) => [
+                                JSON.stringify([
+                                  item.source,
+                                  item.subject,
+                                  item.finding,
+                                  item.observedAt,
+                                ]),
+                                item,
+                              ],
+                            ),
+                          ).values(),
+                        ].slice(0, 30);
+                        saved = await api(`/research/${linked.project.id}`, 'PUT', {
+                          ...input,
+                          evidence,
+                        });
+                      } else {
+                        saved = await api(
+                          project ? `/research/${project.id}` : '/research',
+                          project ? 'PUT' : 'POST',
+                          input,
+                        );
+                      }
+                      setBriefDrafts((current) => {
+                        const updated = { ...current };
+                        delete updated[briefKey];
+                        return updated;
+                      });
+                      await loadProjects();
+                      await select(saved);
+                    },
+                    physical
+                      ? 'Product research ready. Review the details, then validate your selected question.'
+                      : 'Brief saved. Run research or add a focused question.',
+                  );
                 }}
               >
                 {!project && !physical && (
@@ -669,72 +747,68 @@ export function ResearchDesk({
                     </select>
                   </Field>
                 )}
-                <Field label="Offer / project name">
-                  <input
-                    required
-                    value={brief.name}
-                    onChange={(event) => setBrief({ ...brief, name: event.target.value })}
-                    placeholder="Custom ecommerce development for small businesses"
+                {physical ? (
+                  <ProductResearchFields
+                    brief={brief}
+                    setBrief={setBrief}
+                    products={data.products}
+                    projects={projects}
+                    project={project}
+                    onEditProduct={showProduct}
+                    onOpenExisting={(existing) =>
+                      run(
+                        () => select(existing),
+                        'Existing product research opened. Saved reports and evidence are reused.',
+                      )
+                    }
                   />
-                </Field>
-                <Field label="Offer type">
-                  <select
-                    disabled={physical}
-                    value={brief.kind}
-                    onChange={(event) => setBrief({ ...brief, kind: event.target.value })}
-                  >
-                    {!physical && <option value="service">Service / client project</option>}
-                    {!physical && <option value="software">Software / digital application</option>}
-                    {physical && (
-                      <option value="physical-product">Physical product research</option>
-                    )}
-                  </select>
-                </Field>
-                {brief.kind === 'physical-product' && (
-                  <Field
-                    label="Linked product"
-                    hint="Link real product costs and media to this research. Approve Bangladesh to use the product sales engine."
-                  >
-                    <select
-                      value={brief.productId || ''}
-                      onChange={(event) => {
-                        const product = data.products.find(
-                          (item) => item.id === event.target.value,
-                        );
-                        setBrief({
-                          ...brief,
-                          productId: product?.id || null,
-                          ...(product
-                            ? { name: product.name, description: product.description }
-                            : {}),
-                        });
-                      }}
-                    >
-                      <option value="">Research only / choose a saved product</option>
-                      {data.products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
+                ) : (
+                  <>
+                    <Field label="Offer / project name">
+                      <input
+                        required
+                        value={brief.name}
+                        onChange={(event) => setBrief({ ...brief, name: event.target.value })}
+                        placeholder="Custom ecommerce development for small businesses"
+                      />
+                    </Field>
+                    <Field label="Offer type">
+                      <select
+                        value={brief.kind}
+                        onChange={(event) => setBrief({ ...brief, kind: event.target.value })}
+                      >
+                        <option value="service">Service / client project</option>
+                        <option value="software">Software / digital application</option>
+                      </select>
+                    </Field>
+                    <Field label="What do you sell, and what problem does it solve?">
+                      <textarea
+                        required
+                        value={brief.description}
+                        onChange={(event) =>
+                          setBrief({ ...brief, description: event.target.value })
+                        }
+                      />
+                    </Field>
+                    <Field label="Who should buy it?">
+                      <textarea
+                        required
+                        value={brief.buyerProfile}
+                        onChange={(event) =>
+                          setBrief({ ...brief, buyerProfile: event.target.value })
+                        }
+                        placeholder="Retail business owners who need a custom online store"
+                      />
+                    </Field>
+                  </>
                 )}
-                <Field label="What do you sell, and what problem does it solve?">
-                  <textarea
-                    required
-                    value={brief.description}
-                    onChange={(event) => setBrief({ ...brief, description: event.target.value })}
-                  />
-                </Field>
-                <Field label="Who should buy it?">
-                  <textarea
-                    required
-                    value={brief.buyerProfile}
-                    onChange={(event) => setBrief({ ...brief, buyerProfile: event.target.value })}
-                    placeholder="Retail business owners who need a custom online store"
-                  />
-                </Field>
-                <Field label="Countries to compare (up to 10)">
+                <Field
+                  label={
+                    physical
+                      ? 'Markets to investigate (up to 10)'
+                      : 'Countries to compare (up to 10)'
+                  }
+                >
                   <input
                     aria-label="Search countries"
                     placeholder="Search countries by name or code"
@@ -791,11 +865,17 @@ export function ResearchDesk({
                   run={run}
                   busy={busy}
                 />
-                <Field label="Questions and constraints">
+                <Field
+                  label={physical ? 'Product questions and limits' : 'Questions and constraints'}
+                >
                   <textarea
                     value={brief.questions}
                     onChange={(event) => setBrief({ ...brief, questions: event.target.value })}
-                    placeholder="Compare buyer readiness, competition, sales cycle, language and how we should validate demand."
+                    placeholder={
+                      physical
+                        ? 'Compare actual competitor prices and delivery terms, product quality, COD returns, buyer needs and the cheapest useful test.'
+                        : 'Compare buyer readiness, competition, sales cycle, language and how we should validate demand.'
+                    }
                   />
                 </Field>
                 <EvidenceInputs brief={brief} setBrief={setBrief} />
@@ -810,10 +890,12 @@ export function ResearchDesk({
                 />
                 <button
                   className="button primary"
-                  disabled={busy || !brief.candidateCountries.length}
+                  disabled={
+                    busy || !brief.candidateCountries.length || Boolean(existingProductBrief)
+                  }
                 >
                   <Save size={16} />
-                  Save research brief
+                  {physical ? 'Save product research' : 'Save research brief'}
                 </button>
                 {project && (
                   <button
@@ -841,6 +923,15 @@ export function ResearchDesk({
                   <div>
                     <span className="eyebrow">{project.kind.toUpperCase()}</span>
                     <h2>{project.name}</h2>
+                    {physical && (
+                      <small>
+                        {
+                          productResearchGoals.find(
+                            ([key]) => key === (project.researchGoal || 'business-decision'),
+                          )?.[1]
+                        }
+                      </small>
+                    )}
                   </div>
                   <button className="button secondary" onClick={() => setBriefEditing(true)}>
                     Edit brief & evidence
@@ -858,9 +949,9 @@ export function ResearchDesk({
                   onChange={(adLibraryIds) =>
                     run(async () => {
                       const input = Object.fromEntries(
-                        Object.keys(emptyBrief).map((key) => [
+                        Object.keys(defaults).map((key) => [
                           key,
-                          key === 'adLibraryIds' ? adLibraryIds : (project[key] ?? emptyBrief[key]),
+                          key === 'adLibraryIds' ? adLibraryIds : (project[key] ?? defaults[key]),
                         ]),
                       );
                       await api(`/research/${project.id}`, 'PUT', input);
@@ -893,7 +984,11 @@ export function ResearchDesk({
                       id="research-followup"
                       value={followup}
                       onChange={(event) => setFollowup(event.target.value)}
-                      placeholder="Compare US and UK specifically for custom ecommerce clients. What evidence would change the recommendation?"
+                      placeholder={
+                        physical
+                          ? 'Do the saved competitor offers match my product quality and delivery terms? What price and COD risks should I validate before a small sales test?'
+                          : 'Compare US and UK specifically for custom ecommerce clients. What evidence would change the recommendation?'
+                      }
                     />
                   </Field>
                   <label className="check-label">
@@ -911,7 +1006,11 @@ export function ResearchDesk({
                   </p>
                   <button className="button primary" disabled={busy}>
                     <RefreshCw size={16} />
-                    {version ? 'Research again with this question' : 'Run country research'}
+                    {version
+                      ? 'Research again with this question'
+                      : physical
+                        ? 'Validate product business potential'
+                        : 'Run country research'}
                   </button>
                 </form>
               </article>
@@ -977,7 +1076,11 @@ export function ResearchDesk({
                     <ConfidenceNotes report={displayReport} />
                     <AdLibraryResearchSources observations={displayReport.adLibraryObservations} />
                     <details className="research-source-details">
-                      <summary>Explore trend and competitor sources for this offer</summary>
+                      <summary>
+                        {physical
+                          ? 'Explore product demand and competitor sources'
+                          : 'Explore trend and competitor sources for this offer'}
+                      </summary>
                       <TrendSourceHub
                         country={project.candidateCountries[0]}
                         keyword={project.name}

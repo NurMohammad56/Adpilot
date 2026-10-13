@@ -70,7 +70,88 @@
   padding: 0 0 12px;
 }
 .ad-library-saved > .check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 16px 0;
+}
+.ad-library-saved > .check-label input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+}
+.ad-library-saved > .guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.ad-library-saved > .guide-actions > .button {
+  flex: 1 1 180px;
+  margin: 0;
+}
+.ad-library-saved > .guide-actions > .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.ad-card-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+.ad-card-original {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 32px;
+}
+.ad-card-management {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.ad-card-management > .button {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.ad-card-management > .record-delete {
+  flex: 0 0 auto;
+}
+.ad-card-actions .button,
+.ad-card-actions .record-delete,
+.ad-library-next-steps > .button,
+.ad-library-saved > .guide-actions > .button {
+  min-height: 44px;
+  max-width: 100%;
+  margin: 0;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+.ad-card-continue {
+  width: 100%;
+}
+.ad-library-next-steps {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.ad-library-next-steps > .draft-note {
+  margin: 0;
+}
+.ad-library-next-steps > .button {
+  width: 100%;
 }
 .ad-library-media {
   border: 1px solid var(--line);

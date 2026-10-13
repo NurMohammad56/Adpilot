@@ -144,7 +144,10 @@ test('Research studio exposes saved ad selection and translates its generated re
     .getByRole('navigation')
     .getByRole('button', { name: 'Research studio', exact: true })
     .click();
-  await page.getByRole('button', { name: /Service brief with competitor inspiration/ }).click();
+  await page
+    .locator('.research-project')
+    .filter({ hasText: 'Service brief with competitor inspiration' })
+    .click();
   await expect(page.getByRole('checkbox', { name: /Inspiration seller/ })).toBeChecked();
   await expect(
     page.getByRole('button', { name: 'Ad Library research', exact: true }).last(),

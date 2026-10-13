@@ -82,6 +82,12 @@ export class Platform {
       detail,
     });
   }
+  async mutationGuard(user) {
+    const business = await this.store.get('businesses', user.businessId);
+    await this.store.update('businesses', business.id, {
+      dataMutationVersion: (business.dataMutationVersion || 0) + 1,
+    });
+  }
   async integration(businessId) {
     return this.store.find('integrations', { businessId, provider: 'META' });
   }
@@ -282,6 +288,8 @@ export class Platform {
   async addEvidence(user, productId, input) {
     await this.owned('products', productId, user);
     return this.store.transaction(async () => {
+      await this.mutationGuard(user);
+      await this.owned('products', productId, user);
       const row = await this.store.insert('market_research_reports', {
         type: 'evidence',
         productId,
@@ -517,6 +525,7 @@ export class Platform {
     plan.fingerprint = planFingerprint(plan);
     return this.store.transaction(async () => {
       // Evidence/API work happened outside the transaction; confirm inputs didn't change underneath it.
+      await this.mutationGuard(user);
       if (sourceResearch) await this.research.approved(user, sourceResearch.version.id);
       await assertAdLibraryFresh(this, user, report);
       assert(
@@ -1501,6 +1510,8 @@ export class Platform {
     const raw = await this.meta.insights(campaign, plan, integration);
     const rows = raw.map(calculateMetrics);
     await this.store.transaction(async () => {
+      await this.mutationGuard(user);
+      await this.owned('campaigns', campaignId, user);
       for (const row of rows) {
         const existing = await this.store.find('ad_performance', {
           campaignId,
@@ -1545,6 +1556,8 @@ export class Platform {
         scalingReady,
     );
     return this.store.transaction(async () => {
+      await this.mutationGuard(user);
+      await this.owned('campaigns', campaignId, user);
       const existing = await this.store.list('optimization_recommendations', {
         campaignId,
         status: 'proposed',

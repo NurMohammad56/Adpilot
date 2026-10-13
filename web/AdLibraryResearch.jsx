@@ -644,7 +644,16 @@ export function AdLibraryAnalysis({ row }) {
   );
 }
 
-export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, showPlan }) {
+export function AdLibraryResearch({
+  data,
+  api,
+  run,
+  busy,
+  setPage,
+  refresh,
+  showPlan,
+  showProduct,
+}) {
   const bn = useLanguage() === 'bn';
   const key = `${data.business.id}:${data.user.id}`;
   const openWorkbench = (projectId, kind) => {
@@ -1028,26 +1037,44 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
                   {bn ? 'আপনার দেখা status:' : 'Status you observed:'} {row.statusObserved}{' '}
                   {row.archived ? '· Archived' : ''}
                 </small>
-                <div className="guide-actions">
-                  <a {...external} href={row.adUrl}>
+                <div className="ad-card-actions">
+                  <a className="ad-card-original" {...external} href={row.adUrl}>
+                    <ExternalLink size={16} />
                     Original ad
                   </a>
+                  <div className="ad-card-management">
+                    <button
+                      className="button secondary"
+                      disabled={busy}
+                      onClick={() => run(() => archive(row))}
+                    >
+                      {row.archived ? 'Restore observation' : 'Archive observation'}
+                    </button>
+                    <DeleteRecord
+                      kind="ad-library"
+                      id={row.id}
+                      name={row.pageName}
+                      onDeleted={async () => {
+                        if (selectedId === row.id) setSelectedId('');
+                        await load();
+                      }}
+                    />
+                  </div>
                   <button
-                    className="secondary"
-                    disabled={busy}
-                    onClick={() => run(() => archive(row))}
-                  >
-                    {row.archived ? 'Restore observation' : 'Archive observation'}
-                  </button>
-                  <DeleteRecord
-                    kind="ad-library"
-                    id={row.id}
-                    name={row.pageName}
-                    onDeleted={async () => {
-                      if (selectedId === row.id) setSelectedId('');
-                      await load();
+                    type="button"
+                    className="button secondary ad-card-continue"
+                    disabled={busy || row.archived}
+                    onClick={() => {
+                      setPage('Products');
+                      showProduct(null, {
+                        draftId: `ad-library-${row.id}`,
+                        adLibraryIds: [row.id],
+                      });
                     }}
-                  />
+                  >
+                    Continue with product
+                  </button>
+                  {row.archived && <small>Restore this ad before linking it to a product.</small>}
                 </div>
               </article>
             ))}
@@ -1061,9 +1088,15 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
               Linked examples feed into your next research. General inspiration is kept on this
               board. Archived examples are excluded from new research.
             </p>
-            <button className="button secondary" onClick={() => setPage('Research studio')}>
-              Continue in Research studio
-            </button>
+            <div className="ad-library-next-steps">
+              <p className="draft-note">
+                Continue with product links the selected ad as competitor evidence. Enter your own
+                product details in the form.
+              </p>
+              <button className="button secondary" onClick={() => setPage('Research studio')}>
+                Continue in Research studio
+              </button>
+            </div>
           </aside>
           <div className="ad-library-detail">
             <ObservationForm

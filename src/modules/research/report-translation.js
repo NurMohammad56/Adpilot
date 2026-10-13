@@ -46,6 +46,9 @@ const proseKeys = new Set([
 ]);
 const opaque = new Set([
   'retrieval',
+  'marketEvidence',
+  'researchReuse',
+  'quotedPrice',
   'adLibraryObservations',
   'adLibraryScope',
   'ads',

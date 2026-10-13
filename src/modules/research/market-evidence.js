@@ -96,17 +96,21 @@ export async function marketEvidence(platform, user, input = {}) {
     advertisers.set(key, group);
   }
   const stats = [];
+  const bases =
+    project && project.kind !== 'physical-product' ? ['project', 'subscription'] : ['unit'];
   for (const pair of new Set(
     scoped
-      ? prices.filter((p) => p.country !== 'ALL').map((p) => `${p.country}:${p.currency}`)
+      ? prices
+          .filter((p) => p.country !== 'ALL' && bases.includes(p.basis))
+          .map((p) => `${p.country}:${p.currency}:${p.basis}`)
       : [],
   )) {
-    const [country, currency] = pair.split(':');
+    const [country, currency, basis] = pair.split(':');
     const comparable = prices.filter(
       (p) =>
         p.country === country &&
         p.currency === currency &&
-        p.basis === 'unit' &&
+        p.basis === basis &&
         p.comparability === 'comparable' &&
         !p.stale,
     );
@@ -123,7 +127,7 @@ export async function marketEvidence(platform, user, input = {}) {
       stats.push({
         currency,
         country,
-        basis: 'unit',
+        basis,
         samples: values.length,
         min: values[0],
         max: values.at(-1),
@@ -163,7 +167,7 @@ export async function marketEvidence(platform, user, input = {}) {
         ? ['Fewer than three saved ads; broaden the sample before comparing.']
         : []),
       ...(advertisers.size < 3 ? ['Fewer than three distinct advertisers.'] : []),
-      ...(!stats.length ? ['No recent, comparable unit prices.'] : []),
+      ...(!stats.length ? ['No recent comparable prices for this offer scope.'] : []),
       ...(rows.some((r) => !r.startDateObserved) ? ['Some ad start dates are unknown.'] : []),
       ...(rows.some((r) => Date.now() - Date.parse(r.observedAt) >= 30 * 86400000)
         ? ['Some observations are older than 30 days; check their current details.']

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ExternalLink, Search, Database, Sparkles } from 'lucide-react';
-import { useLanguage } from './i18n.js';
+import { useLanguage, translateText } from './i18n.js';
 import { useDraft } from './use-draft.js';
 import { Pagination, usePagination } from './Pagination.jsx';
 import { archiveCountries } from '../src/modules/research/ad-library-links.js';
@@ -15,16 +15,20 @@ function OfficialAdSearch({ data, api, run, busy, keyword, country, onCapture })
   const [results, setResults] = useState(null),
     [error, setError] = useState(''),
     [fresh, setFresh] = useState(false);
+  const current = useRef('');
+  current.current = `${data.business.id}:${keyword}:${country}`;
   useEffect(() => {
     setResults(null);
     setError('');
   }, [data.business.id, keyword, country]);
   async function search() {
+    const requested = current.current;
     setError('');
     try {
-      setResults(await api('/ad-library/api-search', 'POST', { keyword, country, fresh }));
+      const response = await api('/ad-library/api-search', 'POST', { keyword, country, fresh });
+      if (current.current === requested) setResults(response);
     } catch (err) {
-      setError(err.message);
+      if (current.current === requested) setError(err.message);
     }
   }
   return (
@@ -161,9 +165,19 @@ export function MarketSample({ sample }) {
           ? 'এটি আপনার saved sample; পুরো Facebook market-এর সংখ্যা বা competitor-এর sales/profit নয়।'
           : 'Your saved sample, not total Facebook competition or competitor sales/profit.'}
       </p>
+      {!!sample.gaps?.length && (
+        <details className="evidence-gaps">
+          <summary>{bn ? 'এই evidence-এ কী বাকি আছে' : 'What this evidence still needs'}</summary>
+          <ul>
+            {sample.gaps.map((gap, i) => (
+              <li key={i}>{translateText(gap)}</li>
+            ))}
+          </ul>
+        </details>
+      )}
       {sample.comparablePriceRanges?.map((p) => (
-        <p className="price-range" key={`${p.country}:${p.currency}`}>
-          {bn ? 'Comparable unit price' : 'Comparable unit price'}:{' '}
+        <p className="price-range" key={`${p.country}:${p.currency}:${p.basis}`}>
+          {p.country} · {bn ? 'Comparable দাম' : 'Comparable price'} ({p.basis}):{' '}
           <strong>
             {p.currency} {p.min.toLocaleString()}–{p.max.toLocaleString()}
           </strong>{' '}
@@ -250,7 +264,7 @@ export function MarketSample({ sample }) {
       <p className="small muted">
         {bn
           ? 'Comparable price-এর জন্য একই specification-এর unit price চিহ্নিত করুন; অজানা দাম বা bundle-এর দাম একসঙ্গে তুলনা হয় না।'
-          : 'Mark unit prices with matching specifications as comparable. Unknown prices and bundles are excluded from the unit-price range.'}
+          : 'Compare matching specifications only. Unit, project and subscription prices stay separate; bundles and unknown quotes are excluded from the ranges.'}
       </p>
     </section>
   );
@@ -288,6 +302,8 @@ export function ResearchEvidenceWorkbench({
     {},
   );
   const scopeKey = `${data.business.id}:${country}:${scope.productId}:${scope.projectId}:${keyword}:${refreshKey}`;
+  const currentScope = useRef(scopeKey);
+  currentScope.current = scopeKey;
   useEffect(() => {
     let live = true;
     setStrategy(null);
@@ -305,6 +321,7 @@ export function ResearchEvidenceWorkbench({
     };
   }, [scopeKey]);
   async function build(useAI = false) {
+    const requested = currentScope.current;
     const value = await api('/ad-library/search-strategy', 'POST', {
       keyword: keyword.trim(),
       country,
@@ -316,7 +333,7 @@ export function ResearchEvidenceWorkbench({
         .filter(Boolean)
         .slice(0, 10),
     });
-    setStrategy(value);
+    if (currentScope.current === requested) setStrategy(value);
   }
   const searches = [...(strategy?.searches || []), ...(strategy?.advertiserSearches || [])];
   return (
@@ -331,7 +348,14 @@ export function ResearchEvidenceWorkbench({
           </p>
         </div>
         {onOpenLibrary && (
-          <button type="button" className="button secondary" onClick={()=>{primeAdContext(data,scope,country,keyword);onOpenLibrary();}}>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => {
+              primeAdContext(data, scope, country, keyword);
+              onOpenLibrary();
+            }}
+          >
             {bn ? 'Ad সংরক্ষণ করুন' : 'Save competitor ads'}
           </button>
         )}

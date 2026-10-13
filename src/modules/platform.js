@@ -331,8 +331,8 @@ export class Platform {
       ...(await this.store.list('campaigns', { businessId: user.businessId })),
       ...(await this.store.list('manual_campaigns', { businessId: user.businessId })),
     ].filter((campaign) => relatedPlans.some((plan) => plan.id === campaign.planId));
-    const actualOutcomes = outcomes.filter((o) =>
-      productCampaigns.some((c) => c.id === o.campaignId),
+    const actualOutcomes = outcomes.filter(
+      (o) => !o.voidedAt && productCampaigns.some((c) => c.id === o.campaignId),
     );
     const adEvidence = await adLibrarySnapshot(this, user, { productIds: [productId] });
     const adLibraryObservations = adEvidence.observations;

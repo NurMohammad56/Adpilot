@@ -76,7 +76,16 @@ export async function researchProduct(
         classification:
           'Owner-recorded outcomes, not independently verified. No extrapolated sales or performance guarantees.',
         recordedCount: actualOutcomes.length,
-        latest: actualOutcomes.slice(-20),
+        latest: actualOutcomes
+          .slice(-20)
+          .map(({ kind, status, observedOn, receivedRevenue, refunds, actualCost }) => ({
+            kind,
+            status,
+            observedOn,
+            receivedRevenue,
+            refunds,
+            actualCost,
+          })),
       },
       responseLanguage: language === 'bn' ? 'Bangla' : 'English',
       visualAnalysis: visualAnalysis

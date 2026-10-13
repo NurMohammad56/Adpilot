@@ -147,7 +147,9 @@ export async function voidOutcome(platform, user, id) {
 }
 
 export async function actualResults(platform, user, period) {
-  const campaigns = await platform.store.list('campaigns', { businessId: user.businessId });
+  const campaigns = (
+    await platform.store.list('campaigns', { businessId: user.businessId })
+  ).filter((row) => !row.deletedAt);
   const outcomes = (
     await platform.store.list('business_outcomes', { businessId: user.businessId })
   ).filter((row) => !row.voidedAt && row.observedOn >= period.from && row.observedOn <= period.to);

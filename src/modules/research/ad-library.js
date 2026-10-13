@@ -482,6 +482,7 @@ export async function listAdLibraryObservations(platform, user) {
       analysisStale: row.analysis ? !(await analysisFresh(platform, user, row)) : false,
     });
   const jobs = (await platform.store.list('jobs', { businessId: user.businessId }))
+    .filter((row) => !row.deletedAt)
     .filter((row) => ['ad-library-analysis', 'ad-evidence-refresh'].includes(row.type))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 30)

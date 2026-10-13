@@ -65,6 +65,7 @@ import {
 } from './modules/analytics/outcomes.js';
 import { accountSnapshot, latestAccountSnapshot } from './modules/analytics/account.js';
 import { operationLocks, redisRateStore } from './modules/auth/operation-lock.js';
+import { listManagedRecords, deletionPreview, deleteManagedRecord } from './modules/records.js';
 
 const parse = (schema) => (req, res, next) => {
   const result = schema.safeParse(req.body);
@@ -310,6 +311,22 @@ export function createApp(runtime) {
     res.json({ user: publicUser(req.user), mode: config.mode }),
   );
   app.get('/api/overview', async (req, res) => res.json(await platform.overview(req.user)));
+  app.get('/api/records', async (req, res) =>
+    res.json(await listManagedRecords(platform, req.user, req.query.kind)),
+  );
+  app.get('/api/records/:kind/:id/delete-preview', async (req, res) =>
+    res.json(await deletionPreview(platform, req.user, req.params.kind, req.params.id)),
+  );
+  app.delete(
+    '/api/records/:kind/:id',
+    parse(z.object({ token: z.string().regex(/^[a-f0-9]{64}$/) }).strict()),
+    async (req, res) =>
+      res.json(
+        await exclusive(`delete:${req.user.businessId}`, () =>
+          deleteManagedRecord(platform, req.user, req.params.kind, req.params.id, req.input.token),
+        ),
+      ),
+  );
   app.post(
     '/api/catalog-feeds',
     parse(
@@ -728,6 +745,7 @@ export function createApp(runtime) {
   app.get('/api/jobs/product-groups', async (req, res) =>
     res.json(
       (await store.list('jobs', { businessId: req.user.businessId, type: 'product-group-plan' }))
+        .filter((row) => !row.deletedAt)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, 15)
         .map(({ input, snapshots, requestHash, ...publicJob }) => publicJob),

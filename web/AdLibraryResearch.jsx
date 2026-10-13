@@ -15,6 +15,7 @@ import { Pagination, usePagination } from './Pagination.jsx';
 import { ResearchEvidenceWorkbench } from './ResearchEvidence.jsx';
 import { primeAdCapture } from './ad-capture.js';
 import { parseCopiedAd } from '../src/modules/research/ad-capture.js';
+import { DeleteRecord } from './DeleteRecord.jsx';
 
 function dhakaDate(value = new Date()) {
   return new Intl.DateTimeFormat('en-CA', {
@@ -1038,6 +1039,15 @@ export function AdLibraryResearch({ data, api, run, busy, setPage, refresh, show
                   >
                     {row.archived ? 'Restore observation' : 'Archive observation'}
                   </button>
+                  <DeleteRecord
+                    kind="ad-library"
+                    id={row.id}
+                    name={row.pageName}
+                    onDeleted={async () => {
+                      if (selectedId === row.id) setSelectedId('');
+                      await load();
+                    }}
+                  />
                 </div>
               </article>
             ))}

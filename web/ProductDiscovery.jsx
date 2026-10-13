@@ -17,6 +17,7 @@ import { ResearchRetrieval } from './AIConnection.jsx';
 import { sectors, trendLinks } from '../src/modules/research/trend-links.js';
 import { countryNames } from '../src/modules/research/countries.js';
 import { calculateEconomics } from '../src/modules/pricing/engine.js';
+import { DeleteRecord } from './DeleteRecord.jsx';
 
 const external = { target: '_blank', rel: 'noopener noreferrer' };
 export function TrendSourceHub({ country = 'BD', keyword = '' }) {
@@ -580,6 +581,19 @@ export function ProductDiscovery({ data, api, run, busy, setPage, showProduct })
                 ))}
               </select>
             </label>
+            {selected && (
+              <div className="record-actions">
+                <DeleteRecord
+                  kind="discovery"
+                  id={selected.id}
+                  name={`Product ideas: ${selected.input.sector}`}
+                  onDeleted={async () => {
+                    setSelected(null);
+                    setLibrary(await api('/discovery'));
+                  }}
+                />
+              </div>
+            )}
           </section>
           {!selected && (
             <section className="panel discovery-empty">

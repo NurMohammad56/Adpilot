@@ -62,7 +62,12 @@ export class Platform {
   }
   async owned(collection, recordId, user) {
     const row = await this.store.get(collection, recordId);
-    assert(row && row.businessId === user.businessId, 404, 'NOT_FOUND', 'Record not found');
+    assert(
+      row && !row.deletedAt && row.businessId === user.businessId,
+      404,
+      'NOT_FOUND',
+      'Record not found',
+    );
     return row;
   }
   requireApprover(user) {
@@ -123,7 +128,7 @@ export class Platform {
       business: data.businesses[0],
       products: data.products,
       plans: data.campaign_plans,
-      campaigns: data.campaigns,
+      campaigns: data.campaigns.filter((row) => !row.deletedAt),
       manualCampaigns: data.manual_campaigns,
       adSets: data.ad_sets,
       ads: data.ads,
@@ -131,7 +136,7 @@ export class Platform {
       performance: data.ad_performance,
       optimizations: data.optimization_recommendations,
       audit: data.audit_logs.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100),
-      jobs: data.jobs,
+      jobs: data.jobs.filter((row) => !row.deletedAt),
       metrics,
       integration: this.publicIntegration(await this.integration(user.businessId)),
       aiIntegration: publicAI(

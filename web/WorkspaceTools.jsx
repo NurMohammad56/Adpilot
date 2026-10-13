@@ -28,6 +28,7 @@ import { uploadMedia } from './api.js';
 import { CampaignSetup } from './CampaignSetup.jsx';
 import { CampaignField } from './FieldHelp.jsx';
 import { RegionPicker } from './RegionPicker.jsx';
+import { DeleteRecord } from './DeleteRecord.jsx';
 const Field = ({ label, children, hint, help }) =>
   help ? (
     <CampaignField label={label} help={help} hint={hint}>
@@ -335,6 +336,9 @@ export function MediaLibrary({ data, api, run, busy }) {
               {asset.type === 'image' ? <Image size={14} /> : <Video size={14} />}{' '}
               {(asset.size / 1024 / 1024).toFixed(2)} MB · Private to {data.business.name}
             </small>
+            <div className="record-actions">
+              <DeleteRecord kind="media" id={asset.id} name={asset.name} onDeleted={load} />
+            </div>
           </article>
         ))}
       </div>
@@ -534,17 +538,36 @@ export function ResearchDesk({
             New research brief
           </button>
           {projectPagination.items.map((item) => (
-            <button
-              key={item.id}
-              className={`research-project ${project?.id === item.id ? 'selected' : ''}`}
-              disabled={busy}
-              onClick={() => run(() => select(item))}
-            >
-              <strong>{item.name}</strong>
-              <small>
-                {item.kind} · {item.status} · {item.candidateCountries.join(', ')}
-              </small>
-            </button>
+            <div key={item.id} className="research-record-item">
+              <button
+                className={`research-project ${project?.id === item.id ? 'selected' : ''}`}
+                disabled={busy}
+                onClick={() => run(() => select(item))}
+              >
+                <strong>{item.name}</strong>
+                <small>
+                  {item.kind} · {item.status} · {item.candidateCountries.join(', ')}
+                </small>
+              </button>
+              <DeleteRecord
+                compact
+                kind="research"
+                id={item.id}
+                name={item.name}
+                onDeleted={async () => {
+                  await loadProjects();
+                  if (project?.id === item.id) {
+                    sessionStorage.removeItem(selectionKey);
+                    setProject(null);
+                    setVersions([]);
+                    setVersionId('');
+                    setEditing(false);
+                    setCampaign(false);
+                    setBriefEditing(false);
+                  }
+                }}
+              />
+            </div>
           ))}
           <Pagination
             pagination={projectPagination}
@@ -939,6 +962,12 @@ export function ResearchDesk({
                     <div className="tools-row">
                       <h2>Research version {version.number}</h2>
                       <span className="badge">{version.status}</span>
+                      <DeleteRecord
+                        kind="research-versions"
+                        id={version.id}
+                        name={`Research version ${version.number}`}
+                        onDeleted={() => reload(project.id)}
+                      />
                     </div>
                     <p className="small muted">{version.instruction}</p>
                     <p>{displayReport.summary}</p>

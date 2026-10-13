@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { createRuntime } from '../runtime.js';
 import { now } from '../utils/core.js';
+import { cleanupDeletedMedia } from '../modules/records.js';
 import { runProductGroupJob } from '../modules/campaigns/group-jobs.js';
 import { runDiscoveryJob } from '../modules/research/product-discovery.js';
 import {
@@ -17,6 +18,21 @@ if (runtime.config.mode === 'demo' || !runtime.jobs) {
   process.exit(0);
 }
 const { store, platform, jobs } = runtime;
+let cleaning = false;
+const cleanup = async () => {
+  if (cleaning) return;
+  cleaning = true;
+  try {
+    await cleanupDeletedMedia(platform);
+  } catch {
+    process.stderr.write('Pending file cleanup will be retried.\n');
+  } finally {
+    cleaning = false;
+  }
+};
+await cleanup();
+const cleanupTimer = setInterval(cleanup, 60000);
+cleanupTimer.unref();
 const worker = new Worker(
   'adpilot-jobs',
   async (job) => {
@@ -34,7 +50,7 @@ const worker = new Worker(
         if (Date.parse(approval.expiresAt) < Date.now())
           await store.transaction(async () => {
             const latest = await store.get('approval_requests', approval.id);
-            if (latest.status === 'pending') {
+            if (latest?.status === 'pending') {
               await store.update('approval_requests', approval.id, { status: 'expired' });
               if (approval.action === 'launch_campaign')
                 await store.update('campaign_plans', approval.planId, { status: 'rejected' });
@@ -62,7 +78,7 @@ const worker = new Worker(
         if (Date.now() - Date.parse(approval.executionStartedAt) > 10 * 60000)
           await store.transaction(async () => {
             const latest = await store.get('approval_requests', approval.id);
-            if (latest.status === 'executing') {
+            if (latest?.status === 'executing') {
               await store.update('approval_requests', approval.id, {
                 status: 'needs_reconciliation',
                 errorCode: 'STALE_EXECUTION',
@@ -101,12 +117,20 @@ const worker = new Worker(
       return;
     }
     const record = job.data.jobRecordId && (await store.get('jobs', job.data.jobRecordId));
-    if (record)
-      await store.update('jobs', record.id, {
-        status: 'running',
-        startedAt: now(),
-        attempt: job.attemptsMade + 1,
+    if (job.data.jobRecordId) {
+      if (!record || record.deletedAt) return;
+      const claimed = await store.transaction(async () => {
+        const latest = await store.get('jobs', record.id);
+        if (!latest || latest.deletedAt) return false;
+        await store.update('jobs', record.id, {
+          status: 'running',
+          startedAt: now(),
+          attempt: job.attemptsMade + 1,
+        });
+        return true;
       });
+      if (!claimed) return;
+    }
     try {
       const user = { id: 'system-worker', role: 'analyst', businessId: job.data.businessId };
       if (job.name === 'insights-sync') {
@@ -181,6 +205,7 @@ worker.on('error', (error) =>
   process.stderr.write(`Worker error: ${error.code || 'WORKER_ERROR'}\n`),
 );
 async function stop() {
+  clearInterval(cleanupTimer);
   await worker.close();
   await runtime.close();
   process.exit(0);

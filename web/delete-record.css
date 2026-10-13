@@ -1,0 +1,159 @@
+.record-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #eccdce;
+  color: #a52b38;
+  background: #fff8f8;
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 14px;
+  line-height: 1.3;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.record-delete:hover:not(:disabled) {
+  background: #fcebec;
+  border-color: #ca8a91;
+}
+.record-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.record-delete.compact {
+  padding: 8px;
+}
+.record-delete:focus-visible {
+  outline: 3px solid #cc7a87;
+  outline-offset: 3px;
+}
+.record-delete-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 35, 31, 0.62);
+  backdrop-filter: blur(4px);
+}
+.record-delete-dialog {
+  width: min(560px, 100%);
+  max-height: 90dvh;
+  overflow: auto;
+  background: white;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 18px 70px #10292155;
+  color: #173832;
+}
+.record-delete-dialog header,
+.record-delete-dialog h2,
+.record-delete-dialog footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.record-delete-dialog header {
+  justify-content: space-between;
+}
+.record-delete-dialog h2 {
+  font-size: 21px;
+  margin: 0;
+}
+.record-delete-name {
+  display: block;
+  margin: 18px 0 12px;
+  overflow-wrap: anywhere;
+}
+.record-delete-dialog p {
+  line-height: 1.65;
+  margin: 12px 0;
+}
+.record-delete-dialog ul {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0;
+  border: 1px solid #e1e9e7;
+  border-radius: 10px;
+}
+.record-delete-dialog li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e1e9e7;
+}
+.record-delete-dialog li:last-child {
+  border-bottom: 0;
+}
+.record-delete-dialog footer {
+  justify-content: flex-end;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.record-delete-confirm {
+  color: white !important;
+  background: #a52b38 !important;
+  border-color: #a52b38 !important;
+}
+.saved-data-manager {
+  margin-top: 24px;
+}
+.saved-data-list > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid #e2eae7;
+}
+.saved-data-list strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.saved-data-list small {
+  display: block;
+  margin-top: 5px;
+  color: #637c75;
+}
+.saved-data-list > div > div {
+  min-width: 0;
+}
+.record-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.research-record-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.research-record-item > .research-project {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .record-delete-overlay {
+    padding: 12px;
+  }
+  .record-delete-dialog {
+    padding: 18px;
+  }
+  .record-delete-dialog h2 {
+    font-size: 18px;
+  }
+  .record-delete-dialog footer > .button {
+    flex: 1;
+  }
+  .record-actions {
+    gap: 8px;
+  }
+}

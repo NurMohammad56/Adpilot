@@ -374,6 +374,7 @@ export async function listDiscoveries(platform, user, country = 'BD') {
         candidateCount: report.candidates.length,
       })),
     jobs: jobs
+      .filter((row) => !row.deletedAt)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 20)
       .map(publicJob),

@@ -72,6 +72,7 @@ import './brand-theme.css';
 import { StatusRemark } from './StatusRemark.jsx';
 import { Pagination, usePagination } from './Pagination.jsx';
 import { MarketSample, ResearchReuseNote } from './ResearchEvidence.jsx';
+import { DeleteRecord, RecordControls, SavedDataManager } from './DeleteRecord.jsx';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -713,6 +714,9 @@ function Products({
                 </button>
               </div>
               <p>{product.description}</p>
+              <div className="record-actions">
+                <DeleteRecord kind="products" id={product.id} name={product.name} />
+              </div>
               <dl>
                 <div>
                   <dt>Selling price</dt>
@@ -830,6 +834,7 @@ function Plans({ data, showPlan, setPage }) {
                 <ArrowRight size={15} />
               </button>
             </div>
+            <DeleteRecord kind="plans" id={plan.id} name={plan.name} />
             {!plan.validation.valid && (
               <div className="notice danger">
                 Economics or guardrails need attention before approval.
@@ -914,6 +919,7 @@ function Approvals({ data, showPlan, busy, execute }) {
                 Execute approved
               </button>
             )}
+            <DeleteRecord kind="approvals" id={a.id} name={a.snapshot.name || a.action} />
           </article>
         ))}
       </div>
@@ -1810,6 +1816,7 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
                 {c.status === 'active' ? 'Request pause' : 'Request resume'}
               </button>
             )}
+            <DeleteRecord kind="campaigns" id={c.id} name={c.name} />
           </div>
         ))}
         <Pagination pagination={campaignPagination} label="Campaign operations" />
@@ -1834,6 +1841,7 @@ function Performance({ data, busy, sync, analyze, action, propose, showPlan }) {
             >
               Open manual guide & verification
             </button>
+            <DeleteRecord kind="manual-campaigns" id={record.id} name={record.name} />
           </div>
         ))}
         <Pagination pagination={manualPagination} label="Manual campaigns" />
@@ -1983,6 +1991,9 @@ function Optimization({ data, request, busy, setPage }) {
               <ArrowRight size={16} />
             </button>
           )}
+          <div className="record-actions">
+            <DeleteRecord kind="optimizations" id={o.id} name={o.action} />
+          </div>
         </article>
       ))}
       <Pagination pagination={pagination} label="Optimization" />
@@ -2296,6 +2307,7 @@ function Settings({ data, run, refresh, busy, setPage }) {
           </form>
         </article>
       )}
+      <SavedDataManager />
     </>
   );
 }
@@ -2587,7 +2599,7 @@ function App() {
       </div>
     );
   return (
-    <>
+    <RecordControls.Provider value={{ data, api, busy, run, refresh }}>
       {data ? (
         <div className={`app-shell ${sidebarPinned ? 'sidebar-pinned' : 'sidebar-auto'}`}>
           <aside
@@ -3214,7 +3226,7 @@ function App() {
           </button>
         </div>
       )}
-    </>
+    </RecordControls.Provider>
   );
 }
 createRoot(document.getElementById('root')).render(<App />);

@@ -4,7 +4,7 @@ The AdPilot release is live at `https://fahimstack.tech/adpilot/`. Atlas now all
 
 ## Layout and services
 
-- Current release source: `/srv/adpilot/releases/20261008-openai`; `/srv/adpilot/current` points here. The previous Gemini release and `adpilot-app:20261008-gemini3` image remain available for rollback.
+- Current release source: `/srv/adpilot/releases/20261014-reliability-verified`; `/srv/adpilot/current` points here. The previous Gemini release and `adpilot-app:20261008-gemini3` image remain available for rollback.
 - Runtime secrets: `/srv/adpilot/shared/production.env`, root-only file inside a private directory. Secrets are excluded from release archives and images.
 - Compose definition: `deploy/compose.production.yaml`. API listens on loopback port 4015; worker runs separately. API and worker use the same encrypted Atlas records and private R2 bucket.
 - Authenticated Redis 7.4 uses a private Docker network, AOF persistence and a persistent `/srv/adpilot/shared/redis` volume. It has no public port. BullMQ uses its native connection, independently of the earlier Upstash REST configuration.
@@ -38,3 +38,7 @@ Production enables paid execution and background jobs. A user still needs to sup
 Prepare a new timestamped release, verify tests, and build its image before switching services. Retain the previous image tag and release directory. Use the existing secrets file and persistent Redis volume; keep `TOKEN_ENCRYPTION_KEY` unchanged so existing encrypted integrations remain readable. Check Atlas backups and R2 retention before a release that changes data formats. Restore the saved domain config and reload Nginx if a route change fails validation. Never stop unrelated Docker projects or overwrite the domain homepage.
 
 The OpenAI deployment retains root-only `production.before-openai.env` and `ai.before-openai.json` backups in `/srv/adpilot/shared/backups`. The second file contains the earlier encrypted AI connection. A rollback to a release without OpenAI support must restore the previous workspace AI connection as well as the image/environment. The encryption master key was preserved. The temporary provider-key transfer file was deleted after runtime configuration.
+
+## Operational reliability release
+
+The 14 October 2026 release adds dependency readiness, worker health, bounded overview queries, queued research, workspace AI admission/usage policy, evidence auditing and read-only campaign comparison. Daily AES-GCM R2 backups and weekly isolated restore drills are enabled. Private demo staging listens on loopback port 4016. See [Reliability and recovery](reliability.md) for controls, defaults, limitations and recovery commands. Account recovery/MFA/invitation changes were explicitly excluded.

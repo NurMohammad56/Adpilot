@@ -19,7 +19,7 @@ export function ConfidenceNotes({ report }) {
       <dl className="detail-list">
         <div>
           <dt>{bn ? 'Market evidence' : 'Market evidence'}</dt>
-          <dd>{d?.level || report?.confidence || 'Low'}</dd>
+          <dd>{d?.dimensions?.marketEvidence?.level || d?.level || report?.confidence || 'Low'}</dd>
         </div>
         <div>
           <dt>{bn ? 'যাচাই করা স্বাধীন source' : 'Owner-checked independent sources'}</dt>
@@ -58,6 +58,54 @@ export function ConfidenceNotes({ report }) {
           <dd>{d?.confirmedSales || 0}</dd>
         </div>
       </dl>
+      {d?.dimensions && (
+        <dl className="detail-list">
+          <div>
+            <dt>{bn ? 'প্রোডাক্টের তুলনাযোগ্যতা' : 'Product comparability'}</dt>
+            <dd>
+              {d.dimensions.comparability.level} · {d.dimensions.comparability.comparableOffers}
+            </dd>
+          </div>
+          <div>
+            <dt>{bn ? 'মাপা campaign performance' : 'Measured performance'}</dt>
+            <dd>{d.dimensions.performance.level}</dd>
+          </div>
+        </dl>
+      )}
+      {report?.evidenceAudit && (
+        <details className="guide-step">
+          <summary>
+            {bn
+              ? 'প্রতিটি দাবির source ও সিদ্ধান্ত বদলানোর শর্ত'
+              : 'Claim sources & decision review triggers'}
+          </summary>
+          <p>{report.evidenceAudit.note}</p>
+          {report.evidenceAudit.claims.map((item, i) => (
+            <article key={i} className="guide-step">
+              <p>{item.claim}</p>
+              <p>
+                {item.source ? (
+                  <a href={item.source} target="_blank" rel="noopener noreferrer">
+                    {item.source}
+                  </a>
+                ) : (
+                  'No supporting source'
+                )}{' '}
+                · {item.observedAt || 'Undated'} ·{' '}
+                {item.ownerChecked ? 'Owner checked' : 'Review required'}
+                {item.stale ? ' · Stale' : ''}
+                {item.futureDated ? ' · Invalid future date' : ''}
+              </p>
+            </article>
+          ))}
+          <h4>{bn ? 'কখন সিদ্ধান্ত আবার review করবেন' : 'When to review the decision'}</h4>
+          <ul>
+            {report.evidenceAudit.decisionReviewTriggers.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </details>
+      )}
       {report?.competitorCandidates?.length > 0 && (
         <section>
           <h4>

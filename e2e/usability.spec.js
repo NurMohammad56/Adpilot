@@ -1,6 +1,22 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
-const bn = JSON.parse(fs.readFileSync(new URL('../web/locales/bn.json', import.meta.url), 'utf8'));
+const bn = Object.assign(
+  {},
+  ...[
+    'bn',
+    'operations-bn',
+    'manual-bn',
+    'product-bn',
+    'ad-library-bn',
+    'discovery-bn',
+    'premium-bn',
+    'records-bn',
+    'product-research-bn',
+    'reliability-bn',
+  ].map((name) =>
+    JSON.parse(fs.readFileSync(new URL(`../web/locales/${name}.json`, import.meta.url), 'utf8')),
+  ),
+);
 test('login and registration fit narrow English and Bangla screens', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/');

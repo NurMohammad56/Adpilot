@@ -6,7 +6,7 @@ import { resolveLocations, regionalCoverage } from './locations.js';
 import { actualResults } from '../analytics/outcomes.js';
 import { countryNames } from './countries.js';
 import { productVisualContext } from '../media/vision.js';
-import { explainConfidence } from './confidence.js';
+import { explainConfidence, evidenceAudit } from './confidence.js';
 import { cachedResearch } from './cache.js';
 import { marketEvidence, evidenceDigest } from './market-evidence.js';
 import { calculateEconomics } from '../pricing/engine.js';
@@ -470,6 +470,7 @@ export class ResearchWorkbench {
     if (linkedProduct) report.linkedProductHash = hash(linkedProduct);
     if (visualAnalysis) report.visualAnalysis = visualAnalysis;
     report.confidenceDetails = explainConfidence({
+      adLibraryObservations,
       findings: project.evidence,
       retrieval: report.retrieval,
       visualAnalysis,
@@ -477,6 +478,7 @@ export class ResearchWorkbench {
         campaigns.some((campaign) => campaign.id === result.campaignId),
       ),
     });
+    report.evidenceAudit = evidenceAudit(report, project.evidence);
     return this.saveVersion(user, project, report, instruction || 'Initial comparison', previous);
   }
   async edit(user, versionId, input) {

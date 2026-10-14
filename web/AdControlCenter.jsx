@@ -3,6 +3,7 @@ import { CampaignField } from './FieldHelp.jsx';
 import { useDraft } from './use-draft.js';
 import { getLanguage } from './i18n.js';
 import { Pagination, usePagination } from './Pagination.jsx';
+import { CampaignReconciliation } from './CampaignReconciliation.jsx';
 
 const today = (timeZone = 'Asia/Dhaka') =>
   new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
@@ -139,6 +140,7 @@ export function AdControlCenter({ data, api, run, busy, setPage }) {
           </button>
         </div>
       </article>
+      <CampaignReconciliation data={data} api={api} run={run} busy={busy} />
       <div className="tools-actions control-tabs">
         <button
           className={`button ${tab === 'outcomes' ? 'primary' : 'secondary'}`}

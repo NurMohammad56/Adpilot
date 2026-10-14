@@ -20,5 +20,9 @@ jobs:
         env:
           REDIS_TEST_URL: redis://localhost:6379
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - name: Browser workflows with isolated servers and rate-limit state
+        run: |
+          for spec in e2e/*.spec.js; do
+            npx playwright test "$spec" || exit 1
+          done
       - run: npm audit --omit=dev --audit-level=high

@@ -66,6 +66,16 @@ import {
 import { accountSnapshot, latestAccountSnapshot } from './modules/analytics/account.js';
 import { operationLocks, redisRateStore } from './modules/auth/operation-lock.js';
 import { listManagedRecords, deletionPreview, deleteManagedRecord } from './modules/records.js';
+import { healthStatus, operationsStatus } from './modules/operations/health.js';
+import {
+  usageSummary,
+  savePolicy,
+  policySchema,
+  policyOf,
+  researchEstimate,
+} from './modules/operations/usage.js';
+import { enqueueResearch, publicResearchJob } from './modules/operations/research-jobs.js';
+import { reconcileCampaign } from './modules/operations/reconciliation.js';
 
 const parse = (schema) => (req, res, next) => {
   const result = schema.safeParse(req.body);
@@ -115,6 +125,14 @@ export function createApp(runtime) {
         ? supplied
         : crypto.randomUUID();
     res.setHeader('X-Request-Id', req.requestId);
+    const started = performance.now();
+    res.on('finish', () =>
+      runtime.telemetry.record({
+        at: Date.now(),
+        ms: performance.now() - started,
+        status: res.statusCode,
+      }),
+    );
     next();
   });
   app.set('trust proxy', config.trustProxy);
@@ -139,6 +157,14 @@ export function createApp(runtime) {
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
+  app.get('/api/health', async (req, res) => {
+    const result = await healthStatus(runtime);
+    res.status(result.status === 'ok' ? 200 : 503).json(result);
+  });
+  app.get('/api/ready', async (req, res) => {
+    const result = await healthStatus(runtime, { worker: true });
+    res.status(result.status === 'ok' ? 200 : 503).json(result);
+  });
   app.use(
     '/api',
     rateLimit({
@@ -153,14 +179,6 @@ export function createApp(runtime) {
       standardHeaders: 'draft-8',
       legacyHeaders: false,
       ...(jobs?.connection ? { store: redisRateStore(jobs.connection, 'api') } : {}),
-    }),
-  );
-  app.get('/api/health', (req, res) =>
-    res.json({
-      status: 'ok',
-      mode: config.mode,
-      liveExecutionEnabled: config.liveExecution,
-      backgroundJobsEnabled: config.mode === 'live' && Boolean(jobs),
     }),
   );
   // Internal service auth is isolated from cookie auth. The key never reaches the browser.
@@ -310,7 +328,78 @@ export function createApp(runtime) {
   app.get('/api/auth/me', (req, res) =>
     res.json({ user: publicUser(req.user), mode: config.mode }),
   );
-  app.get('/api/overview', async (req, res) => res.json(await platform.overview(req.user)));
+  app.get('/api/overview', async (req, res) =>
+    res.json(await platform.overview(req.user, { compact: req.query.compact === 'true' })),
+  );
+  app.get('/api/operations/system', async (req, res) =>
+    res.json(await operationsStatus(runtime, req.user)),
+  );
+  app.get('/api/operations/usage', async (req, res) =>
+    res.json(await usageSummary(platform, req.user)),
+  );
+  app.post(
+    '/api/operations/campaigns/:kind/:id/reconcile',
+    parse(z.object({}).strict()),
+    async (req, res) => {
+      assert(
+        ['manual', 'api'].includes(req.params.kind),
+        422,
+        'CAMPAIGN_KIND',
+        'Choose manual or API campaign.',
+      );
+      res.json(
+        await exclusive(`reconcile:${req.user.businessId}:${req.params.id}`, () =>
+          reconcileCampaign(platform, req.user, req.params.kind, req.params.id),
+        ),
+      );
+    },
+  );
+  app.put('/api/operations/policy', parse(policySchema), async (req, res) =>
+    res.json(await savePolicy(platform, req.user, req.input)),
+  );
+  app.post(
+    '/api/operations/estimate',
+    parse(z.object({ kind: z.enum(['research', 'product']), id: z.string().uuid() }).strict()),
+    async (req, res) => {
+      const target = await platform.owned(
+        req.input.kind === 'research' ? 'research_projects' : 'products',
+        req.input.id,
+        req.user,
+      );
+      res.json(
+        researchEstimate(
+          req.input.kind === 'research' ? 'market-comparison' : 'bangladesh-market-research',
+          target,
+          policyOf(await store.get('businesses', req.user.businessId)),
+        ),
+      );
+    },
+  );
+  app.get('/api/data/:kind', async (req, res) => {
+    const kinds = {
+      products: 'products',
+      plans: 'campaign_plans',
+      approvals: 'approval_requests',
+      campaigns: 'campaigns',
+      performance: 'ad_performance',
+      research: 'research_projects',
+      audit: 'audit_logs',
+      jobs: 'jobs',
+      optimizations: 'optimization_recommendations',
+      'manual-campaigns': 'manual_campaigns',
+    };
+    assert(kinds[req.params.kind], 404, 'NOT_FOUND', 'Unknown data list');
+    const query = z
+      .object({
+        limit: z.coerce.number().int().min(1).max(100).default(25),
+        cursor: z.string().uuid().optional(),
+        from: z.string().datetime().optional(),
+        to: z.string().datetime().optional(),
+      })
+      .strict()
+      .parse(req.query);
+    res.json(await store.page(kinds[req.params.kind], { businessId: req.user.businessId }, query));
+  });
   app.get('/api/records', async (req, res) =>
     res.json(await listManagedRecords(platform, req.user, req.query.kind)),
   );
@@ -671,21 +760,12 @@ export function createApp(runtime) {
         })
         .strict(),
     ),
-    async (req, res) =>
-      res
-        .status(201)
-        .json(
-          await exclusive(`research:${req.user.businessId}:${req.params.id}`, () =>
-            research.research(
-              req.user,
-              req.params.id,
-              req.input.instruction,
-              req.headers['accept-language']?.startsWith('bn') ? 'bn' : 'en',
-              null,
-              req.input.fresh,
-            ),
-          ),
-        ),
+    async (req, res) => {
+      const response = await exclusive(`research:${req.user.businessId}:${req.params.id}`, () =>
+        enqueueResearch(runtime, req.user, 'research', req.params.id, req.input),
+      );
+      res.status(response.queued ? 202 : 201).json(response.queued ? response : response.result);
+    },
   );
   app.post('/api/research/versions/:id/edit', parse(reportEditSchema), async (req, res) =>
     res.status(201).json(await research.edit(req.user, req.params.id, req.input)),
@@ -869,15 +949,33 @@ export function createApp(runtime) {
   app.post(
     '/api/products/:id/plans',
     parse(z.object({ fresh: z.boolean().default(false) }).strict()),
-    async (req, res) =>
-      res
-        .status(201)
-        .json(
-          await exclusive(`product-plan:${req.user.businessId}:${req.params.id}`, () =>
-            platform.createPlan(req.user, req.params.id, { freshResearch: req.input.fresh }),
-          ),
-        ),
+    async (req, res) => {
+      const response = await exclusive(`product-plan:${req.user.businessId}:${req.params.id}`, () =>
+        enqueueResearch(runtime, req.user, 'product', req.params.id, req.input),
+      );
+      res.status(response.queued ? 202 : 201).json(response.queued ? response : response.result);
+    },
   );
+  app.get('/api/operations/jobs/:id', async (req, res) =>
+    res.json(publicResearchJob(await platform.owned('jobs', req.params.id, req.user))),
+  );
+  app.post('/api/operations/jobs/:id/retry', parse(z.object({}).strict()), async (req, res) => {
+    const job = await platform.owned('jobs', req.params.id, req.user);
+    assert(
+      job.type === 'research-task' && job.status === 'failed',
+      409,
+      'JOB_NOT_RETRYABLE',
+      'Only failed research tasks can be retried.',
+    );
+    const result = await exclusive(`research:${req.user.businessId}:${job.targetId}`, () =>
+      enqueueResearch(runtime, req.user, job.kind, job.targetId, job.input),
+    );
+    await store.update('jobs', job.id, {
+      status: 'superseded',
+      replacedByJobId: result.job?.id || null,
+    });
+    res.status(result.queued ? 202 : 200).json(result);
+  });
   app.get('/api/plans/:id', async (req, res) =>
     res.json(await platform.owned('campaign_plans', req.params.id, req.user)),
   );
@@ -1172,7 +1270,16 @@ export function createApp(runtime) {
       },
     });
     if (status >= 500)
-      process.stderr.write(`[${req.method} ${req.path}] ${error.code || error.name}\n`);
+      process.stderr.write(
+        JSON.stringify({
+          event: 'api.error',
+          requestId: req.requestId,
+          method: req.method,
+          path: req.route?.path || 'unknown',
+          code: error.code || error.name,
+          status,
+        }) + '\n',
+      );
   });
   return app;
 }

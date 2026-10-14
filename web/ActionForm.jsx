@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MediaPicker } from './WorkspaceTools.jsx';
+import { MediaPicker } from './MediaPicker.jsx';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 const Field = ({ label, children }) => (
   <label className="field">

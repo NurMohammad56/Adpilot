@@ -12,11 +12,14 @@ import { seedDemo } from './seed.js';
 import { createStorage } from './storage/index.js';
 import { MediaService } from './modules/media/service.js';
 import { ResearchWorkbench } from './modules/research/workbench.js';
+import { createTelemetry } from './modules/operations/health.js';
+import { migrate } from './modules/operations/migrations.js';
 export async function createRuntime(options = {}) {
   const config = options.config || loadConfig();
   if (!config.serviceKey && config.mode === 'demo')
     config.serviceKey = crypto.randomBytes(32).toString('hex');
   const store = options.store || (await createStore(config));
+  await migrate(store);
   if (!config.encryptionKey && config.mode === 'demo') {
     if (!store.file) config.encryptionKey = crypto.randomBytes(32).toString('hex');
     else {
@@ -58,6 +61,7 @@ export async function createRuntime(options = {}) {
     jobs,
     media,
     research,
+    telemetry: createTelemetry(),
     async close() {
       if (jobs) await jobs.close();
       await store.close();

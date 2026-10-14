@@ -17,7 +17,7 @@ for (const status of ['failed', 'needs_reconciliation']) {
         },
       });
     });
-    await page.route('**/api/overview', async (route) => {
+    await page.route('**/api/overview*', async (route) => {
       const response = await route.fetch(),
         data = await response.json();
       if (executionId) {
@@ -63,7 +63,7 @@ test('a development-mode launch check explains the Meta setting and blocks reque
     if (request.method() === 'POST' && /\/submit$|\/execute$|\/decision$/.test(request.url()))
       approvalWrites++;
   });
-  await page.route('**/api/overview', async (route) => {
+  await page.route('**/api/overview*', async (route) => {
     const response = await route.fetch(),
       data = await response.json();
     data.mode = 'live';

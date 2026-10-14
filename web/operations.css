@@ -1,0 +1,73 @@
+.operations-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.operations-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin: 20px 0;
+}
+.operations-metrics > div {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+.operations-metrics span {
+  font-size: 14px;
+}
+.operations-metrics strong {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.operations-error {
+  color: #ae3146;
+}
+.operations-panel form {
+  display: grid;
+  gap: 18px;
+}
+.operations-panel details {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.operations-panel .check-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.operations-panel input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  flex-shrink: 0;
+}
+.operations-jobs {
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.operations-job {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+.operations-job > div {
+  flex: 1 1 240px;
+  display: grid;
+  gap: 8px;
+}
+.operations-job progress {
+  width: min(220px, 100%);
+  accent-color: var(--brand-main);
+}

@@ -21,7 +21,7 @@ import { actualResults } from './analytics/outcomes.js';
 import { linkManualCampaign } from './campaigns/manual-launch.js';
 import { autoProductCosts } from './pricing/product-calculator.js';
 import { productVisualContext } from './media/vision.js';
-import { explainConfidence } from './research/confidence.js';
+import { explainConfidence, evidenceAudit } from './research/confidence.js';
 import { createProductGroup, groupProduct } from './campaigns/product-group.js';
 
 const canApprove = (user) => ['admin', 'approver'].includes(user.role);
@@ -101,7 +101,7 @@ export class Platform {
       demo: this.config.mode === 'demo',
     };
   }
-  async overview(user) {
+  async overview(user, { compact = false } = {}) {
     const names = [
       'businesses',
       'products',
@@ -116,18 +116,54 @@ export class Platform {
       'jobs',
       'manual_campaigns',
     ];
+    const dataPages = {};
     const rows = await Promise.all(
       names.map((name) =>
-        this.store.list(
-          name,
-          name === 'businesses' ? { id: user.businessId } : { businessId: user.businessId },
-        ),
+        compact && name !== 'businesses'
+          ? this.store
+              .page(
+                name,
+                { businessId: user.businessId },
+                { limit: name === 'audit_logs' ? 100 : 50 },
+              )
+              .then((result) => {
+                dataPages[name] = { total: result.total, nextCursor: result.nextCursor };
+                return result.items;
+              })
+          : this.store.list(
+              name,
+              name === 'businesses' ? { id: user.businessId } : { businessId: user.businessId },
+            ),
       ),
     );
     const data = Object.fromEntries(names.map((name, i) => [name, rows[i]]));
-    const metrics = aggregatePerformance(data.ad_performance.filter((r) => r.level === 'campaign'));
+    const researchPage = compact
+      ? await this.store.page('research_projects', { businessId: user.businessId }, { limit: 50 })
+      : null;
+    if (researchPage)
+      dataPages.research_projects = {
+        total: researchPage.total,
+        nextCursor: researchPage.nextCursor,
+      };
+    const counts = {
+      pendingApprovals: await this.store.count('approval_requests', {
+        businessId: user.businessId,
+        status: 'pending',
+      }),
+      proposedOptimizations: await this.store.count('optimization_recommendations', {
+        businessId: user.businessId,
+        status: 'proposed',
+      }),
+    };
+    const metrics = compact
+      ? aggregatePerformance([
+          await this.store.performanceTotals({ businessId: user.businessId, level: 'campaign' }),
+        ])
+      : aggregatePerformance(data.ad_performance.filter((r) => r.level === 'campaign'));
     return {
       user: publicUser(user),
+      dataPages,
+      counts,
       mode: this.config.mode,
       liveExecutionEnabled: this.config.liveExecution,
       backgroundJobsEnabled: this.config.mode === 'live' && this.config.backgroundJobs !== false,
@@ -148,17 +184,24 @@ export class Platform {
       aiIntegration: publicAI(
         await this.store.find('integrations', { businessId: user.businessId, provider: 'AI' }),
       ),
-      researchProjects: await this.store.list('research_projects', { businessId: user.businessId }),
+      researchProjects: researchPage
+        ? researchPage.items
+        : await this.store.list('research_projects', { businessId: user.businessId }),
       launchChecks: (
-        await this.store.list('campaign_launch_checks', { businessId: user.businessId })
-      )
+        await this.store.page(
+          'campaign_launch_checks',
+          { businessId: user.businessId },
+          { limit: 100 },
+        )
+      ).items
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, 100),
       storage: {
         driver: this.media.storage.driver,
-        readyFiles: (
-          await this.store.list('media_assets', { businessId: user.businessId, status: 'ready' })
-        ).length,
+        readyFiles: await this.store.count('media_assets', {
+          businessId: user.businessId,
+          status: 'ready',
+        }),
       },
     };
   }
@@ -420,7 +463,9 @@ export class Platform {
       retrieval: report.retrieval,
       visualAnalysis,
       actualResults: actualOutcomes,
+      adLibraryObservations,
     });
+    report.evidenceAudit = evidenceAudit(report, evidence);
     report.confidence = report.confidenceDetails.level;
     const economics = calculateEconomics(product, overrides.sellingPrice, report.sourcedPrices);
     const budget = recommendBudget(product, business, economics, overrides);
@@ -1287,6 +1332,7 @@ export class Platform {
           name: approval.snapshot.name,
           status: 'provisioning',
           dailyBudget,
+          accountId: integration?.adAccountId || 'demo',
           totalBudget,
           budgetDelivery: approval.snapshot.budgetRecommendation.deliveryMode || 'daily',
           steps: {},

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { ResearchRetrieval } from './AIConnection.jsx';
 import { createRoot } from 'react-dom/client';
 import '@fontsource/dm-sans/latin-400.css';
@@ -50,21 +50,32 @@ import {
 } from 'lucide-react';
 import './styles.css';
 import { ActionForm, ActionSummary } from './ActionForm.jsx';
-import { Accounts, MediaLibrary, MediaPicker, ResearchDesk } from './WorkspaceTools.jsx';
+import { MediaPicker } from './MediaPicker.jsx';
+const Accounts = lazy(() => import('./WorkspaceTools.jsx').then((m) => ({ default: m.Accounts })));
+const MediaLibrary = lazy(() =>
+  import('./WorkspaceTools.jsx').then((m) => ({ default: m.MediaLibrary })),
+);
+const ResearchDesk = lazy(() =>
+  import('./WorkspaceTools.jsx').then((m) => ({ default: m.ResearchDesk })),
+);
 import { api, selectApiWorkspace, mediaUrl } from './api.js';
 import { LanguageSwitch, useLanguage, getLanguage, translateText } from './i18n.js';
 import { useDraft } from './use-draft.js';
 import './usability.css';
 import { GuidedProduct } from './GuidedProduct.jsx';
 import { WorkflowGuide } from './WorkflowGuide.jsx';
-import { AdControlCenter } from './AdControlCenter.jsx';
+const AdControlCenter = lazy(() =>
+  import('./AdControlCenter.jsx').then((m) => ({ default: m.AdControlCenter })),
+);
 import { LaunchModePicker, ManualCampaignGuide } from './ManualCampaignGuide.jsx';
 import { ProductCampaigns, CarouselCards } from './ProductCampaigns.jsx';
 import { ConfidenceNotes } from './ConfidenceNotes.jsx';
 import { AdLibraryResearch, AdLibraryResearchSources } from './AdLibraryResearch.jsx';
 import { useReportTranslation, ReportTranslationNotice } from './ReportTranslation.jsx';
 import './product-studio.css';
-import { ProductResearchHub } from './ProductResearchHub.jsx';
+const ProductResearchHub = lazy(() =>
+  import('./ProductResearchHub.jsx').then((m) => ({ default: m.ProductResearchHub })),
+);
 import { WorkspacePulse } from './WorkspacePulse.jsx';
 import './erp.css';
 import './premium.css';
@@ -73,6 +84,9 @@ import { StatusRemark } from './StatusRemark.jsx';
 import { Pagination, usePagination } from './Pagination.jsx';
 import { MarketSample, ResearchReuseNote } from './ResearchEvidence.jsx';
 import { DeleteRecord, RecordControls, SavedDataManager } from './DeleteRecord.jsx';
+import { ResearchJobTray, OperationsPanel } from './OperationsPanel.jsx';
+import { WorkspaceRecordsMore } from './WorkspaceRecordsMore.jsx';
+import { WorkspaceErrorBoundary } from './WorkspaceErrorBoundary.jsx';
 
 let displayCurrency = 'BDT';
 const taka = (value, compact = false) =>
@@ -2076,6 +2090,7 @@ function Settings({ data, run, refresh, busy, setPage }) {
         title="Workspace settings"
         text="Your business facts, budget limits, and integration readiness."
       />
+      <OperationsPanel data={data} run={run} busy={busy} />
       <div className="settings-grid">
         <article className="panel settings-card">
           <h2>Business & guardrails</h2>
@@ -2435,11 +2450,26 @@ function App() {
   const [sidebarPinned, setSidebarPinned] = useDraft('adpilot-sidebar-pinned', false);
   const [sidebarDismissed, setSidebarDismissed] = useState(false);
   async function refresh() {
-    const value = await api('/overview');
+    const value = await api('/overview?compact=true');
     displayCurrency = value.integration.currency || 'BDT';
     selectApiWorkspace(value.user.businessId);
     setData(value);
     return value;
+  }
+  async function loadEarlier(field, collection, kind, cursor) {
+    return run(async () => {
+      const result = await api(`/data/${kind}?limit=50&cursor=${cursor}`);
+      setData((current) => ({
+        ...current,
+        [field]: [
+          ...new Map([...current[field], ...result.items].map((row) => [row.id, row])).values(),
+        ],
+        dataPages: {
+          ...current.dataPages,
+          [collection]: { total: result.total, nextCursor: result.nextCursor },
+        },
+      }));
+    });
   }
   async function switchWorkspace(businessId, alreadyBusy = false) {
     const task = async () => {
@@ -2475,6 +2505,7 @@ function App() {
     } catch (error) {
       const detail =
         error.details?.errors?.join(' ') ||
+        error.details?.formErrors?.join('; ') ||
         (error.details?.fieldErrors
           ? Object.entries(error.details.fieldErrors)
               .map(
@@ -2585,9 +2616,14 @@ function App() {
         : 'Rejected. The plan can be revised and submitted again.',
     );
   }
-  const pending = data?.approvals.filter((a) => a.status === 'pending').length || 0;
+  const pending =
+    data?.counts?.pendingApprovals ??
+    data?.approvals.filter((a) => a.status === 'pending').length ??
+    0;
   const optimizationPending =
-    data?.optimizations.filter((item) => item.status === 'proposed').length || 0;
+    data?.counts?.proposedOptimizations ??
+    data?.optimizations.filter((item) => item.status === 'proposed').length ??
+    0;
   const common = { data, busy, setPage, showPlan, showProduct };
   if (loading)
     return (
@@ -2820,186 +2856,193 @@ function App() {
                   ' Scheduled research and monitoring await the background worker setup.'}
               </div>
             )}
-            <div className="page-content">
-              {page === 'Overview' && <WorkflowGuide data={data} onNavigate={setPage} />}
-              {query ? (
-                <>
-                  <PageHeading title="Search workspace" text={`Results for “${query}”`} />
-                  <div className="panel search-results">
-                    {data.products
-                      .filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
-                      .map((p) => (
-                        <button key={p.id} onClick={() => showProduct(p)}>
-                          <Package size={18} />
-                          <strong>{p.name}</strong>
-                          <Badge>Product</Badge>
-                          <ArrowRight size={16} />
-                        </button>
-                      ))}
-                    {data.plans
-                      .filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
-                      .map((p) => (
-                        <button key={p.id} onClick={() => showPlan(p)}>
-                          <FileText size={18} />
-                          <strong>{p.name}</strong>
-                          <Status value={p.status} />
-                          <ArrowRight size={16} />
-                        </button>
-                      ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  {page === 'Overview' && <Overview {...common} />}
-                  {page === 'Products' && (
-                    <Products
-                      key={data.business.id}
-                      {...common}
-                      run={run}
-                      onResearch={(product) =>
-                        run(async () => {
-                          const result = await api(
-                            `/products/${product.id}/research-brief`,
-                            'POST',
-                            {},
-                          );
-                          await refresh();
-                          sessionStorage.setItem(
-                            `adpilot-product-research-selection:${data.business.id}`,
-                            result.project.id,
-                          );
-                          setPage('Product research');
-                        }, 'Product facts linked. Add competitor evidence, research the market and review the decision.')
-                      }
-                      onGroupCreated={async (plan) => {
-                        await refresh();
-                        showPlan(plan);
-                      }}
-                      addEvidence={(product) => setModal({ kind: 'evidence', product })}
-                      generate={(id) =>
-                        run(async () => {
-                          const plan = await api(`/products/${id}/plans`, 'POST', {});
-                          await refresh();
-                          showPlan(plan);
-                        }, 'Campaign plan generated. Review its economics and assumptions.')
-                      }
-                    />
+            <WorkspaceErrorBoundary resetKey={`${data.business.id}:${page}`}>
+              <Suspense fallback={<p role="status">Loading workspace section...</p>}>
+                <div className="page-content">
+                  <ResearchJobTray data={data} run={run} busy={busy} refresh={refresh} />
+                  <WorkspaceRecordsMore page={page} data={data} load={loadEarlier} busy={busy} />
+                  {page === 'Overview' && <WorkflowGuide data={data} onNavigate={setPage} />}
+                  {query ? (
+                    <>
+                      <PageHeading title="Search workspace" text={`Results for “${query}”`} />
+                      <div className="panel search-results">
+                        {data.products
+                          .filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
+                          .map((p) => (
+                            <button key={p.id} onClick={() => showProduct(p)}>
+                              <Package size={18} />
+                              <strong>{p.name}</strong>
+                              <Badge>Product</Badge>
+                              <ArrowRight size={16} />
+                            </button>
+                          ))}
+                        {data.plans
+                          .filter((p) => p.name.toLowerCase().includes(query.toLowerCase()))
+                          .map((p) => (
+                            <button key={p.id} onClick={() => showPlan(p)}>
+                              <FileText size={18} />
+                              <strong>{p.name}</strong>
+                              <Status value={p.status} />
+                              <ArrowRight size={16} />
+                            </button>
+                          ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {page === 'Overview' && <Overview {...common} />}
+                      {page === 'Products' && (
+                        <Products
+                          key={data.business.id}
+                          {...common}
+                          run={run}
+                          onResearch={(product) =>
+                            run(async () => {
+                              const result = await api(
+                                `/products/${product.id}/research-brief`,
+                                'POST',
+                                {},
+                              );
+                              await refresh();
+                              sessionStorage.setItem(
+                                `adpilot-product-research-selection:${data.business.id}`,
+                                result.project.id,
+                              );
+                              setPage('Product research');
+                            }, 'Product facts linked. Add competitor evidence, research the market and review the decision.')
+                          }
+                          onGroupCreated={async (plan) => {
+                            await refresh();
+                            showPlan(plan);
+                          }}
+                          addEvidence={(product) => setModal({ kind: 'evidence', product })}
+                          generate={(id) =>
+                            run(async () => {
+                              const plan = await api(`/products/${id}/plans`, 'POST', {});
+                              await refresh();
+                              if (!plan.queued) showPlan(plan);
+                            }, 'Research request accepted. Track its status and review the completed result.')
+                          }
+                        />
+                      )}
+                      {page === 'Campaign plans' && <Plans {...common} />}
+                      {page === 'Approvals' && <Approvals {...common} execute={execute} />}
+                      {page === 'Ad control center' && (
+                        <AdControlCenter key={data.business.id} {...common} api={api} run={run} />
+                      )}
+                      {page === 'Performance' && (
+                        <Performance
+                          {...common}
+                          propose={(campaign) => setModal({ kind: 'action', campaign })}
+                          sync={(id) =>
+                            run(async () => {
+                              const result = await api(`/campaigns/${id}/sync`, 'POST', {});
+                              await refresh();
+                              setToast({
+                                text:
+                                  result.status === 'queued'
+                                    ? 'Insights synchronization queued. Refresh after the worker finishes.'
+                                    : 'Insights synchronized. Demo data remains simulated.',
+                              });
+                            })
+                          }
+                          analyze={(id) =>
+                            run(async () => {
+                              const result = await api(`/campaigns/${id}/analyze`, 'POST', {});
+                              await refresh();
+                              setToast({ text: result.message });
+                              if (result.recommendations.length) setPage('Optimization');
+                            })
+                          }
+                          action={(c) =>
+                            run(async () => {
+                              const approval = await api(`/campaigns/${c.id}/actions`, 'POST', {
+                                action:
+                                  c.status === 'active' ? 'pause_campaign' : 'resume_campaign',
+                                payload: {},
+                                reason: `User requested ${c.status === 'active' ? 'pause' : 'resume'} from the campaign performance dashboard.`,
+                              });
+                              await refresh();
+                              showPlan(approval.snapshot, approval);
+                            })
+                          }
+                        />
+                      )}
+                      {page === 'Optimization' && (
+                        <Optimization
+                          {...common}
+                          request={(o) =>
+                            run(async () => {
+                              const approval = await api(
+                                `/optimizations/${o.id}/request-approval`,
+                                'POST',
+                                {},
+                              );
+                              await refresh();
+                              showPlan(approval.snapshot, approval);
+                            })
+                          }
+                        />
+                      )}
+                      {page === 'Audit log' && <Audit data={data} />}
+                      {page === 'Accounts' && (
+                        <Accounts
+                          key={data.business.id}
+                          {...common}
+                          api={api}
+                          run={run}
+                          refresh={refresh}
+                          onSwitch={switchWorkspace}
+                        />
+                      )}
+                      {page === 'Media library' && (
+                        <MediaLibrary key={data.business.id} {...common} api={api} run={run} />
+                      )}
+                      {page === 'Ad Library research' && (
+                        <AdLibraryResearch
+                          key={data.business.id}
+                          {...common}
+                          api={api}
+                          run={run}
+                          refresh={refresh}
+                        />
+                      )}
+                      {page === 'Research studio' && (
+                        <ResearchDesk
+                          onOpenDiscovery={() => setPage('Product discovery')}
+                          onOpenLibrary={() => setPage('Ad Library research')}
+                          key={data.business.id}
+                          {...common}
+                          api={api}
+                          run={run}
+                          refresh={refresh}
+                          onPlan={showPlan}
+                        />
+                      )}
+                      {page === 'Product research' && (
+                        <ProductResearchHub
+                          tab={productTab}
+                          setTab={setProductTab}
+                          key={`${data.business.id}:product`}
+                          {...common}
+                          api={api}
+                          run={run}
+                          refresh={refresh}
+                          onPlan={showPlan}
+                          onOpenLibrary={() => setPage('Ad Library research')}
+                          onOpenDiscovery={() => setPage('Product discovery')}
+                        />
+                      )}
+                      {page === 'Settings' && <Settings {...common} run={run} refresh={refresh} />}
+                    </>
                   )}
-                  {page === 'Campaign plans' && <Plans {...common} />}
-                  {page === 'Approvals' && <Approvals {...common} execute={execute} />}
-                  {page === 'Ad control center' && (
-                    <AdControlCenter key={data.business.id} {...common} api={api} run={run} />
-                  )}
-                  {page === 'Performance' && (
-                    <Performance
-                      {...common}
-                      propose={(campaign) => setModal({ kind: 'action', campaign })}
-                      sync={(id) =>
-                        run(async () => {
-                          const result = await api(`/campaigns/${id}/sync`, 'POST', {});
-                          await refresh();
-                          setToast({
-                            text:
-                              result.status === 'queued'
-                                ? 'Insights synchronization queued. Refresh after the worker finishes.'
-                                : 'Insights synchronized. Demo data remains simulated.',
-                          });
-                        })
-                      }
-                      analyze={(id) =>
-                        run(async () => {
-                          const result = await api(`/campaigns/${id}/analyze`, 'POST', {});
-                          await refresh();
-                          setToast({ text: result.message });
-                          if (result.recommendations.length) setPage('Optimization');
-                        })
-                      }
-                      action={(c) =>
-                        run(async () => {
-                          const approval = await api(`/campaigns/${c.id}/actions`, 'POST', {
-                            action: c.status === 'active' ? 'pause_campaign' : 'resume_campaign',
-                            payload: {},
-                            reason: `User requested ${c.status === 'active' ? 'pause' : 'resume'} from the campaign performance dashboard.`,
-                          });
-                          await refresh();
-                          showPlan(approval.snapshot, approval);
-                        })
-                      }
-                    />
-                  )}
-                  {page === 'Optimization' && (
-                    <Optimization
-                      {...common}
-                      request={(o) =>
-                        run(async () => {
-                          const approval = await api(
-                            `/optimizations/${o.id}/request-approval`,
-                            'POST',
-                            {},
-                          );
-                          await refresh();
-                          showPlan(approval.snapshot, approval);
-                        })
-                      }
-                    />
-                  )}
-                  {page === 'Audit log' && <Audit data={data} />}
-                  {page === 'Accounts' && (
-                    <Accounts
-                      key={data.business.id}
-                      {...common}
-                      api={api}
-                      run={run}
-                      refresh={refresh}
-                      onSwitch={switchWorkspace}
-                    />
-                  )}
-                  {page === 'Media library' && (
-                    <MediaLibrary key={data.business.id} {...common} api={api} run={run} />
-                  )}
-                  {page === 'Ad Library research' && (
-                    <AdLibraryResearch
-                      key={data.business.id}
-                      {...common}
-                      api={api}
-                      run={run}
-                      refresh={refresh}
-                    />
-                  )}
-                  {page === 'Research studio' && (
-                    <ResearchDesk
-                      onOpenDiscovery={() => setPage('Product discovery')}
-                      onOpenLibrary={() => setPage('Ad Library research')}
-                      key={data.business.id}
-                      {...common}
-                      api={api}
-                      run={run}
-                      refresh={refresh}
-                      onPlan={showPlan}
-                    />
-                  )}
-                  {page === 'Product research' && (
-                    <ProductResearchHub
-                      tab={productTab}
-                      setTab={setProductTab}
-                      key={`${data.business.id}:product`}
-                      {...common}
-                      api={api}
-                      run={run}
-                      refresh={refresh}
-                      onPlan={showPlan}
-                      onOpenLibrary={() => setPage('Ad Library research')}
-                      onOpenDiscovery={() => setPage('Product discovery')}
-                    />
-                  )}
-                  {page === 'Settings' && <Settings {...common} run={run} refresh={refresh} />}
-                </>
-              )}
-            </div>
-            <footer className="app-footer">
-              <span>AdPilot · Ads research & planning</span>
-              <span>All times Asia/Dhaka · Approval-first by design</span>
-            </footer>
+                </div>
+                <footer className="app-footer">
+                  <span>AdPilot · Ads research & planning</span>
+                  <span>All times Asia/Dhaka · Approval-first by design</span>
+                </footer>
+              </Suspense>
+            </WorkspaceErrorBoundary>
           </main>
         </div>
       ) : (

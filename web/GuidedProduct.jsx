@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDraft } from './use-draft.js';
-import { MediaPicker } from './WorkspaceTools.jsx';
+import { MediaPicker } from './MediaPicker.jsx';
 import { calculateEconomics } from '../src/modules/pricing/engine.js';
 import {
   autoProductCosts,

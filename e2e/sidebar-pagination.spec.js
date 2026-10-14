@@ -20,10 +20,17 @@ async function workspace(page, name) {
   await page.reload();
 }
 async function fixtureOverview(page, transform) {
-  await page.route('**/api/overview', async (route) => {
+  await page.route('**/api/overview*', async (route) => {
     const response = await route.fetch();
     const value = await response.json();
-    if (response.ok()) transform(value);
+    if (response.ok()) {
+      transform(value);
+      value.counts = {
+        pendingApprovals: value.approvals.filter((row) => row.status === 'pending').length,
+        proposedOptimizations: value.optimizations.filter((row) => row.status === 'proposed')
+          .length,
+      };
+    }
     await route.fulfill({ response, json: value });
   });
 }

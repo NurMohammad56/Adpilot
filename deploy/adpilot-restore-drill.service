@@ -1,0 +1,9 @@
+[Unit]
+Description=AdPilot weekly restore drill in an isolated temporary database
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec adpilot-api-1 node src/modules/operations/backup.js drill adpilot_restore_weekly
+TimeoutStartSec=900

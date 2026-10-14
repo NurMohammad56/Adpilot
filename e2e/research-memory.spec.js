@@ -3,6 +3,7 @@ const origin = 'http://127.0.0.1:4173';
 async function workspace(page, name) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  await expect(page.locator('.workspace-switch strong')).toBeVisible();
   const created = await page.request.post('/api/workspaces', {
     headers: { Origin: origin },
     data: { name },

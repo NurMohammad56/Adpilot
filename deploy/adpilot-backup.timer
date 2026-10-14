@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily verified AdPilot offsite backup
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

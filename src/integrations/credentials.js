@@ -1,4 +1,5 @@
 import { LLMService } from '../ai/provider.js';
+import { meteredLLM } from '../modules/operations/usage.js';
 import { AppError, assert, seal, unseal, now } from '../utils/core.js';
 export async function workspaceLLM(platform, businessId) {
   if (platform.config.mode === 'demo') return platform.llm;
@@ -9,17 +10,21 @@ export async function workspaceLLM(platform, businessId) {
       'AI_NOT_CONFIGURED',
       'Connect an AI provider in Accounts for this workspace',
     );
-  return new LLMService({
-    ...platform.config,
-    llmProvider: row.aiProvider,
-    llmEndpoint: row.endpoint,
-    llmModel: row.model,
-    researchModel: row.researchModel || platform.config.researchModel || row.model,
-    researchThinking: row.researchThinking || 'high',
-    llmKey: unseal(row.encryptedKey, platform.config.encryptionKey),
-    geminiGrounding: row.grounding,
-    searchGrounding: row.grounding,
-  });
+  return meteredLLM(
+    platform,
+    businessId,
+    new LLMService({
+      ...platform.config,
+      llmProvider: row.aiProvider,
+      llmEndpoint: row.endpoint,
+      llmModel: row.model,
+      researchModel: row.researchModel || platform.config.researchModel || row.model,
+      researchThinking: row.researchThinking || 'high',
+      llmKey: unseal(row.encryptedKey, platform.config.encryptionKey),
+      geminiGrounding: row.grounding,
+      searchGrounding: row.grounding,
+    }),
+  );
 }
 export function publicAI(row) {
   return row

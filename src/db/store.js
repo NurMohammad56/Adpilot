@@ -5,6 +5,9 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { id, now, AppError } from '../utils/core.js';
 
 export const collections = [
+  'ai_usage',
+  'operational_snapshots',
+  'schema_migrations',
   'users',
   'sessions',
   'businesses',
@@ -81,6 +84,48 @@ export class DemoStore {
   }
   async get(collection, recordId) {
     return structuredClone(this.rows(collection).find((row) => row.id === recordId) || null);
+  }
+  async ping() {
+    return true;
+  }
+  async page(
+    collection,
+    filter = {},
+    { limit = 25, cursor = '', sort = 'createdAt', from, to } = {},
+  ) {
+    const rows = (await this.list(collection, filter))
+      .filter((row) => !row.deletedAt && (!from || row[sort] >= from) && (!to || row[sort] <= to))
+      .sort((a, b) => (b[sort] || '').localeCompare(a[sort] || '') || b.id.localeCompare(a.id));
+    if (cursor && !rows.some((row) => row.id === cursor))
+      throw new AppError(422, 'PAGE_CURSOR', 'The page changed. Return to the first page.');
+    const start = cursor ? rows.findIndex((row) => row.id === cursor) + 1 : 0,
+      items = rows.slice(start, start + limit);
+    return {
+      items,
+      total: rows.length,
+      nextCursor: start + limit < rows.length ? items.at(-1)?.id : null,
+    };
+  }
+  async count(collection, filter = {}) {
+    return (await this.list(collection, filter)).length;
+  }
+  async monthlyUsage(businessId, month) {
+    return (await this.list('ai_usage', { businessId })).filter((row) =>
+      row.day?.startsWith(month),
+    );
+  }
+  async performanceTotals(filter) {
+    const rows = await this.list('ad_performance', filter);
+    const totals = rows.reduce(
+      (result, row) => {
+        for (const key of ['spend', 'impressions', 'clicks', 'conversions', 'revenue'])
+          result[key] += Number(row[key]) || 0;
+        return result;
+      },
+      { spend: 0, impressions: 0, clicks: 0, conversions: 0, revenue: 0 },
+    );
+    if (!rows.length || rows.some((row) => row.revenue == null)) totals.revenue = null;
+    return totals;
   }
   async find(collection, filter) {
     return (await this.list(collection, filter))[0] || null;
@@ -182,6 +227,10 @@ export class MongoStore {
         { strict: false, minimize: false, versionKey: false, collection },
       );
       schema.index({ id: 1 }, { unique: true });
+      schema.index({ businessId: 1, createdAt: -1, id: -1 });
+      if (collection === 'ai_usage') schema.index({ businessId: 1, day: 1 });
+      if (collection === 'jobs') schema.index({ businessId: 1, updatedAt: -1, id: -1 });
+      if (collection === 'ad_performance') schema.index({ businessId: 1, level: 1, date: 1 });
       if (collection === 'users') schema.index({ email: 1 }, { unique: true });
       if (collection === 'workspace_memberships')
         schema.index({ userId: 1, businessId: 1 }, { unique: true });
@@ -232,6 +281,77 @@ export class MongoStore {
   async list(collection, filter = {}) {
     return (await this.query(this.models[collection].find(filter).lean())).map((row) =>
       this.clean(row),
+    );
+  }
+  async ping() {
+    await mongoose.connection.db.command({ ping: 1 }, { maxTimeMS: 2000 });
+    return true;
+  }
+  async page(
+    collection,
+    filter = {},
+    { limit = 25, cursor = '', sort = 'createdAt', from, to } = {},
+  ) {
+    const base = { ...filter, deletedAt: { $exists: false } };
+    if (from || to) base[sort] = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
+    let query = { ...base };
+    if (cursor) {
+      const anchor = await this.find(collection, { ...base, id: cursor });
+      if (anchor)
+        query.$or = [
+          { [sort]: { $lt: anchor[sort] } },
+          { [sort]: anchor[sort], id: { $lt: anchor.id } },
+        ];
+      else throw new AppError(422, 'PAGE_CURSOR', 'The page changed. Return to the first page.');
+    }
+    const rows = (
+      await this.query(
+        this.models[collection]
+          .find(query)
+          .sort({ [sort]: -1, id: -1 })
+          .limit(limit + 1)
+          .lean(),
+      )
+    ).map((r) => this.clean(r));
+    return {
+      items: rows.slice(0, limit),
+      nextCursor: rows.length > limit ? rows[limit - 1].id : null,
+      total: await this.query(this.models[collection].countDocuments(base)),
+    };
+  }
+  async count(collection, filter = {}) {
+    return this.query(this.models[collection].countDocuments(filter));
+  }
+  async monthlyUsage(businessId, month) {
+    return this.list('ai_usage', { businessId, day: { $gte: `${month}-00`, $lte: `${month}-99` } });
+  }
+  async performanceTotals(filter) {
+    const rows = await this.query(
+      this.models.ad_performance.aggregate([
+        { $match: filter },
+        {
+          $group: {
+            _id: null,
+            missingRevenue: {
+              $sum: { $cond: [{ $eq: [{ $ifNull: ['$revenue', null] }, null] }, 1, 0] },
+            },
+            ...Object.fromEntries(
+              ['spend', 'impressions', 'clicks', 'conversions', 'revenue'].map((key) => [
+                key,
+                { $sum: { $ifNull: [`$${key}`, 0] } },
+              ]),
+            ),
+          },
+        },
+      ]),
+    );
+    return Object.fromEntries(
+      ['spend', 'impressions', 'clicks', 'conversions', 'revenue'].map((key) => [
+        key,
+        key === 'revenue' && (!rows.length || rows[0].missingRevenue > 0)
+          ? null
+          : rows[0]?.[key] || 0,
+      ]),
     );
   }
   async get(collection, recordId) {

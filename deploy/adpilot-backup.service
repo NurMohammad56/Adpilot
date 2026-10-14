@@ -1,0 +1,9 @@
+[Unit]
+Description=AdPilot encrypted offsite database and media backup
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec adpilot-api-1 node src/modules/operations/backup.js
+TimeoutStartSec=900

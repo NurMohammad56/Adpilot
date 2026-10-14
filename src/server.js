@@ -12,6 +12,7 @@ const server = app.listen(
 );
 server.requestTimeout = 240000;
 async function stop() {
+  const deadline=setTimeout(()=>process.exit(1),295000);deadline.unref();
   server.close(async () => {
     await runtime.close();
     process.exit(0);

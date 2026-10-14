@@ -19,6 +19,11 @@ export async function cachedResearch(
       'dataDeletionVersion',
       'mediaQuotaVersion',
       'budgetVersion',
+      'aiUsageVersion',
+      'aiFailureCount',
+      'aiCircuitUntil',
+      'operationsPolicy',
+      'jobVersion',
     ]);
     context = {
       ...context,

@@ -48,6 +48,14 @@ export class GeminiProvider {
             this.config.thinkingLevel === 'high' ? (model.endsWith('pro') ? 24576 : 16384) : 1024,
         },
       };
+    if (this.config.maxOutputTokens)
+      body.generationConfig = {
+        ...body.generationConfig,
+        maxOutputTokens: Math.min(
+          body.generationConfig?.maxOutputTokens || this.config.maxOutputTokens,
+          this.config.maxOutputTokens,
+        ),
+      };
     let response;
     let quotaResetSeconds;
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -124,6 +132,21 @@ export class GeminiProvider {
           ...(Number.isFinite(quotaResetSeconds) ? { retryAfterSeconds: quotaResetSeconds } : {}),
         },
       );
+    if (this.config.onUsage && value.usageMetadata)
+      await this.config.onUsage({
+        inputTokens: value.usageMetadata?.promptTokenCount || 0,
+        outputTokens:
+          (value.usageMetadata?.candidatesTokenCount || 0) +
+          (value.usageMetadata?.thoughtsTokenCount || 0),
+        totalTokens: value.usageMetadata?.totalTokenCount || 0,
+        reasoningTokens: value.usageMetadata?.thoughtsTokenCount || 0,
+        searchCalls: value.candidates?.some((c) => c.groundingMetadata?.webSearchQueries?.length)
+          ? value.candidates.reduce(
+              (s, c) => s + (c.groundingMetadata?.webSearchQueries?.length || 0),
+              0,
+            )
+          : 0,
+      });
     const candidate = value.candidates?.[0];
     const text = candidate?.content?.parts
       ?.filter((part) => typeof part.text === 'string' && !part.thought)

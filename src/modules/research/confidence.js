@@ -3,6 +3,7 @@ export function explainConfidence({
   retrieval,
   visualAnalysis,
   actualResults = [],
+  adLibraryObservations = [],
 } = {}) {
   const fresh = [
     ...new Map(
@@ -43,6 +44,26 @@ export function explainConfidence({
   const level = hosts.size >= 3 && delivered >= 20 ? 'High' : hosts.size >= 2 ? 'Medium' : 'Low';
   return {
     level,
+    dimensions: {
+      marketEvidence: {
+        level: hosts.size >= 3 ? 'High' : hosts.size >= 2 ? 'Medium' : 'Low',
+        verifiedIndependentSources: hosts.size,
+        note: 'Recent owner-checked sources; not verified willingness to pay.',
+      },
+      comparability: {
+        level: adLibraryObservations.some((r) => r.comparability === 'comparable')
+          ? 'Owner checked'
+          : 'Not established',
+        comparableOffers: adLibraryObservations.filter((r) => r.comparability === 'comparable')
+          .length,
+        note: 'Confirm specifications, condition, quantity and delivery terms.',
+      },
+      performance: {
+        level: delivered >= 20 ? 'Recorded history' : 'Limited history',
+        confirmedSales: delivered,
+        note: 'Recorded sales are not statistical proof or independently audited profitability.',
+      },
+    },
     verifiedSourceCount: fresh.length,
     independentSourceCount: hosts.size,
     retrievedSourceCount: retrieval?.sourceCount || 0,
@@ -67,5 +88,32 @@ export function explainConfidence({
       'Run one capped test and record actual delivered orders, refunds, product costs and ad spend.',
       'High confidence needs at least three independent recent sources and 20 recorded confirmed sales; this threshold is a product rule, not statistical proof.',
     ],
+  };
+}
+
+export function evidenceAudit(report, supplied = []) {
+  const findings = [...supplied, ...(report.findings || [])];
+  return {
+    checkedAt: new Date().toISOString(),
+    freshnessDays: 30,
+    claims: findings.map((item) => ({
+      claim: item.finding,
+      source: /^https:\/\//.test(item.source || '') ? item.source : null,
+      observedAt: item.observedAt || null,
+      classification: item.classification,
+      ownerChecked: Boolean(item.verifiedBy),
+      stale:
+        !Number.isFinite(Date.parse(item.observedAt)) ||
+        Date.now() - Date.parse(item.observedAt) > 30 * 86400000,
+      futureDated: Date.parse(item.observedAt) > Date.now(),
+    })),
+    counterEvidence: report.risks || [],
+    decisionReviewTriggers: [
+      ...(report.evidenceGaps || []),
+      'Comparable price, specifications or delivery terms changed.',
+      'Actual acquisition cost, refunds or qualified leads contradict the research hypothesis.',
+      'A cited source is missing, stale or cannot support its associated claim.',
+    ],
+    note: 'AI findings are source leads or hypotheses until checked. Retrieved links do not certify the associated claims.',
   };
 }

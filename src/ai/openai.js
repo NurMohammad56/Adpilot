@@ -99,6 +99,14 @@ export class OpenAIProvider {
       throw new AppError(503, 'OPENAI_CONFIG', 'OpenAI model name is invalid');
     const payload = {
       ...body,
+      ...(body.max_output_tokens
+        ? {
+            max_output_tokens: Math.min(
+              body.max_output_tokens,
+              this.config.maxOutputTokens || body.max_output_tokens,
+            ),
+          }
+        : {}),
       model,
       store: false,
       ...(/^(gpt-[56](?:[.-]|$)|o[134](?:[.-]|$))/.test(model)
@@ -168,6 +176,14 @@ export class OpenAIProvider {
             : 'OpenAI could not complete this request. Check the saved API key and selected model in Accounts.',
         { httpStatus: response.status, providerCode: value.error?.code },
       );
+    if (this.config.onUsage && value.usage)
+      await this.config.onUsage({
+        inputTokens: value.usage?.input_tokens || 0,
+        outputTokens: value.usage?.output_tokens || 0,
+        totalTokens: value.usage?.total_tokens || 0,
+        reasoningTokens: value.usage?.output_tokens_details?.reasoning_tokens || 0,
+        searchCalls: (value.output || []).filter((item) => item.type === 'web_search_call').length,
+      });
     const parts = (value.output || []).flatMap((item) =>
       item.type === 'message' ? item.content || [] : [],
     );
@@ -220,10 +236,10 @@ export class OpenAIProvider {
       'market-comparison',
       'product-discovery',
     ].includes(task);
-    let retrieved = null;
-    let retrievalStatus = 'disabled';
+    let retrieved = options.retrievalCheckpoint?.retrieved || null;
+    let retrievalStatus = retrieved ? 'completed' : 'disabled';
     let collectionRounds = 0;
-    if (research && (this.config.searchGrounding ?? this.config.geminiGrounding)) {
+    if (!retrieved && research && (this.config.searchGrounding ?? this.config.geminiGrounding)) {
       try {
         const searchRequest = {
           instructions,
@@ -320,6 +336,7 @@ export class OpenAIProvider {
       retrievalStatus === 'completed'
         ? retrieved.sources.sort((a, b) => Number(b.cited) - Number(a.cited)).slice(0, 50)
         : [];
+    if (retrieved && this.config.onCheckpoint) await this.config.onCheckpoint({ retrieved });
     const applicationSchema = zodToJsonSchema(schema, { $refStrategy: 'none' });
     delete applicationSchema.properties.retrieval;
     const candidateCountries =

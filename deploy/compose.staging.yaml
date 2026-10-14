@@ -1,0 +1,27 @@
+name: adpilot-staging
+services:
+  preview:
+    image: adpilot-staging:latest
+    command: ['node','src/staging-server.js']
+    build:
+      context: ..
+      args: { APP_BASE_PATH: '' }
+    restart: unless-stopped
+    ports: ['127.0.0.1:4016:4000']
+    environment:
+      NODE_ENV: test
+      APP_MODE: demo
+      PORT: 4000
+      APP_ORIGIN: http://localhost:4016
+      LIVE_EXECUTION_ENABLED: 'false'
+      LLM_PROVIDER: demo
+      DATA_FILE: /tmp/staging-data.json
+      STORAGE_DRIVER: local
+      STORAGE_PATH: /tmp/staging-uploads
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=256m']
+    init: true
+    security_opt: ['no-new-privileges:true']
+    cap_drop: [ALL]
+    logging:
+      options: { max-size: '5m', max-file: '2' }

@@ -54,7 +54,7 @@ test('manual guide remains readable in Bangla on mobile without horizontal overf
   });
   await page.reload();
   await page.locator('.mobile-nav select').selectOption('Campaign plans');
-  await page.locator('.plan-card').last().getByRole('button').first().click();
+  await page.locator('.plan-card').first().getByRole('button').first().click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('গাইড preview - খরচ করার আগে review ও approve করুন')).toBeVisible();
   await expect(

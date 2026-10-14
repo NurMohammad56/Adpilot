@@ -2,6 +2,10 @@ import { Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { createRuntime } from '../runtime.js';
 import { now } from '../utils/core.js';
+import { heartbeatKey } from '../modules/operations/health.js';
+import { runResearchJob, refreshDueProducts } from '../modules/operations/research-jobs.js';
+import { operationLocks } from '../modules/auth/operation-lock.js';
+import { policyOf } from '../modules/operations/usage.js';
 import { cleanupDeletedMedia } from '../modules/records.js';
 import { runProductGroupJob } from '../modules/campaigns/group-jobs.js';
 import { runDiscoveryJob } from '../modules/research/product-discovery.js';
@@ -18,6 +22,14 @@ if (runtime.config.mode === 'demo' || !runtime.jobs) {
   process.exit(0);
 }
 const { store, platform, jobs } = runtime;
+const exclusive = operationLocks(jobs.connection);
+const heartbeat = () =>
+  jobs.connection
+    .set(heartbeatKey, now(), 'EX', 90)
+    .catch(() => process.stderr.write('Worker heartbeat unavailable\n'));
+await heartbeat();
+const heartbeatTimer = setInterval(heartbeat, 20000);
+heartbeatTimer.unref();
 let cleaning = false;
 const cleanup = async () => {
   if (cleaning) return;
@@ -101,12 +113,7 @@ const worker = new Worker(
           });
       }
       if (job.name === 'daily-maintenance') {
-        for (const product of await store.list('products'))
-          await jobs.queue.add(
-            'research-refresh',
-            { productId: product.id, businessId: product.businessId },
-            { jobId: `research-${product.id}-${new Date().toISOString().slice(0, 10)}` },
-          );
+        await refreshDueProducts(runtime);
         for (const business of await store.list('businesses'))
           await jobs.queue.add(
             'daily-report',
@@ -133,7 +140,11 @@ const worker = new Worker(
     }
     try {
       const user = { id: 'system-worker', role: 'analyst', businessId: job.data.businessId };
-      if (job.name === 'insights-sync') {
+      if (job.name === 'research-task') {
+        await exclusive(`research-worker:${record.businessId}:${record.targetId}`, () =>
+          runResearchJob(platform, record),
+        );
+      } else if (job.name === 'insights-sync') {
         await platform.syncInsights(user, job.data.campaignId);
         await platform.analyze(user, job.data.campaignId);
       } else if (job.name === 'product-group-plan') {
@@ -151,10 +162,11 @@ const worker = new Worker(
           record.id,
           record.kind === 'product' ? { planId: result.id } : { versionId: result.id },
         );
-      } else if (job.name === 'research-refresh')
-        await platform.createPlan(user, job.data.productId);
-      else if (job.name === 'daily-report') {
-        const data = await platform.overview(user);
+      } else if (job.name === 'research-refresh') {
+        if (policyOf(await store.get('businesses', user.businessId)).autoRefresh)
+          await platform.createPlan(user, job.data.productId);
+      } else if (job.name === 'daily-report') {
+        const data = await platform.overview(user, { compact: true });
         await store.insert('audit_logs', {
           businessId: user.businessId,
           actorId: user.id,
@@ -164,17 +176,23 @@ const worker = new Worker(
         });
       } else throw new Error('Unknown job type');
       if (record)
-        await store.update('jobs', record.id, { status: 'completed', completedAt: now() });
+        await store.update('jobs', record.id, {
+          status: 'completed',
+          completedAt: now(),
+          stage: 'completed',
+          progress: 100,
+        });
     } catch (error) {
       if (record)
         await store.update('jobs', record.id, {
-          status: 'failed',
+          status: job.attemptsMade + 1 < (job.opts.attempts || 1) ? 'queued' : 'failed',
           errorCode: error.code || 'JOB_FAILED',
           ...([
             'product-group-plan',
             'ad-library-analysis',
             'ad-evidence-refresh',
             'product-discovery',
+            'research-task',
           ].includes(job.name)
             ? {
                 errorMessage: error.code
@@ -189,6 +207,7 @@ const worker = new Worker(
   {
     connection: new Redis(runtime.config.redisUrl, { maxRetriesPerRequest: null }),
     concurrency: 3,
+    metrics: { maxDataPoints: 20160 },
   },
 );
 await jobs.queue.upsertJobScheduler(
@@ -207,6 +226,7 @@ worker.on('error', (error) =>
 async function stop() {
   clearInterval(cleanupTimer);
   await worker.close();
+  clearInterval(heartbeatTimer);
   await runtime.close();
   process.exit(0);
 }

@@ -9,6 +9,9 @@ import '@fontsource/manrope/latin-600.css';
 import '@fontsource/manrope/latin-700.css';
 import '@fontsource/manrope/latin-800.css';
 import '@fontsource/noto-sans-bengali/bengali-400.css';
+import '@fontsource/noto-sans-bengali/bengali-500.css';
+import '@fontsource/noto-sans-bengali/bengali-600.css';
+import '@fontsource/noto-sans-bengali/bengali-700.css';
 import {
   Activity,
   ArrowDownRight,
@@ -46,7 +49,6 @@ import {
   TrendingUp,
   Wallet,
   X,
-  Zap,
 } from 'lucide-react';
 import './styles.css';
 import { ActionForm, ActionSummary } from './ActionForm.jsx';
@@ -80,6 +82,8 @@ import { WorkspacePulse } from './WorkspacePulse.jsx';
 import './erp.css';
 import './premium.css';
 import './brand-theme.css';
+import './experience.css';
+import { BrandMark, BrandName } from './Brand.jsx';
 import { StatusRemark } from './StatusRemark.jsx';
 import { Pagination, usePagination } from './Pagination.jsx';
 import { MarketSample, ResearchReuseNote } from './ResearchEvidence.jsx';
@@ -236,13 +240,13 @@ function Login({ onLogin, run, busy, mode }) {
         <div className="login-story">
           <div className="brand">
             <span className="brand-mark">
-              <Zap size={21} fill="currentColor" />
+              <BrandMark />
             </span>
-            adpilot<span className="brand-dot">.</span>
+            <BrandName />
           </div>
           <div>
             <span className="auth-orbit">
-              <Zap size={42} />
+              <BrandMark />
             </span>
             <h1>{register ? 'Your next chapter starts here.' : 'Welcome back.'}</h1>
             <p>
@@ -267,7 +271,7 @@ function Login({ onLogin, run, busy, mode }) {
         <div className="login-form">
           <div className="login-card">
             <div className="auth-mobile-brand">
-              <Zap size={24} /> adpilot.
+              <BrandMark /> <BrandName />
             </div>
             <span className="eyebrow">WELCOME TO YOUR WORKSPACE</span>
             <h2>{register ? 'Create your account' : 'Sign in to AdPilot'}</h2>
@@ -2629,7 +2633,7 @@ function App() {
     return (
       <div className="loading-screen">
         <span className="brand-mark">
-          <Zap size={22} />
+          <BrandMark />
         </span>
         <p>Opening your workspace…</p>
       </div>
@@ -2638,6 +2642,9 @@ function App() {
     <RecordControls.Provider value={{ data, api, busy, run, refresh }}>
       {data ? (
         <div className={`app-shell ${sidebarPinned ? 'sidebar-pinned' : 'sidebar-auto'}`}>
+          <a className="skip-to-content" href="#workspace-content">
+            Skip to content
+          </a>
           <aside
             className={`sidebar ${sidebarDismissed ? 'is-dismissed' : ''}`}
             aria-label="Main navigation"
@@ -2646,17 +2653,19 @@ function App() {
             <a
               className="brand"
               href="#"
+              aria-label="AdPilot overview"
               onClick={(e) => {
                 e.preventDefault();
                 if (e.detail) setSidebarDismissed(true);
                 setPage('Overview');
+                setQuery('');
               }}
             >
               <span className="brand-mark">
-                <Zap size={20} fill="currentColor" />
+                <BrandMark />
               </span>
               <span className="sidebar-brand-name">
-                adpilot<span className="brand-dot">.</span>
+                <BrandName />
               </span>
             </a>
             <button
@@ -2692,6 +2701,7 @@ function App() {
                 <button
                   key={label}
                   aria-label={label}
+                  aria-current={page === label ? 'page' : undefined}
                   title={translateText(label)}
                   className={page === label ? 'nav-item active' : 'nav-item'}
                   onClick={(event) => {
@@ -2721,6 +2731,7 @@ function App() {
             <div className="sidebar-bottom">
               <button
                 aria-label="Settings"
+                aria-current={page === 'Settings' ? 'page' : undefined}
                 className={page === 'Settings' ? 'nav-item active' : 'nav-item'}
                 onClick={(event) => {
                   if (event.detail) setSidebarDismissed(true);
@@ -2768,7 +2779,7 @@ function App() {
               </div>
             </div>
           </aside>
-          <main className="main">
+          <main className="main" id="workspace-content" tabIndex={-1}>
             <header className="topbar">
               <button
                 className="icon-button sidebar-pin"
@@ -2816,6 +2827,16 @@ function App() {
               </div>
             </header>
             <div className="mobile-nav">
+              <button
+                className="icon-button mobile-brand"
+                aria-label="AdPilot overview"
+                onClick={() => {
+                  setPage('Overview');
+                  setQuery('');
+                }}
+              >
+                <BrandMark />
+              </button>
               <select
                 aria-label="Workspace section"
                 value={page}

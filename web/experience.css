@@ -1,0 +1,531 @@
+/* AdPilot's shared visual language. Business status colours remain semantic. */
+:root {
+  --brand-main: #087466;
+  --brand-accent: #128576;
+  --brand-action: #087466;
+  --brand-deep: #07564f;
+  --brand-gradient: linear-gradient(155deg, #0b7567, #096355 55%, #084c45);
+  --workspace-background:
+    radial-gradient(ellipse at 5% 0%, #dcefe8 0, transparent 42%),
+    radial-gradient(ellipse at 100% 80%, #e4f0ec 0, transparent 48%), #f3f7f5;
+  --green: var(--brand-main);
+  --line: #dbe7e2;
+  --muted: #586e66;
+  --surface-shadow: 0 2px 5px #123c2803, 0 8px 28px #123c2806;
+  --surface-radius: 18px;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  color: #203b33;
+  background: #f3f7f5;
+}
+body {
+  background: #f3f7f5;
+}
+::selection {
+  background: #c5eade;
+  color: #094e43;
+}
+.brand-symbol {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.brand-wordmark {
+  font-family: 'Manrope', 'DM Sans', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  white-space: nowrap;
+}
+.brand-dot {
+  color: #81e2c3;
+  margin-left: 1px;
+}
+.brand-mark,
+.app-shell .sidebar .brand-mark,
+.login-story .brand-mark {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 12px;
+  transform: none;
+}
+.app-shell .sidebar .brand-mark {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+}
+.app-shell .sidebar .brand {
+  align-items: center;
+}
+.sidebar-brand-name {
+  font-size: 26px;
+}
+.auth-orbit {
+  width: 82px;
+  height: 82px;
+  padding: 0;
+  border-radius: 25px;
+  background: transparent;
+  box-shadow:
+    0 0 0 12px #ffffff08,
+    0 14px 32px #00372d24;
+}
+.auth-mobile-brand .brand-symbol {
+  width: 36px;
+  height: 36px;
+}
+.auth-mobile-brand .brand-dot {
+  color: var(--brand-accent);
+}
+.loading-screen {
+  background: var(--workspace-background);
+  color: var(--muted);
+}
+.loading-screen .brand-mark {
+  width: 60px;
+  height: 60px;
+}
+.skip-to-content {
+  position: fixed;
+  top: 12px;
+  left: 100px;
+  transform: translateY(-180%);
+  z-index: 300;
+  padding: 12px 18px;
+  border-radius: 12px;
+  color: white;
+  background: var(--brand-deep);
+}
+.skip-to-content:focus {
+  transform: translateY(0);
+}
+.main:focus {
+  outline: none;
+}
+.app-shell .topbar {
+  background: #ffffffed;
+  border-color: #dbe7e2;
+  box-shadow: var(--surface-shadow);
+  border-radius: 18px;
+}
+.app-shell .nav-item {
+  color: #e2f3ed;
+}
+.app-shell .nav-item.active {
+  background: #ffffff21;
+  box-shadow: inset 3px 0 #9ce8cf;
+  color: white;
+}
+.app-shell .nav-item:hover {
+  background: #ffffff18;
+  color: white;
+}
+.app-shell .sidebar-local-pin {
+  border-color: #ffffff40;
+  background: #ffffff0c;
+}
+.app-shell .sidebar-local-pin[aria-pressed='true'] {
+  background: #ffffff25;
+}
+.app-shell .workspace-switch {
+  border-color: #ffffff2c;
+}
+.human-approval-label {
+  color: #196554;
+  background: #e7f4ed;
+}
+.mode-label {
+  color: #4e665c;
+}
+.live-dot {
+  background: #13806a;
+  box-shadow: 0 0 0 3px #13806a12;
+}
+.search-box {
+  border-radius: 12px;
+}
+.search-box input {
+  color: #29493c;
+}
+.search-box input::placeholder {
+  color: #667c72;
+}
+.page-heading h1,
+.tools-heading h1,
+.login-card h2 {
+  color: #183d31;
+  letter-spacing: -0.035em;
+}
+.page-heading p,
+.tools-heading p,
+.panel-heading p,
+.settings-description {
+  color: var(--muted);
+}
+.breadcrumb {
+  color: #637d71;
+}
+.panel,
+.stat-card,
+.product-card,
+.campaign-card,
+.settings-card,
+.opportunity-card {
+  border-color: var(--line);
+  border-radius: var(--surface-radius);
+  box-shadow: var(--surface-shadow);
+}
+.panel-heading {
+  border-color: var(--line);
+}
+.stat-card {
+  background: linear-gradient(160deg, #fff, #fbfdfc);
+}
+.stat-card::before {
+  height: 3px;
+  background: #128576;
+}
+.stat-card:nth-child(2)::before {
+  background: #427f68;
+}
+.stat-card:nth-child(3)::before {
+  background: #9b763c;
+}
+.stat-card:nth-child(4)::before {
+  background: #58798a;
+}
+.stat-card strong {
+  color: #193c30;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+.stat-card small,
+.stat-card > div > span {
+  color: #546c60;
+}
+.stat-card > div > svg {
+  background: #e8f4ee;
+  color: #16725c;
+}
+.market-strip {
+  border-color: #d5e7dd;
+  background: #edf6f0;
+}
+.notice,
+.status-remark {
+  border-color: #d5e7dd;
+  background: #f0f8f3;
+  color: #355849;
+}
+.status-remark p {
+  color: #536e60;
+}
+.workspace-journey > summary {
+  color: #355849;
+}
+.workspace-journey > summary > span {
+  color: #5b7567;
+}
+.button,
+.icon-button,
+.research-project,
+.opportunity-card,
+.product-card,
+.campaign-card {
+  transition:
+    background-color 160ms var(--ease-out),
+    border-color 160ms var(--ease-out),
+    box-shadow 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+.primary,
+.login-card .primary {
+  background: var(--brand-action);
+  border-color: var(--brand-action);
+  box-shadow: 0 3px 8px #08746618;
+}
+.primary:hover,
+.login-card .primary:hover {
+  background: #075c51;
+  border-color: #075c51;
+  box-shadow: 0 5px 14px #08746624;
+}
+.secondary {
+  color: #245e4c;
+  border-color: #cddfd5;
+  background: #fff;
+}
+.secondary:hover {
+  background: #f0f7f3;
+  border-color: #9ebead;
+}
+.button:disabled {
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.icon-button {
+  border-radius: 10px;
+}
+.icon-button:hover {
+  background: #0874660c;
+}
+.button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #0a8b77;
+  outline-offset: 3px;
+}
+.sidebar button:focus-visible,
+.sidebar a:focus-visible,
+.login-story button:focus-visible {
+  outline-color: #a5edda;
+}
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+  color: #243f34;
+  background: #fff;
+  border-color: #cfdfd5;
+  border-radius: 11px;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms,
+    background-color 150ms;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #697c73;
+  opacity: 1;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #148573;
+  box-shadow: 0 0 0 4px #14857312;
+}
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--brand-main);
+}
+input[type='file']::file-selector-button {
+  border: 1px solid #cfe1d6;
+  border-radius: 7px;
+  background: #edf6f0;
+  color: #245a47;
+  padding: 6px 12px;
+  margin-right: 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.field > span {
+  color: #355446;
+}
+.field small {
+  color: #5a7063;
+}
+.form-section {
+  color: #244e3c;
+}
+.tabs {
+  gap: 6px;
+  border-color: var(--line);
+}
+.tabs button {
+  border-radius: 9px 9px 0 0;
+}
+.tabs button:hover {
+  background: #eff6f2;
+}
+.tabs button.selected {
+  color: #075c51;
+  border-color: #128576;
+  background: #edf6f1;
+}
+thead {
+  background: #f4f8f5;
+}
+th {
+  color: #526b5d;
+}
+td {
+  border-color: #e4ede7;
+  font-variant-numeric: tabular-nums;
+}
+tbody tr {
+  transition: background-color 140ms;
+}
+tbody tr:hover {
+  background: #f5faf7;
+}
+.modal-backdrop {
+  background: #0b231bb3;
+  backdrop-filter: blur(6px);
+}
+.modal {
+  border-color: #dbe7e2;
+  background: white;
+  border-radius: 22px;
+  box-shadow: 0 24px 80px #07261d38;
+  animation: surface-enter 180ms var(--ease-out);
+}
+.modal-heading {
+  border-color: var(--line);
+}
+.modal-heading p {
+  color: #5a7063;
+}
+.toast {
+  border-radius: 14px;
+  background: #edf8f1;
+  color: #245c3e;
+  border-color: #c7e2d1;
+  box-shadow: 0 12px 40px #123c2814;
+  animation: surface-enter 180ms var(--ease-out);
+}
+.toast.error {
+  background: #fff4ed;
+  color: #974c28;
+  border-color: #edcdb8;
+}
+.working-toast {
+  background: #0a5d4e;
+  color: white;
+  border-color: #307e6a;
+}
+.login-page {
+  border-color: #dbe7e2;
+  box-shadow:
+    0 28px 90px #0d4b2c12,
+    0 2px 8px #0d4b2c06;
+}
+.login-story {
+  background: var(--brand-gradient);
+}
+.login-story::after {
+  content: '';
+  position: absolute;
+  top: -160px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  border: 1px solid #ffffff12;
+  box-shadow:
+    0 0 0 36px #ffffff03,
+    0 0 0 72px #ffffff03;
+  pointer-events: none;
+  z-index: -1;
+}
+.login-card input {
+  background: #f4f8f5;
+  border-color: #cfdfd5;
+  border-radius: 13px;
+}
+.login-card .button {
+  border-radius: 13px;
+}
+.login-card .field small,
+.demo-entry small,
+.demo-entry > span {
+  font-size: 13px;
+  color: #586e60;
+}
+.auth-story-action {
+  border-color: #ffffff60;
+}
+.auth-story-action:hover {
+  border-color: #ffffffa0;
+}
+.app-footer {
+  color: #5d7467;
+  border-color: var(--line);
+}
+.mobile-nav select {
+  background: white;
+}
+@keyframes surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  .product-card:hover,
+  .campaign-card:hover,
+  .opportunity-card:hover {
+    border-color: #b5cec0;
+    box-shadow: 0 8px 26px #123c2810;
+  }
+}
+@media (max-width: 900px) {
+  .skip-to-content {
+    left: 16px;
+  }
+  .mobile-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+  }
+  .mobile-nav select {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+  .mobile-brand {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+}
+@media (max-width: 600px) {
+  :root {
+    --surface-radius: 15px;
+  }
+  .app-shell .topbar {
+    border-radius: 15px;
+  }
+  .modal {
+    border-radius: 18px;
+  }
+  .login-form {
+    padding: 28px 22px;
+  }
+  .login-card .eyebrow {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  .toast {
+    bottom: 16px;
+    right: 12px;
+    max-width: calc(100vw - 24px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .button:hover:not(:disabled),
+  .button:active:not(:disabled) {
+    transform: none;
+  }
+}

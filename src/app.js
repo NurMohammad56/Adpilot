@@ -31,6 +31,7 @@ import {
 import { discoveryCountry, getTrendSignals, trendLinks } from './modules/research/trend-sources.js';
 import { groupInput } from './modules/campaigns/product-group.js';
 import { enqueueProductGroup } from './modules/campaigns/group-jobs.js';
+import { campaignProductSources } from './modules/campaigns/product-sources.js';
 import {
   createCatalogFeed,
   resolveCatalogFeed,
@@ -854,6 +855,9 @@ export function createApp(runtime) {
           }),
         ),
       ),
+  );
+  app.get('/api/product-sources', async (req, res) =>
+    res.json(await campaignProductSources(platform, req.user)),
   );
   app.post('/api/products', parse(productSchema), async (req, res) =>
     res.status(201).json(await platform.createProduct(req.user, req.input)),

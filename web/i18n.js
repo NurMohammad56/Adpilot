@@ -9,6 +9,7 @@ import premiumTranslations from './locales/premium-bn.json';
 import recordTranslations from './locales/records-bn.json';
 import productResearchTranslations from './locales/product-research-bn.json';
 import reliabilityTranslations from './locales/reliability-bn.json';
+import carouselTranslations from './locales/carousel-bn.json';
 const translations = {
   ...baseTranslations,
   ...operationsTranslations,
@@ -20,6 +21,7 @@ const translations = {
   ...recordTranslations,
   ...productResearchTranslations,
   ...reliabilityTranslations,
+  ...carouselTranslations,
 };
 
 const listeners = new Set();

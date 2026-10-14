@@ -245,6 +245,13 @@ async function prepare(platform, user, kind, id) {
   }
   for (const row of all.products) {
     const changes = {};
+    const sourceCollection = {
+      research: 'research_projects',
+      discovery: 'product_discoveries',
+      'ad-library': 'ad_library_observations',
+    }[row.sourceContext?.kind];
+    if (sourceCollection && marked(sourceCollection)?.has(row.sourceContext.id))
+      changes.sourceContext = null;
     if (marked('media_assets').has(row.mediaAssetId)) changes.mediaAssetId = null;
     if (marked('media_assets').has(row.thumbnailAssetId)) changes.thumbnailAssetId = null;
     for (const key of ['mediaAssetIds', 'adLibraryIds']) {

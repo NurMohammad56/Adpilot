@@ -698,7 +698,14 @@ function Products({
           </button>
         }
       />
-      <ProductCampaigns data={data} api={api} busy={busy} run={run} onCreated={onGroupCreated} />
+      <ProductCampaigns
+        data={data}
+        api={api}
+        busy={busy}
+        run={run}
+        onCreated={onGroupCreated}
+        showProduct={showProduct}
+      />
       <p className="notice product-flow-note">
         {bn
           ? 'একবার product-এর তথ্য দিন → Research this product-এ বাজার, competitor ও buyer যাচাই করুন → সিদ্ধান্ত approve করুন → campaign তৈরি করুন। একই product-এর জন্য আলাদা করে আবার তথ্য দিতে হবে না। Generate campaign plan সরাসরি campaign preparation; market validation বাদ গেলে report সেই সীমা দেখাবে।'
@@ -1019,6 +1026,15 @@ function PlanReview({
         <LanguageSwitch />
       </div>
       <ReportTranslationNotice translation={translation} />
+      {plan.productResearchInvalidatedAt && (
+        <div className="notice">
+          <strong>Linked product research changed</strong>
+          <p>
+            Prepare a new carousel plan from Products. Earlier research and approval snapshots
+            remain in history.
+          </p>
+        </div>
+      )}
       {plan.adLibraryInvalidatedAt && (
         <div className="notice">
           <div>
@@ -1558,6 +1574,32 @@ function PlanReview({
               <ResearchReuseNote report={researchDisplay} />
               <MarketSample sample={researchDisplay.marketEvidence} />
               <ConfidenceNotes report={researchDisplay} />
+              {researchDisplay.savedProductResearch?.length > 0 && (
+                <section className="product-source-context">
+                  <h3>Earlier product research used in this plan</h3>
+                  <p>
+                    These reports inform this carousel. The new group decision and campaign still
+                    need their own review.
+                  </p>
+                  {researchDisplay.savedProductResearch.map((source, index) => (
+                    <article key={index}>
+                      <strong>{source.name || 'Unavailable source'}</strong>
+                      <p>
+                        {source.status} · {source.summary}
+                      </p>
+                      {source.reference.kind === 'research' && source.status !== 'unavailable' && (
+                        <button
+                          type="button"
+                          className="button secondary"
+                          onClick={() => onResearch(source.reference.id, 'physical-product')}
+                        >
+                          Open linked product research
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </section>
+              )}
               <AdLibraryResearchSources observations={researchDisplay.adLibraryObservations} />
               <h3 className="form-section">Evidence and assumptions</h3>
               {researchDisplay.findings.map((finding, i) => (
@@ -2545,8 +2587,8 @@ function App() {
       approval: request || null,
     });
   }
-  const showProduct = (product, initialValues = null) =>
-    setModal({ kind: 'product', product, initialValues });
+  const showProduct = (product, initialValues = null, onSaved = null) =>
+    setModal({ kind: 'product', product, initialValues, onSaved });
   async function execute(approval) {
     return run(
       async () => {
@@ -3143,6 +3185,7 @@ function App() {
                   );
                   await refresh();
                   setModal(null);
+                  modal.onSaved?.(saved);
                   return saved;
                 }, 'Product saved with actual costs and budget guardrails.')
               }
@@ -3184,15 +3227,16 @@ function App() {
                   return check;
                 }, 'Meta launch checks passed. You can request approval.')
               }
-              onResearch={(projectId) => {
+              onResearch={(projectId, kind) => {
                 if (!projectId) {
                   setModal(null);
                   setPage('Ad Library research');
                   return;
                 }
                 const physical =
+                  kind === 'physical-product' ||
                   data.researchProjects?.find((item) => item.id === projectId)?.kind ===
-                  'physical-product';
+                    'physical-product';
                 sessionStorage.setItem(
                   `adpilot-${physical ? 'product-research' : 'research'}-selection:${data.business.id}`,
                   projectId,

@@ -1338,6 +1338,26 @@ export function ResearchDesk({
                                 Prepare campaign draft
                               </button>
                             )}
+                          {current && project.kind === 'physical-product' && !project.productId && (
+                            <button
+                              type="button"
+                              className="button secondary"
+                              disabled={busy}
+                              onClick={() =>
+                                showProduct(null, {
+                                  draftId: `source-research-${project.id}-`,
+                                  name: project.name,
+                                  category: project.productCategory || '',
+                                  description: project.description,
+                                  adLibraryIds: project.adLibraryIds || [],
+                                  sourceContext: { kind: 'research', id: project.id },
+                                  sourceLabel: project.name,
+                                })
+                              }
+                            >
+                              Add actual product from research
+                            </button>
+                          )}
                           {current &&
                             version.status === 'approved' &&
                             !version.adLibraryInvalidatedAt &&

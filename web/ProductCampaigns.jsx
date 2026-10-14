@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { CampaignField } from './FieldHelp.jsx';
 import { useLanguage } from './i18n.js';
 import { mediaUrl } from './api.js';
+import { useDraft } from './use-draft.js';
+import { CarouselProductPicker } from './CarouselProductPicker.jsx';
 export function CarouselCards({ cards, copy }) {
   const bn = useLanguage() === 'bn';
   return (
@@ -51,15 +53,45 @@ export function CarouselCards({ cards, copy }) {
     </div>
   );
 }
-export function ProductCampaigns({ data, api, busy, onCreated, run }) {
+export function ProductCampaigns({ data, api, busy, onCreated, run, showProduct }) {
   const bn = useLanguage() === 'bn',
     l = (en, bangla) => (bn ? bangla : en);
-  const [mode, setMode] = useState('single'),
-    [ids, setIds] = useState([]),
-    [name, setName] = useState(''),
-    [url, setUrl] = useState(''),
-    [daily, setDaily] = useState(300),
-    [days, setDays] = useState(7);
+  const [draft, setDraft] = useDraft(`adpilot-carousel:${data.business.id}:${data.user.id}`, {
+    mode: 'single',
+    ids: [],
+    name: '',
+    url: '',
+    daily: 300,
+    days: 7,
+  });
+  const { mode, ids, name, url, daily, days } = draft;
+  const update = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
+  const setMode = (value) => update('mode', value),
+    setIds = (value) => update('ids', value),
+    setName = (value) => update('name', value),
+    setUrl = (value) => update('url', value),
+    setDaily = (value) => update('daily', value),
+    setDays = (value) => update('days', value);
+  const [catalog, setCatalog] = useState(null);
+  const [selectionMessage, setSelectionMessage] = useState('');
+  const saved = (product) => {
+    setDraft((current) => ({
+      ...current,
+      ids: [...new Set([...current.ids, product.id])].slice(0, 10),
+    }));
+    setSelectionMessage(
+      'Product saved and selected for your carousel. Your collection details and earlier selections are kept.',
+    );
+  };
+  const incomplete =
+    mode === 'carousel'
+      ? ids.filter(
+          (id) =>
+            !catalog?.products.some(
+              (product) => product.id === id && !product.carouselMissing.length,
+            ),
+        )
+      : [];
   const [jobs, setJobs] = useState([]),
     [jobError, setJobError] = useState('');
   useEffect(() => {
@@ -124,28 +156,61 @@ export function ProductCampaigns({ data, api, busy, onCreated, run }) {
                   'Dynamic ad-এর জন্য Meta catalogue ও website-এর matched event প্রয়োজন। এটি manual carousel থেকে আলাদা। নিচে product feed তৈরি করুন; Meta catalogue, policy ও tracking setup লাগবে।',
                 )}
           </p>
-          <div className="product-selection">
-            {data.products.map((p) => (
-              <label key={p.id} className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={ids.includes(p.id)}
-                  disabled={!ids.includes(p.id) && ids.length >= 10}
-                  onChange={(e) =>
-                    setIds(e.target.checked ? [...ids, p.id] : ids.filter((id) => id !== p.id))
-                  }
-                />
-                <span>
-                  <strong>{p.name}</strong> · {p.sellingPrice ?? 'Price needed'} BDT · {p.inventory}{' '}
-                  {l('in stock', 'stock-এ')}
-                </span>
-              </label>
-            ))}
-          </div>
+          {mode === 'carousel' ? (
+            <>
+              {selectionMessage && (
+                <p role="status" className="notice">
+                  {selectionMessage}
+                </p>
+              )}
+              <CarouselProductPicker
+                data={data}
+                api={api}
+                selected={ids}
+                onSelect={setIds}
+                onCatalog={setCatalog}
+                busy={busy}
+                onAdd={(initial) =>
+                  showProduct(
+                    null,
+                    { ...initial, draftId: initial?.draftId || `carousel-new-${data.business.id}` },
+                    saved,
+                  )
+                }
+                onEdit={(product) => showProduct(product, null, saved)}
+              />
+              {catalog && incomplete.length > 0 && (
+                <p role="alert">
+                  Complete or remove the selected products with missing information before preparing
+                  the carousel plan.
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="product-selection">
+              {data.products.map((p) => (
+                <label key={p.id} className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={ids.includes(p.id)}
+                    disabled={!ids.includes(p.id) && ids.length >= 10}
+                    onChange={(e) =>
+                      setIds(e.target.checked ? [...ids, p.id] : ids.filter((id) => id !== p.id))
+                    }
+                  />
+                  <span>
+                    <strong>{p.name}</strong> · {p.sellingPrice ?? 'Price needed'} BDT ·{' '}
+                    {p.inventory} {l('in stock', 'stock-এ')}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
           {mode === 'carousel' && (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                if (busy || !catalog || ids.length < 2 || incomplete.length > 0) return;
                 run(async () => {
                   const result = await api('/product-groups/plans', 'POST', {
                     productIds: ids,
@@ -234,11 +299,14 @@ export function ProductCampaigns({ data, api, busy, onCreated, run }) {
                 {l('Total shared lifetime budget', 'মোট shared lifetime budget')}:{' '}
                 {(Number(daily) * Number(days)).toFixed(2)} BDT ·{' '}
                 {l(
-                  'Tax/fees extra. Creating a plan spends no money.',
-                  'Tax/fee অতিরিক্ত। Plan বানালে কোনো খরচ হবে না।',
+                  'Tax/fees extra. Preparing a plan does not spend on Meta ads; AI provider usage may be billed.',
+                  'Tax/fee অতিরিক্ত। Plan তৈরি করলে Meta ad spend হবে না; AI provider-এর usage charge হতে পারে।',
                 )}
               </p>
-              <button className="button primary" disabled={busy || ids.length < 2}>
+              <button
+                className="button primary"
+                disabled={busy || ids.length < 2 || !catalog || incomplete.length > 0}
+              >
                 {l('Research & prepare carousel plan', 'Research করে carousel plan তৈরি করুন')}
               </button>
             </form>

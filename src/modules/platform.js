@@ -1,5 +1,6 @@
 import { assert, hash, id, money, now, publicUser, seal } from '../utils/core.js';
 import { calculateEconomics } from './pricing/engine.js';
+import { resolveProductSource, savedProductResearch } from './campaigns/product-sources.js';
 import { recommendBudget } from './budgeting/engine.js';
 import { researchProduct } from './research/service.js';
 import { marketEvidence, evidenceDigest, comparableAdPrices } from './research/market-evidence.js';
@@ -288,6 +289,7 @@ export class Platform {
         thumbnailAssetId: input.thumbnailAssetId,
       });
     return this.store.transaction(async () => {
+      if (input.sourceContext) await resolveProductSource(this, user, input.sourceContext);
       const product = await this.store.insert('products', {
         ...input,
         businessId: user.businessId,
@@ -313,6 +315,8 @@ export class Platform {
       });
     return this.store.transaction(async () => {
       const previous = await this.owned('products', productId, user);
+      if (input.sourceContext && hash(input.sourceContext) !== hash(previous.sourceContext || null))
+        await resolveProductSource(this, user, input.sourceContext);
       const product = await this.store.update('products', productId, {
         ...input,
         revision: previous.revision + 1,
@@ -432,7 +436,7 @@ export class Platform {
         }
       : previous?.research ||
         (await researchProduct(
-          product,
+          { ...product, savedResearchContext: await savedProductResearch(this, user, [product]) },
           business,
           evidence.map(
             ({ id: ignored, businessId: b, productId: p, createdAt, updatedAt, type, ...e }) => e,
@@ -837,6 +841,12 @@ export class Platform {
     );
     return this.store.transaction(async () => {
       let plan = await this.owned('campaign_plans', planId, user);
+      assert(
+        !plan.productResearchInvalidatedAt,
+        409,
+        'PRODUCT_RESEARCH_CHANGED',
+        'Linked product research changed. Research a new carousel plan and request a fresh approval.',
+      );
       const earlier = await this.store.list('approval_requests', {
         businessId: user.businessId,
         planId,

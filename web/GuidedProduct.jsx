@@ -74,7 +74,7 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
             ...structuredClone(empty),
             ...Object.fromEntries(
               Object.entries(initialValues || {}).filter(([key]) =>
-                ['name', 'category', 'description', 'adLibraryIds'].includes(key),
+                ['name', 'category', 'description', 'adLibraryIds', 'sourceContext'].includes(key),
               ),
             ),
           },
@@ -98,7 +98,7 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
     setAnalysis(null);
     setImageError('');
   }, [analysisKey]);
-  const value = autoProductCosts(raw);
+  const value = autoProductCosts({ ...raw, ...(raw.sourceContext === undefined && initialValues?.sourceContext ? { sourceContext: initialValues.sourceContext } : {}) });
   const automatic = value.costPlanning?.mode === 'automatic';
   const planning = (changes) =>
     setValue({
@@ -156,6 +156,30 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
         if (saved) clearDraft();
       }}
     >
+      {value.sourceContext && (
+        <section className="product-source-context">
+          <strong>Connected product source</strong>
+          <p>
+            {initialValues?.sourceLabel ||
+              {
+                research: 'Product research',
+                discovery: 'Discovery ideas',
+                'ad-library': 'Saved competitor ads',
+              }[value.sourceContext.kind]}
+          </p>
+          <p>
+            Keep the source as research context. Confirm your own product details below. Research
+            approval does not approve this product or its new campaign.
+          </p>
+          <button
+            type="button"
+            className="button secondary"
+            onClick={() => update('sourceContext', null)}
+          >
+            Detach source reference
+          </button>
+        </section>
+      )}
       <p className="draft-note">
         Your unfinished form is saved in this browser tab for this workspace. Actual costs must come
         from your business; examples are not market prices.

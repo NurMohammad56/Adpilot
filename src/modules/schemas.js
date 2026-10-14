@@ -167,6 +167,20 @@ export const businessSchema = z
   .strict();
 export const productSchema = z
   .object({
+    sourceContext: z
+      .discriminatedUnion('kind', [
+        z.object({ kind: z.literal('research'), id: z.string().uuid() }).strict(),
+        z
+          .object({
+            kind: z.literal('discovery'),
+            id: z.string().uuid(),
+            candidateId: z.string().uuid(),
+          })
+          .strict(),
+        z.object({ kind: z.literal('ad-library'), id: z.string().uuid() }).strict(),
+      ])
+      .nullable()
+      .optional(),
     adLibraryIds: z
       .array(z.string().uuid())
       .max(12)

@@ -1,0 +1,109 @@
+.carousel-source-picker {
+  padding: 22px;
+  margin: 20px 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #f7fbf9;
+}
+.carousel-source-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.carousel-source-heading > div {
+  flex: 1 1 300px;
+}
+.carousel-source-heading p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+.carousel-source-picker .form-grid {
+  gap: 18px;
+}
+.carousel-source-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  min-width: 0;
+}
+.carousel-source-row > div,
+.carousel-source-row .checkbox-row {
+  width: 100%;
+  min-width: 0;
+}
+.carousel-source-row .checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.carousel-source-row .checkbox-row input[type='checkbox'] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 3px 0;
+}
+.carousel-source-row strong,
+.carousel-source-row small {
+  overflow-wrap: anywhere;
+}
+.carousel-source-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.carousel-source-missing {
+  margin: 0;
+  font-size: 14px;
+  color: #8a4d1d;
+}
+.carousel-selection-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 16px 0;
+}
+.carousel-selection-summary span {
+  color: var(--muted);
+}
+.carousel-selected-products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.carousel-selected-products .button {
+  text-align: left;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.carousel-selected-products .button span {
+  margin-left: 8px;
+  font-size: 20px;
+}
+.product-source-context {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f0f8f3;
+  margin-bottom: 22px;
+}
+.product-source-context p {
+  margin: 8px 0;
+}
+@media (max-width: 600px) {
+  .carousel-source-picker {
+    padding: 16px;
+  }
+  .carousel-source-heading > .button {
+    width: 100%;
+  }
+}

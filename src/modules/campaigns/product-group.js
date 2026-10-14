@@ -8,6 +8,11 @@ import { recommendAudience } from '../audiences/engine.js';
 import { productVisualContext } from '../media/vision.js';
 import { workspaceLLM } from '../../integrations/credentials.js';
 import { businessPolicyHash, planFingerprint, validatePlan } from './validation.js';
+import {
+  savedProductResearch,
+  productResearchFingerprint,
+  assertSavedProductResearchFresh,
+} from './product-sources.js';
 
 export const groupInput = z
   .object({
@@ -75,6 +80,7 @@ export async function groupProduct(platform, user, plan) {
     );
     products.push(current);
   }
+  await assertSavedProductResearchFresh(platform, user, products, plan.research);
   return policyProduct(
     products,
     await platform.store.get('businesses', user.businessId),
@@ -177,6 +183,8 @@ export async function createProductGroup(platform, user, input, previous = null,
   const adEvidence = await adLibrarySnapshot(platform, user, {
     productIds: products.map((p) => p.id),
   });
+  const savedResearch = await savedProductResearch(platform, user, products);
+  if (previous) await assertSavedProductResearchFresh(platform, user, products, previous.research);
   const report =
     previous?.research ||
     (await researchProduct(
@@ -191,6 +199,7 @@ export async function createProductGroup(platform, user, input, previous = null,
           paymentMethod: p.paymentMethod,
           sellingPrice: p.sellingPrice,
         })),
+        savedResearchContext: savedResearch,
         visualReports: visualReports.map((v) => ({ name: v.name, report: v.report })),
       },
       business,
@@ -205,6 +214,8 @@ export async function createProductGroup(platform, user, input, previous = null,
   if (!previous) {
     report.adLibraryScope = adEvidence.scope;
     report.adLibraryFingerprint = adEvidence.fingerprint;
+    report.savedProductResearch = savedResearch;
+    report.productResearchFingerprint = productResearchFingerprint(savedResearch);
   }
   const relatedPlans = (
     await platform.store.list('campaign_plans', {
@@ -411,6 +422,7 @@ export async function createProductGroup(platform, user, input, previous = null,
   plan.fingerprint = planFingerprint(plan);
   return platform.store.transaction(async () => {
     await assertAdLibraryFresh(platform, user, report);
+    await assertSavedProductResearchFresh(platform, user, products, report);
     for (const earlier of await platform.store.list('campaign_plans', {
       businessId: user.businessId,
       kind: 'product-group',

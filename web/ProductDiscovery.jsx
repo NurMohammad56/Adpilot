@@ -811,6 +811,12 @@ export function ProductDiscovery({ data, api, run, busy, setPage, showProduct })
                               category: original.category,
                               description: '',
                               adLibraryIds: selected.input.adLibraryIds,
+                              sourceContext: {
+                                kind: 'discovery',
+                                id: selected.id,
+                                candidateId: candidate.id,
+                              },
+                              sourceLabel: original.name,
                             })
                           }
                         >

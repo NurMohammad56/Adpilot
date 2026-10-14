@@ -1069,6 +1069,8 @@ export function AdLibraryResearch({
                       showProduct(null, {
                         draftId: `ad-library-${row.id}`,
                         adLibraryIds: [row.id],
+                        sourceContext: { kind: 'ad-library', id: row.id },
+                        sourceLabel: row.pageName,
                       });
                     }}
                   >

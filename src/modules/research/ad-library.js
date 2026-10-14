@@ -4,6 +4,7 @@ import { workspaceLLM } from '../../integrations/credentials.js';
 import { countryNames } from './countries.js';
 import { canonicalAdLibraryLink } from './ad-library-links.js';
 import { parseCopiedAd } from './ad-capture.js';
+import { invalidateSavedProductResearchPlans } from '../campaigns/product-sources.js';
 
 const dateOnly = z
   .string()
@@ -715,4 +716,5 @@ export async function invalidateAdLibraryReports(platform, user) {
       await platform.audit(user, 'campaign.ad_evidence_changed', plan.id);
     }
   }
+  await invalidateSavedProductResearchPlans(platform, user);
 }

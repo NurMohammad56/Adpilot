@@ -11,6 +11,10 @@ import { cachedResearch } from './cache.js';
 import { marketEvidence, evidenceDigest } from './market-evidence.js';
 import { calculateEconomics } from '../pricing/engine.js';
 import {
+  savedProductResearch,
+  invalidateSavedProductResearchPlans,
+} from '../campaigns/product-sources.js';
+import {
   adLibrarySnapshot,
   assertAdLibraryFresh,
   validateAdLibrarySelection,
@@ -141,6 +145,7 @@ export class ResearchWorkbench {
         createdBy: user.id,
       });
       await this.platform.audit(user, 'research.project_created', project.id);
+      await invalidateSavedProductResearchPlans(this.platform, user);
       return project;
     });
   }
@@ -276,6 +281,7 @@ export class ResearchWorkbench {
       await this.platform.audit(user, 'research.version_created', version.id, {
         version: version.number,
       });
+      await invalidateSavedProductResearchPlans(this.platform, user);
       return version;
     });
   }
@@ -373,6 +379,11 @@ export class ResearchWorkbench {
           ? {
               productValidation: {
                 researchGoal: project.researchGoal || 'business-decision',
+                savedResearchContext: linkedProduct
+                  ? await savedProductResearch(this.platform, user, [linkedProduct], {
+                      excludeProjectId: project.id,
+                    })
+                  : [],
                 category: linkedProduct?.category || project.productCategory || null,
                 unitEconomics:
                   linkedProduct?.sellingPrice > 0 ? calculateEconomics(linkedProduct) : null,
@@ -531,6 +542,7 @@ export class ResearchWorkbench {
         submittedBy: user.id,
       });
       await this.platform.audit(user, 'research.review_requested', version.id);
+      await invalidateSavedProductResearchPlans(this.platform, user);
       return saved;
     });
   }
@@ -571,6 +583,7 @@ export class ResearchWorkbench {
         approvedVersionId: decision === 'approve' ? version.id : null,
       });
       await this.platform.audit(user, `research.${saved.status}`, versionId, { comment });
+      await invalidateSavedProductResearchPlans(this.platform, user);
       return saved;
     });
   }

@@ -5,6 +5,20 @@
   border-radius: 16px;
   background: #f7fbf9;
 }
+.collection-name-field {
+  min-width: 0;
+}
+.collection-name-suggestion {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.collection-name-suggestion p {
+  margin: 8px 0;
+}
+.collection-name-suggestion .button {
+  margin-top: 8px;
+  white-space: normal;
+}
 .carousel-source-heading {
   display: flex;
   align-items: flex-start;

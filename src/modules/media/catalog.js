@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { assert, hash, seal, unseal } from '../../utils/core.js';
+import { productCardImages } from './product-creatives.js';
 const xml = (value) =>
   String(value ?? '')
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '')
@@ -39,7 +40,9 @@ export async function createCatalogFeed(platform, user, productIds, acknowledgeS
   for (const id of productIds) {
     const product = await platform.owned('products', id, user);
     assert(
-      product.sellingPrice > 0 && product.landingUrl && (product.mediaAssetId || product.imageUrl),
+      product.sellingPrice > 0 &&
+        product.landingUrl &&
+        (product.mediaAssetId || product.mediaAssetIds?.length || product.imageUrl),
       422,
       'CATALOG_READY',
       'Every feed product needs a real selling price, HTTPS product page and product image.',
@@ -50,15 +53,12 @@ export async function createCatalogFeed(platform, user, productIds, acknowledgeS
       'CATALOG_CONDITION',
       'Edit the product and confirm whether it is new, used or refurbished before sharing a catalogue feed.',
     );
-    if (product.mediaAssetId) {
-      const asset = await platform.media.asset(user, product.mediaAssetId);
-      assert(
-        asset.type === 'image',
-        422,
-        'CATALOG_IMAGE',
-        'Catalogue products must have product images.',
-      );
-    }
+    assert(
+      (await productCardImages(platform, user, product)).length > 0,
+      422,
+      'CATALOG_IMAGE',
+      'Catalogue products must have product images.',
+    );
   }
   const token = crypto.randomBytes(32).toString('hex');
   const saved = await platform.store.insert('catalog_feeds', {
@@ -94,15 +94,12 @@ export async function catalogXML(platform, feed, token) {
       !product.condition
     )
       continue;
-    let image = product.imageUrl;
-    if (product.mediaAssetId) {
-      const asset = await platform.media.asset(
-        { businessId: feed.businessId },
-        product.mediaAssetId,
-      );
-      if (asset.type !== 'image') continue;
-      image = `${base(platform)}/${feed.id}/images/${asset.id}?token=${token}`;
-    }
+    const selected = (
+      await productCardImages(platform, { businessId: feed.businessId }, product)
+    )[0];
+    const image = selected?.mediaAssetId
+      ? `${base(platform)}/${feed.id}/images/${selected.mediaAssetId}?token=${token}`
+      : selected?.imageUrl;
     if (!image) continue;
     const fields = {
       id: product.id,
@@ -128,7 +125,10 @@ export async function catalogImage(platform, feed, assetId) {
   let linked = false;
   for (const id of feed.productIds) {
     const product = await platform.store.get('products', id);
-    if (product?.businessId === feed.businessId && product.mediaAssetId === assetId) {
+    if (
+      product?.businessId === feed.businessId &&
+      [product.mediaAssetId, ...(product.mediaAssetIds || [])].includes(assetId)
+    ) {
       linked = true;
       break;
     }

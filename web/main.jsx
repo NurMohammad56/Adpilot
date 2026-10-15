@@ -719,10 +719,10 @@ function Products({
         {pagination.items.map((product, index) => (
           <article className="panel product-card" key={product.id}>
             <div className={`product-art art-${index % 3}`}>
-              {product.mediaAssetId ? (
+              {product.mediaAssetId || product.mediaAssetIds?.length ? (
                 <img
                   className="product-profile-image"
-                  src={mediaUrl(product.mediaAssetId)}
+                  src={mediaUrl(product.thumbnailAssetId || product.mediaAssetId || product.mediaAssetIds[0])}
                   alt={product.name}
                 />
               ) : (

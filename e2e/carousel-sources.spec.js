@@ -75,6 +75,9 @@ test('research and competitor sources keep carousel inputs, save actual products
     .locator('.product-selection')
     .getByRole('checkbox', { name: /My saved bag/ })
     .check();
+  await expect(page.getByLabel('Collection campaign name', { exact: true })).toHaveValue(
+    /My saved bag.*BD carousel/,
+  );
   await page.getByLabel('Collection campaign name', { exact: true }).fill('My related bags');
   await page
     .getByLabel('Collection / shop page URL', { exact: true })
@@ -117,6 +120,11 @@ test('research and competitor sources keep carousel inputs, save actual products
   await expect(page.getByLabel('Collection campaign name', { exact: true })).toHaveValue(
     'My related bags',
   );
+  await page.getByRole('button', { name: 'Use suggested name', exact: true }).click();
+  await expect(page.getByLabel('Collection campaign name', { exact: true })).toHaveValue(
+    /My saved bag.*My actual second bag/,
+  );
+  await page.getByLabel('Collection campaign name', { exact: true }).fill('My related bags');
   await expect(page.getByLabel('Shared daily planning budget (BDT)', { exact: true })).toHaveValue(
     '200',
   );

@@ -123,17 +123,24 @@ export async function campaignProductSources(platform, user) {
     products: products
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((product) => {
-        const asset = media.find((item) => item.id === product.mediaAssetId);
+        const carouselImages = [
+          ...new Set([product.mediaAssetId, ...(product.mediaAssetIds || [])].filter(Boolean)),
+        ]
+          .map((id) => media.find((item) => item.id === id))
+          .filter((asset) => asset?.type === 'image' && asset.status === 'ready')
+          .map((asset) => ({ mediaAssetId: asset.id, name: asset.name, imageUrl: '' }));
+        if (product.imageUrl)
+          carouselImages.push({
+            mediaAssetId: null,
+            name: 'Product image URL',
+            imageUrl: product.imageUrl,
+          });
         const missing = [];
         if (!(product.sellingPrice > 0)) missing.push('selling price');
         if (!(product.inventory > 0)) missing.push('stock');
         if (!product.landingUrl?.startsWith('https://')) missing.push('product page');
-        if (!(
-          (asset?.type === 'image' && asset.status === 'ready') ||
-          (!product.mediaAssetId && product.imageUrl)
-        ))
-          missing.push('product image');
-        return { ...product, carouselMissing: missing };
+        if (!carouselImages.length) missing.push('product image');
+        return { ...product, carouselImages, carouselMissing: missing };
       }),
     sources,
   };

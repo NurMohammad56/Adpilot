@@ -200,6 +200,18 @@ export const productSchema = z
     mediaAssetId: z.string().uuid().nullable().optional(),
     thumbnailAssetId: z.string().uuid().nullable().optional(),
     mediaAssetIds: z.array(z.string().uuid()).max(6).optional(),
+    videoCreatives: z
+      .array(
+        z
+          .object({
+            mediaAssetId: z.string().uuid(),
+            thumbnailAssetId: z.string().uuid(),
+          })
+          .strict(),
+      )
+      .max(4)
+      .refine((rows) => new Set(rows.map((row) => row.mediaAssetId)).size === rows.length)
+      .optional(),
     costPlanning: z
       .object({
         mode: z.enum(['automatic', 'manual']),
@@ -295,7 +307,7 @@ export const planEditSchema = z
           .strict(),
       )
       .min(1)
-      .max(6)
+      .max(10)
       .optional(),
   })
   .strict();

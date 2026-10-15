@@ -1,4 +1,7 @@
 {
+  "Choose this product’s carousel image": "এই product-এর carousel-এর ছবি বাছুন",
+  "One photo per card. The card opens this product’s own page.": "প্রতি card-এ একটি ছবি থাকবে। Card চাপলে এই product-এর নিজস্ব page খুলবে।",
+  "Product image URL": "প্রোডাক্টের image URL",
   "Existing product:": "আপনার existing প্রোডাক্ট:",
   "{0} BDT · {1} in stock": "{0} BDT · stock-এ {1}টি",
   "Remove {0} from carousel": "Carousel থেকে {0} সরান",

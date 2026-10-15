@@ -1,5 +1,6 @@
 import { id } from '../../utils/core.js';
 import { copyOutputSchema } from '../../ai/provider.js';
+import { productCreativeRefs } from '../media/product-creatives.js';
 export async function generateCopy(product, economics, research, llm) {
   const generated = await llm.generate(
     'campaign-copy',
@@ -10,7 +11,7 @@ export async function generateCopy(product, economics, research, llm) {
       visualAnalysis: research.visualAnalysis?.report,
       schema: 'ads[{hook,primaryText,headline,language,concept}]',
       rules:
-        'Use only supported claims. Visual observations are not proof of specifications; do not use uncertain visual claims. Do not promise results, invent discounts, or claim COD/free shipping unless confirmed.',
+        'Use only supported claims. Visual observations are not proof of specifications; do not use uncertain visual claims. Videos are uploaded owner creatives, not analyzed footage: do not claim to have watched or verified their content. Copy will be paired with the saved product photos/video variants for human review. Do not promise results, invent discounts, or claim COD/free shipping unless confirmed.',
     },
     copyOutputSchema,
   );
@@ -40,14 +41,14 @@ export async function generateCopy(product, economics, research, llm) {
         'Trust-led carousel covering actual materials, use case, and published delivery policy. No unsupported guarantees.',
     },
   ];
-  return (generated?.ads || templates).map((ad) => ({
-    ...ad,
+  const copies = generated?.ads || templates;
+  const media = productCreativeRefs(product);
+  return Array.from({ length: Math.max(copies.length, media.length) }, (_, index) => ({
+    ...copies[index % copies.length],
     id: id(),
     cta: 'SHOP_NOW',
-    imageUrl: product.imageUrl || '',
-    ...(product.mediaAssetId
-      ? { mediaAssetId: product.mediaAssetId, thumbnailAssetId: product.thumbnailAssetId || null }
-      : {}),
+    imageUrl: '',
+    ...(media.length ? media[index % media.length] : {}),
     hypothesis: true,
   }));
 }

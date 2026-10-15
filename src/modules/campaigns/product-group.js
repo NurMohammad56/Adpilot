@@ -7,6 +7,7 @@ import { explainConfidence } from '../research/confidence.js';
 import { recommendAudience } from '../audiences/engine.js';
 import { productVisualContext } from '../media/vision.js';
 import { workspaceLLM } from '../../integrations/credentials.js';
+import { selectProductCardImage } from '../media/product-creatives.js';
 import { businessPolicyHash, planFingerprint, validatePlan } from './validation.js';
 import {
   savedProductResearch,
@@ -17,6 +18,14 @@ import {
 export const groupInput = z
   .object({
     productIds: z.array(z.string().uuid()).min(2).max(10),
+    cardImages: z
+      .array(
+        z
+          .object({ productId: z.string().uuid(), mediaAssetId: z.string().uuid().nullable() })
+          .strict(),
+      )
+      .max(10)
+      .default([]),
     name: z.string().trim().min(2).max(200),
     landingUrl: z
       .string()
@@ -91,6 +100,13 @@ export async function groupProduct(platform, user, plan) {
 export async function createProductGroup(platform, user, input, previous = null, overrides = {}) {
   input = groupInput.parse(input);
   assert(
+    new Set(input.cardImages.map((row) => row.productId)).size === input.cardImages.length &&
+      input.cardImages.every((row) => input.productIds.includes(row.productId)),
+    422,
+    'CAROUSEL_IMAGE_SELECTION',
+    'Choose one image for each selected product only.',
+  );
+  assert(
     new Set(input.productIds).size === input.productIds.length,
     422,
     'GROUP_PRODUCTS',
@@ -105,18 +121,17 @@ export async function createProductGroup(platform, user, input, previous = null,
       product.sellingPrice > 0 &&
         product.inventory > 0 &&
         product.landingUrl &&
-        (product.mediaAssetId || product.imageUrl),
+        (product.mediaAssetId || product.mediaAssetIds?.length || product.imageUrl),
       422,
       'GROUP_PRODUCT_READY',
       'Every selected product needs a real selling price, available stock, an HTTPS product page and a product image.',
     );
-    if (product.mediaAssetId)
-      assert(
-        (await platform.media.asset(user, product.mediaAssetId)).type === 'image',
-        422,
-        'CAROUSEL_IMAGE',
-        'Choose a product image for every carousel card.',
-      );
+    await selectProductCardImage(
+      platform,
+      user,
+      product,
+      input.cardImages.find((row) => row.productId === product.id)?.mediaAssetId,
+    );
     products.push(product);
   }
   const policy = policyProduct(products, business, input.landingUrl);
@@ -258,6 +273,12 @@ export async function createProductGroup(platform, user, input, previous = null,
       );
   const cards = [];
   for (const product of products) {
+    const selectedImage = await selectProductCardImage(
+      platform,
+      user,
+      product,
+      input.cardImages.find((row) => row.productId === product.id)?.mediaAssetId,
+    );
     const card = {
       productId: product.id,
       name: product.name,
@@ -265,8 +286,8 @@ export async function createProductGroup(platform, user, input, previous = null,
       description: `${product.sellingPrice.toFixed(2)} BDT`,
       link: product.landingUrl,
       sellingPrice: product.sellingPrice,
-      imageUrl: product.imageUrl || '',
-      ...(product.mediaAssetId ? { mediaAssetId: product.mediaAssetId } : {}),
+      imageUrl: selectedImage.imageUrl,
+      ...(selectedImage.mediaAssetId ? { mediaAssetId: selectedImage.mediaAssetId } : {}),
     };
     cards.push(await platform.media.bind(user, card));
     assert(
@@ -305,8 +326,22 @@ export async function createProductGroup(platform, user, input, previous = null,
       'Group plans use reviewed carousel cards.',
     );
     assert(
-      hash(ad.cards.map((c) => ({ id: c.productId, price: c.sellingPrice, link: c.link }))) ===
-        hash(cards.map((c) => ({ id: c.productId, price: c.sellingPrice, link: c.link }))),
+      hash(
+        ad.cards.map((c) => ({
+          id: c.productId,
+          price: c.sellingPrice,
+          link: c.link,
+          media: c.mediaAssetId || c.imageUrl,
+        })),
+      ) ===
+        hash(
+          cards.map((c) => ({
+            id: c.productId,
+            price: c.sellingPrice,
+            link: c.link,
+            media: c.mediaAssetId || c.imageUrl,
+          })),
+        ),
       422,
       'CAROUSEL_PRODUCTS',
       'Card products, prices and links must match the current product group.',

@@ -264,6 +264,18 @@ async function prepare(platform, user, kind, id) {
       const ids = marked(key === 'adLibraryIds' ? 'ad_library_observations' : 'media_assets');
       if (row[key]?.some((id) => ids.has(id))) changes[key] = removeIds(row[key], ids);
     }
+    if (
+      row.videoCreatives?.some(
+        (creative) =>
+          marked('media_assets').has(creative.mediaAssetId) ||
+          marked('media_assets').has(creative.thumbnailAssetId),
+      )
+    )
+      changes.videoCreatives = row.videoCreatives.filter(
+        (creative) =>
+          !marked('media_assets').has(creative.mediaAssetId) &&
+          !marked('media_assets').has(creative.thumbnailAssetId),
+      );
     if (Object.keys(changes).length) changes.revision = (row.revision || 1) + 1;
     patch('products', row, changes);
   }

@@ -105,6 +105,46 @@
   margin-bottom: 10px;
   line-height: 1.8;
 }
+.product-campaign-builder .product-selection > .checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line, #d9e7e2);
+  border-radius: 12px;
+  line-height: 1.7;
+}
+.catalog-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  margin-top: 24px;
+}
+.catalog-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  line-height: 1.7;
+  max-width: 100%;
+}
+.catalog-consent span,
+.product-campaign-builder .product-selection > .checkbox-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.catalog-consent input[type='checkbox'],
+.product-campaign-builder .product-selection > .checkbox-row input[type='checkbox'] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 4px 0 0;
+}
+.catalog-actions > .button {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.5;
+}
 .group-economics {
   max-height: 580px;
   overflow: auto;

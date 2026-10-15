@@ -9,6 +9,7 @@ import {
 import { CampaignField } from './FieldHelp.jsx';
 import { useLanguage } from './i18n.js';
 import { AdLibraryPicker } from './AdLibraryPicker.jsx';
+import { ProductMediaGallery } from './ProductMediaGallery.jsx';
 
 const categories = [
   'Fashion & clothing',
@@ -39,6 +40,7 @@ const empty = {
   brand: '',
   gtin: '',
   mediaAssetIds: [],
+  videoCreatives: [],
   costPlanning: {
     mode: 'automatic',
     returnRateSource: 'assumed',
@@ -81,6 +83,7 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
   );
   const bn = useLanguage() === 'bn';
   const [customDelivery, setCustomDelivery] = useState(false);
+  const [mediaUploading, setMediaUploading] = useState(false);
   const [analysis, setAnalysis] = useState(null),
     [imageBusy, setImageBusy] = useState(false),
     [imageError, setImageError] = useState('');
@@ -98,7 +101,12 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
     setAnalysis(null);
     setImageError('');
   }, [analysisKey]);
-  const value = autoProductCosts({ ...raw, ...(raw.sourceContext === undefined && initialValues?.sourceContext ? { sourceContext: initialValues.sourceContext } : {}) });
+  const value = autoProductCosts({
+    ...raw,
+    ...(raw.sourceContext === undefined && initialValues?.sourceContext
+      ? { sourceContext: initialValues.sourceContext }
+      : {}),
+  });
   const automatic = value.costPlanning?.mode === 'automatic';
   const planning = (changes) =>
     setValue({
@@ -151,6 +159,7 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
     <form
       onSubmit={async (event) => {
         event.preventDefault();
+        if (mediaUploading) return;
         const { id, businessId, createdBy, revision, createdAt, updatedAt, ...payload } = value;
         const saved = await onSave(payload);
         if (saved) clearDraft();
@@ -665,7 +674,13 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
           setValue({ ...value, mediaAssetId, thumbnailAssetId })
         }
       />
-      <ProductPhotos value={value} setValue={setValue} api={api} bn={bn} />
+      <ProductMediaGallery
+        value={value}
+        setValue={setValue}
+        api={api}
+        busy={busy}
+        onUploading={setMediaUploading}
+      />
       <button
         type="button"
         className="button secondary"
@@ -674,10 +689,16 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
           setImageBusy(true);
           setImageError('');
           try {
+            const assets = await api('/media');
+            const imageIds = [
+              ...new Set([value.mediaAssetId, ...(value.mediaAssetIds || [])].filter(Boolean)),
+            ].filter((id) => assets.some((asset) => asset.id === id && asset.type === 'image'));
+            if (!imageIds.length)
+              throw new Error(
+                'Choose at least one product photo. Videos are not analyzed as images.',
+              );
             const result = await api('/products/image-analysis', 'POST', {
-              mediaAssetIds: [
-                ...new Set([value.mediaAssetId, ...(value.mediaAssetIds || [])].filter(Boolean)),
-              ],
+              mediaAssetIds: imageIds,
               name: value.name,
               description: value.description,
               category: value.category,
@@ -781,52 +802,10 @@ export function GuidedProduct({ product, initialValues, data, api, busy, onSave 
         </label>
       )}
       <div className="modal-actions">
-        <button className="button primary" disabled={busy}>
+        <button className="button primary" disabled={busy || mediaUploading}>
           {product ? 'Save product changes' : 'Add product'}
         </button>
       </div>
     </form>
-  );
-}
-
-function ProductPhotos({ value, setValue, api, bn }) {
-  const [assets, setAssets] = useState([]),
-    [error, setError] = useState('');
-  React.useEffect(() => {
-    api('/media')
-      .then((rows) => setAssets(rows.filter((a) => a.type === 'image')))
-      .catch((e) => setError(e.message));
-  }, [api, value.mediaAssetId]);
-  const ids = value.mediaAssetIds || [];
-  return (
-    <details className="guide-step">
-      <summary>
-        {bn ? 'অতিরিক্ত product photo (সর্বোচ্চ ৬টি)' : 'Additional product photos (up to six)'}
-      </summary>
-      <p>
-        {bn
-          ? 'Media library-তে ছবি upload করে এখানে নির্বাচন করুন। মূল ছবির পাশাপাশি বিভিন্ন angle দেখালে AI বেশি context পায়।'
-          : 'Upload photos in the media library, then select them here. Different angles help the AI inspect the same product.'}
-      </p>
-      {assets.map((asset) => (
-        <label key={asset.id} className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={ids.includes(asset.id)}
-            disabled={!ids.includes(asset.id) && ids.length >= 5}
-            onChange={(e) =>
-              setValue({
-                ...value,
-                mediaAssetIds: e.target.checked
-                  ? [...ids, asset.id]
-                  : ids.filter((id) => id !== asset.id),
-              })
-            }
-          />
-          {asset.name}
-        </label>
-      ))}
-      {error && <p role="alert">{error}</p>}
-    </details>
   );
 }

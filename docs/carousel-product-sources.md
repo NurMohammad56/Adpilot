@@ -1,6 +1,16 @@
 # Connected carousel product flow
 
+## Product media and card selection
+
+A saved physical product can hold up to six photos and four videos across its primary creative and gallery. The product form supports multiple file uploads, existing Media library selection and a required uploaded cover for each video. Removing a gallery reference leaves the independent media file intact. Photo analysis uses only actual image assets (up to six); video footage is not sent to the image analysis endpoint or presented as analyzed evidence.
+
+Single-product preparation pairs copy variations with every distinct saved creative, including video covers and checksums. These remain drafts requiring review and a separate launch approval. The plan editor can remove variations before requesting a new review; the shared campaign budget is not multiplied by the creative count. More variations do not guarantee more efficient results, especially with small budgets.
+
+After selecting a product in the carousel source picker, its saved images appear as thumbnail radio options. Exactly one image is used for that product card. The selection persists with the carousel draft and is sent to queued or immediate preparation. The server rejects video, unrelated and foreign image selections before research; a selected photo is included in the immutable plan and preserved by revisions. Each card continues to use the product's own HTTPS destination. A primary video does not prevent using a gallery photo for a carousel or catalogue. Changes to product media invalidate old product snapshots and require a fresh plan/review. Media deletion removes video references that lost their video or cover and uses existing dependent-plan deletion protections.
+
 In Products, choose **Several products - swipe cards**. The source picker offers saved products, physical Product research, Discovery ideas, and active Saved competitor ads. It loads the workspace's complete saved collection rather than only the compact overview page. Search and pagination keep the list manageable; selected products remain selected across source/page changes. The carousel mode, selection, collection name/URL and budget are saved in this tab for the current user and workspace.
+
+The collection campaign name is suggested locally from selected product names and, for larger groups with one shared category, that category. It updates with selection until the owner edits it. Existing named drafts and manual edits are preserved. **Use suggested name** deliberately restores automatic naming. This uses no model calls and does not change reviewed campaign names or published campaigns.
 
 An existing linked product is selected or edited rather than duplicated. A new source opens the normal actual-product form over the carousel. Saving selects the resulting product and preserves the builder inputs. Cancelling preserves the unfinished product draft. Research/Discovery can prefill the idea's name/category and, for a research brief, description for owner confirmation. Competitor ads prefill only evidence selection and an origin reference: competitor copy, price, image and URL are never turned into owner product facts. Uploaded product images, actual selling price, costs, stock and own destination must be supplied or confirmed by the owner.
 

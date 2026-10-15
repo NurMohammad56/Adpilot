@@ -4,6 +4,21 @@ import { useLanguage } from './i18n.js';
 import { mediaUrl } from './api.js';
 import { useDraft } from './use-draft.js';
 import { CarouselProductPicker } from './CarouselProductPicker.jsx';
+const suggestCollectionName = (products) => {
+  if (!products.length) return '';
+  const names = [...new Set(products.map((product) => product.name.trim()).filter(Boolean))];
+  const categories = [
+    ...new Set(products.map((product) => product.category?.trim()).filter(Boolean)),
+  ];
+  const context = names
+    .slice(0, 2)
+    .map((name) => (name.length > 60 ? name.slice(0, 57) + '…' : name))
+    .join(' + ');
+  const remaining = products.length > 2 ? ` + ${products.length - 2} more` : '';
+  const category =
+    products.length > 2 && categories.length === 1 ? `${categories[0].slice(0, 35)} · ` : '';
+  return `${category}${context}${remaining} · BD carousel`.slice(0, 200);
+};
 export function CarouselCards({ cards, copy }) {
   const bn = useLanguage() === 'bn';
   return (
@@ -63,16 +78,35 @@ export function ProductCampaigns({ data, api, busy, onCreated, run, showProduct 
     url: '',
     daily: 300,
     days: 7,
+    cardImages: {},
+    nameMode: 'auto',
   });
-  const { mode, ids, name, url, daily, days } = draft;
+  const { mode, ids, name, url, daily, days, cardImages = {} } = draft;
   const update = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
   const setMode = (value) => update('mode', value),
     setIds = (value) => update('ids', value),
-    setName = (value) => update('name', value),
+    setName = (value) => setDraft((current) => ({ ...current, name: value, nameMode: 'custom' })),
     setUrl = (value) => update('url', value),
     setDaily = (value) => update('daily', value),
     setDays = (value) => update('days', value);
   const [catalog, setCatalog] = useState(null);
+  const selectedProducts = ids.map((id) =>
+    (catalog?.products || data.products).find((product) => product.id === id),
+  );
+  const suggestedName = selectedProducts.every(Boolean)
+    ? suggestCollectionName(selectedProducts)
+    : '';
+  useEffect(() => {
+    if (mode !== 'carousel' || !suggestedName) return;
+    setDraft((current) => {
+      // Older saved drafts with an entered name are also treated as intentional names.
+      if (current.nameMode === 'custom' || (!current.nameMode && current.name?.trim()))
+        return current;
+      return current.name === suggestedName && current.nameMode === 'auto'
+        ? current
+        : { ...current, name: suggestedName, nameMode: 'auto' };
+    });
+  }, [mode, suggestedName, draft.nameMode]);
   const [selectionMessage, setSelectionMessage] = useState('');
   const saved = (product) => {
     setDraft((current) => ({
@@ -88,7 +122,13 @@ export function ProductCampaigns({ data, api, busy, onCreated, run, showProduct 
       ? ids.filter(
           (id) =>
             !catalog?.products.some(
-              (product) => product.id === id && !product.carouselMissing.length,
+              (product) =>
+                product.id === id &&
+                !product.carouselMissing.length &&
+                (cardImages[id] === undefined ||
+                  product.carouselImages?.some(
+                    (image) => (image.mediaAssetId || 'url') === cardImages[id],
+                  )),
             ),
         )
       : [];
@@ -168,6 +208,10 @@ export function ProductCampaigns({ data, api, busy, onCreated, run, showProduct 
                 api={api}
                 selected={ids}
                 onSelect={setIds}
+                cardImages={cardImages}
+                onImageSelect={(productId, imageId) =>
+                  update('cardImages', { ...cardImages, [productId]: imageId })
+                }
                 onCatalog={setCatalog}
                 busy={busy}
                 onAdd={(initial) =>
@@ -214,6 +258,13 @@ export function ProductCampaigns({ data, api, busy, onCreated, run, showProduct 
                 run(async () => {
                   const result = await api('/product-groups/plans', 'POST', {
                     productIds: ids,
+                    cardImages: ids
+                      .filter((id) => cardImages[id] !== undefined)
+                      .map((productId) => ({
+                        productId,
+                        mediaAssetId:
+                          cardImages[productId] === 'url' ? null : cardImages[productId],
+                      })),
                     name,
                     landingUrl: url,
                     dailyBudget: Number(daily),
@@ -229,21 +280,58 @@ export function ProductCampaigns({ data, api, busy, onCreated, run, showProduct 
               }}
             >
               <div className="form-grid">
-                <CampaignField
-                  label={l('Collection campaign name', 'Collection campaign-এর নাম')}
-                  help={l(
-                    'A name to recognize this group. Products are sold separately; a group does not create a discounted bundle.',
-                    'Group চিনতে একটি নাম দিন। Product আলাদা বিক্রি হবে; group বানালেই discount বা bundle হয় না।',
+                <div className="collection-name-field">
+                  <CampaignField
+                    label={l('Collection campaign name', 'Collection campaign-এর নাম')}
+                    help={l(
+                      'A name to recognize this group. Products are sold separately; a group does not create a discounted bundle.',
+                      'Group চিনতে একটি নাম দিন। Product আলাদা বিক্রি হবে; group বানালেই discount বা bundle হয় না।',
+                    )}
+                  >
+                    <input
+                      required
+                      minLength={2}
+                      maxLength={200}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </CampaignField>
+                  {suggestedName && (
+                    <div className="notice collection-name-suggestion">
+                      <strong>{l('Suggested campaign name', 'প্রস্তাবিত campaign name')}</strong>
+                      <p>{suggestedName}</p>
+                      <p>
+                        {l(
+                          'Based on your selected products and category. Uses no AI tokens. Your edited name stays unchanged.',
+                          'নির্বাচিত product ও category থেকে সাজেস্ট করা হয়েছে। AI token লাগে না। নিজের দেওয়া নাম অপরিবর্তিত থাকবে।',
+                        )}
+                      </p>
+                      {name !== suggestedName || draft.nameMode === 'custom' ? (
+                        <button
+                          type="button"
+                          className="button secondary"
+                          disabled={busy}
+                          onClick={() =>
+                            setDraft((current) => ({
+                              ...current,
+                              name: suggestedName,
+                              nameMode: 'auto',
+                            }))
+                          }
+                        >
+                          {l('Use suggested name', 'প্রস্তাবিত নাম ব্যবহার করুন')}
+                        </button>
+                      ) : (
+                        <small>
+                          {l(
+                            'Updates with your product selection until you edit it.',
+                            'নিজে edit করার আগ পর্যন্ত product selection অনুযায়ী নাম বদলাবে।',
+                          )}
+                        </small>
+                      )}
+                    </div>
                   )}
-                >
-                  <input
-                    required
-                    minLength={2}
-                    maxLength={200}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
-                </CampaignField>
+                </div>
                 <CampaignField
                   label={l('Collection / shop page URL', 'Collection / shop page URL')}
                   help={l(
@@ -401,28 +489,32 @@ function CatalogueSetup({ ids, api, busy, run, bn }) {
             : 'Start with one product set and one ad set. Collection format additionally requires a Meta Instant Experience and preview.'}
         </li>
       </ol>
-      <label className="checkbox-row">
-        <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
-        {bn
-          ? 'Selected product-এর তথ্য ও ছবি secret feed link দিয়ে Meta-র জন্য accessible হবে-আমি বুঝেছি।'
-          : 'I understand that selected product details and images become accessible through a secret feed link for Meta.'}
-      </label>
-      <button
-        type="button"
-        className="button secondary"
-        disabled={busy || !share || !ids.length}
-        onClick={() =>
-          run(async () => {
-            const created = await api('/catalog-feeds', 'POST', {
-              productIds: ids,
-              acknowledgeSharing: share,
-            });
-            setFeeds((rows) => [created, ...rows]);
-          }, 'Catalogue feed prepared. No ad has been launched.')
-        }
-      >
-        {bn ? 'Catalogue feed link তৈরি করুন' : 'Create catalogue feed link'}
-      </button>
+      <div className="catalog-actions">
+        <label className="checkbox-row catalog-consent">
+          <input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />
+          <span>
+            {bn
+              ? 'Selected product-এর তথ্য ও ছবি secret feed link দিয়ে Meta-র জন্য accessible হবে-আমি বুঝেছি।'
+              : 'I understand that selected product details and images become accessible through a secret feed link for Meta.'}
+          </span>
+        </label>
+        <button
+          type="button"
+          className="button secondary"
+          disabled={busy || !share || !ids.length}
+          onClick={() =>
+            run(async () => {
+              const created = await api('/catalog-feeds', 'POST', {
+                productIds: ids,
+                acknowledgeSharing: share,
+              });
+              setFeeds((rows) => [created, ...rows]);
+            }, 'Catalogue feed prepared. No ad has been launched.')
+          }
+        >
+          {bn ? 'Catalogue feed link তৈরি করুন' : 'Create catalogue feed link'}
+        </button>
+      </div>
       {error && <p role="alert">{error}</p>}
       {feeds.map((feed) => (
         <div className="cost-preview" key={feed.id}>

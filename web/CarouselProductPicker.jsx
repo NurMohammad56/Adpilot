@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Pagination, usePagination } from './Pagination.jsx';
 import { translateText } from './i18n.js';
 import './carousel-sources.css';
+import './product-media.css';
+import { mediaUrl } from './api.js';
 
 export function CarouselProductPicker({
   data,
@@ -12,6 +14,8 @@ export function CarouselProductPicker({
   onEdit,
   onCatalog,
   busy,
+  cardImages = {},
+  onImageSelect,
 }) {
   const [catalog, setCatalog] = useState({ products: data.products, sources: [] });
   const [source, setSource] = useState('saved');
@@ -56,7 +60,7 @@ export function CarouselProductPicker({
   });
   const full = selected.length >= 10;
   const edit = (product) => {
-    const { carouselMissing, ...actual } = product;
+    const { carouselMissing, carouselImages, ...actual } = product;
     onEdit(actual);
   };
   return (
@@ -218,6 +222,45 @@ export function CarouselProductPicker({
                     <small>Existing product: {product.name}</small>
                     <small>Uses your existing product; no duplicate is created.</small>
                   </div>
+                )}
+                {checked && product.carouselImages?.length > 0 && (
+                  <fieldset className="carousel-image-options">
+                    <legend>Choose this product’s carousel image</legend>
+                    <p>One photo per card. The card opens this product’s own page.</p>
+                    <div>
+                      {product.carouselImages.map((image, index) => {
+                        const key = image.mediaAssetId || 'url';
+                        const chosen =
+                          cardImages[product.id] ??
+                          (product.carouselImages[0].mediaAssetId || 'url');
+                        return (
+                          <label key={key}>
+                            <img
+                              src={
+                                image.mediaAssetId ? mediaUrl(image.mediaAssetId) : image.imageUrl
+                              }
+                              alt={image.name}
+                              loading="lazy"
+                            />
+                            <span>
+                              <input
+                                type="radio"
+                                name={`carousel-image-${product.id}`}
+                                aria-label={`Use image ${index + 1} for ${product.name}`}
+                                checked={chosen === key}
+                                disabled={busy}
+                                onChange={() => onImageSelect(product.id, key)}
+                              />{' '}
+                              {image.name}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <a href={product.landingUrl} target="_blank" rel="noreferrer">
+                      Open product page
+                    </a>
+                  </fieldset>
                 )}
               </article>
             );

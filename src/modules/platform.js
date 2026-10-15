@@ -242,11 +242,25 @@ export class Platform {
   }
   async prepareProduct(user, input) {
     await validateAdLibrarySelection(this, user, input.adLibraryIds || []);
+    const primaryAsset = input.mediaAssetId
+      ? await this.media.asset(user, input.mediaAssetId)
+      : null;
     assert(
-      new Set([input.mediaAssetId, ...(input.mediaAssetIds || [])].filter(Boolean)).size <= 6,
+      new Set(
+        [
+          primaryAsset?.type === 'image' ? input.mediaAssetId : null,
+          ...(input.mediaAssetIds || []),
+        ].filter(Boolean),
+      ).size <= 6 &&
+        new Set(
+          [
+            primaryAsset?.type === 'video' ? input.mediaAssetId : null,
+            ...(input.videoCreatives || []).map((item) => item.mediaAssetId),
+          ].filter(Boolean),
+        ).size <= 4,
       422,
       'IMAGE_SELECTION',
-      'Choose at most six different product images in total.',
+      'Choose at most six product photos and four videos in total.',
     );
     if (input.costPlanning?.mode === 'automatic')
       assert(
@@ -278,6 +292,16 @@ export class Platform {
         'PRODUCT_IMAGE',
         'Additional product photos must be images.',
       );
+    }
+    for (const creative of input.videoCreatives || []) {
+      const asset = await this.media.asset(user, creative.mediaAssetId);
+      assert(
+        asset.type === 'video',
+        422,
+        'PRODUCT_VIDEO',
+        'Choose a video for each product video creative.',
+      );
+      await this.media.bind(user, creative);
     }
     return autoProductCosts(input);
   }
@@ -682,6 +706,10 @@ export class Platform {
         user,
         {
           productIds: previous.productIds,
+          cardImages: previous.ads[0].cards.map((card) => ({
+            productId: card.productId,
+            mediaAssetId: card.mediaAssetId || null,
+          })),
           name: input.name || previous.name,
           landingUrl: previous.landingUrl,
           dailyBudget: input.dailyBudget ?? previous.budgetRecommendation.dailyBudget,

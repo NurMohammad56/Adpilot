@@ -4,6 +4,7 @@ import { workspaceLLM } from '../../integrations/credentials.js';
 import { copyOutputSchema } from '../../ai/provider.js';
 import { businessPolicyHash, planFingerprint, validatePlan } from './validation.js';
 import { resolveLocations } from '../research/locations.js';
+import { serviceFacts } from '../services/service.js';
 export const servicePlanInput = z
   .object({
     goal: z.enum(['leads', 'purchases']),
@@ -38,6 +39,12 @@ export const metaIntegrationHash = (integration) =>
   );
 export async function createServicePlan(platform, user, versionId, input, previous = null) {
   const { version, project } = await platform.research.approved(user, versionId);
+  assert(
+    !version.report.serviceAssessment || version.report.serviceAssessment.decision === 'test',
+    409,
+    'SERVICE_TEST_REQUIRED',
+    'Review and explicitly choose a capped validation test before preparing a service campaign.',
+  );
   assert(
     ['service', 'software'].includes(project.kind),
     422,
@@ -90,6 +97,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
     businessId: user.businessId,
     projectId: project.id,
     researchVersionId: version.id,
+    serviceProfileId: project.serviceProfileId || null,
     country,
     ...input,
     dailyBudgetCeiling: previous ? offerPrevious.dailyBudgetCeiling : daily,
@@ -97,7 +105,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
   };
   const risks = [
     'A single ad set uses the approved total lifetime budget. Daily spend may vary; the daily amount is a planning average, not a daily spending limit. Taxes and payment fees are additional.',
-    'Country comparison and campaign outcomes are hypotheses; review current evidence.',
+    'Service market research and campaign outcomes are hypotheses; review current evidence.',
     ...(targetCPA === null
       ? [
           'Allowable acquisition cost is unknown. Do not scale this discovery campaign until conversion economics are measured.',
@@ -147,6 +155,9 @@ export async function createServicePlan(platform, user, versionId, input, previo
     confidence: 'Low',
   };
   const llm = await workspaceLLM(platform, user.businessId);
+  const serviceProfile = project.serviceProfileId
+    ? await platform.owned('service_profiles', project.serviceProfileId, user)
+    : null;
   const generated = previous
     ? null
     : await llm.generate(
@@ -160,6 +171,8 @@ export async function createServicePlan(platform, user, versionId, input, previo
           price,
           currency: integration?.currency || 'BDT',
           findings: version.report.findings,
+          serviceProfile: serviceProfile ? serviceFacts(serviceProfile) : null,
+          reviewedServiceAssessment: version.report.serviceAssessment || null,
           rules:
             'Write factual service/software ad copy in English unless the approved brief requests Bangla. No physical shipping, discounts, invented testimonials, or promises of business results.',
         },
@@ -240,6 +253,7 @@ export async function createServicePlan(platform, user, versionId, input, previo
     const plan = {
       id: id(),
       kind: 'service',
+      serviceProfileId: project.serviceProfileId || null,
       businessId: user.businessId,
       productId: savedOffer.id,
       researchVersionId: version.id,

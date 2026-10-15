@@ -33,6 +33,12 @@ import { groupInput } from './modules/campaigns/product-group.js';
 import { enqueueProductGroup } from './modules/campaigns/group-jobs.js';
 import { campaignProductSources } from './modules/campaigns/product-sources.js';
 import {
+  listServices,
+  saveService,
+  serviceResearchBrief,
+  serviceProfileSchema,
+} from './modules/services/service.js';
+import {
   createCatalogFeed,
   resolveCatalogFeed,
   catalogXML,
@@ -579,6 +585,16 @@ export function createApp(runtime) {
   });
   app.get('/api/research', async (req, res) =>
     res.json(await store.list('research_projects', { businessId: req.user.businessId })),
+  );
+  app.get('/api/services', async (req, res) => res.json(await listServices(platform, req.user)));
+  app.post('/api/services', parse(serviceProfileSchema), async (req, res) =>
+    res.status(201).json(await saveService(platform, req.user, req.input)),
+  );
+  app.put('/api/services/:id', parse(serviceProfileSchema), async (req, res) =>
+    res.json(await saveService(platform, req.user, req.input, req.params.id)),
+  );
+  app.post('/api/services/:id/research-brief', parse(z.object({}).strict()), async (req, res) =>
+    res.json(await serviceResearchBrief(platform, req.user, req.params.id)),
   );
   app.post(
     '/api/report-translations',

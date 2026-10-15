@@ -13,7 +13,7 @@ const datasets = {
     ['campaigns', 'campaigns', 'campaigns'],
     ['manualCampaigns', 'manual_campaigns', 'manual-campaigns'],
   ],
-  'Research studio': [['researchProjects', 'research_projects', 'research']],
+  'Service research': [['researchProjects', 'research_projects', 'research']],
   'Product research': [
     ['products', 'products', 'products'],
     ['researchProjects', 'research_projects', 'research'],

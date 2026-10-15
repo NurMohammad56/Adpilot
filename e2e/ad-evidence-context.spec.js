@@ -110,7 +110,7 @@ test('general ads are selectable on product creation, changed evidence offers re
   expect(newPlan.budgetRecommendation.totalBudget).toBeGreaterThan(0);
 });
 
-test('Research studio exposes saved ad selection and translates its generated report without changing the decision', async ({
+test('Service research exposes saved ad selection and translates its generated report without changing the decision', async ({
   page,
 }) => {
   await start(page);
@@ -142,7 +142,7 @@ test('Research studio exposes saved ad selection and translates its generated re
   const version = await research.json();
   await page
     .getByRole('navigation')
-    .getByRole('button', { name: 'Research studio', exact: true })
+    .getByRole('button', { name: 'Service research', exact: true })
     .click();
   await page
     .locator('.research-project')

@@ -665,7 +665,7 @@ export function AdLibraryResearch({
         `adpilot-${physical ? 'product-research' : 'research'}-selection:${data.business.id}`,
         projectId,
       );
-    setPage(physical ? 'Product research' : 'Research studio');
+    setPage(physical ? 'Product research' : 'Service research');
   };
   const [search, setSearch] = useDraft(`adpilot-ad-library-search:${key}`, {
     keyword: data.products[0]?.name.slice(0, 100) || '',
@@ -839,7 +839,7 @@ export function AdLibraryResearch({
                     openWorkbench(p.id, p.kind);
                   }}
                 >
-                  Open Research studio
+                  Open Service research
                 </button>
               </div>
             ))}
@@ -1095,8 +1095,8 @@ export function AdLibraryResearch({
                 Continue with product links the selected ad as competitor evidence. Enter your own
                 product details in the form.
               </p>
-              <button className="button secondary" onClick={() => setPage('Research studio')}>
-                Continue in Research studio
+              <button className="button secondary" onClick={() => setPage('Service research')}>
+                Continue in Service research
               </button>
             </div>
           </aside>

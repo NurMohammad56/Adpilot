@@ -32,6 +32,7 @@ import { CampaignSetup } from './CampaignSetup.jsx';
 import { CampaignField } from './FieldHelp.jsx';
 import { RegionPicker } from './RegionPicker.jsx';
 import { DeleteRecord } from './DeleteRecord.jsx';
+import { ServiceAssessment } from './ServiceAssessment.jsx';
 import {
   ProductResearchFields,
   ProductFacts,
@@ -279,6 +280,8 @@ const emptyBrief = {
   questions: '',
   evidence: [],
   productId: null,
+  serviceProfileId: null,
+  researchMode: 'market-comparison',
   adLibraryIds: [],
 };
 export function ResearchDesk({
@@ -292,8 +295,19 @@ export function ResearchDesk({
   onOpenDiscovery,
   showProduct,
   mode = 'digital',
+  serviceProfile = null,
+  initialProjectId = null,
+  onEditService,
 }) {
   const physical = mode === 'product';
+  const focused = mode === 'service';
+  const [serviceProfiles, setServiceProfiles] = useState([]);
+  const [comparisonProfileId, setComparisonProfileId] = useDraft(
+    `adpilot-service-comparison:${data.business.id}:${data.user.id}`,
+    '',
+  );
+  const comparisonProfile =
+    !focused && !physical ? serviceProfiles.find((row) => row.id === comparisonProfileId) : null;
   const [freshResearch, setFreshResearch] = useState(false);
   const defaults = physical
     ? {
@@ -304,7 +318,9 @@ export function ResearchDesk({
         researchGoal: 'business-decision',
       }
     : emptyBrief;
-  const selectionKey = `adpilot-${physical ? 'product-research' : 'research'}-selection:${data.business.id}`;
+  const selectionKey = focused
+    ? `adpilot-service-workspace:${data.business.id}:${serviceProfile.id}`
+    : `adpilot-${physical ? 'product-research' : 'research'}-selection:${data.business.id}`;
   const [locations, setLocations] = useState([]);
   const [countryQuery, setCountryQuery] = useState('');
   const mergeLocations = (rows) =>
@@ -322,12 +338,27 @@ export function ResearchDesk({
     `adpilot-draft:${data.business.id}:${data.user.id}:${physical ? 'product' : 'research'}-briefs`,
     { new: defaults },
   );
-  const briefKey = project?.id || 'new';
+  const briefKey =
+    project?.id ||
+    (comparisonProfile ? `profile-${comparisonProfile.id}-${comparisonProfile.revision}` : 'new');
   const savedBrief =
     briefDrafts[briefKey] ||
     (project
       ? Object.fromEntries(Object.keys(defaults).map((key) => [key, project[key] ?? defaults[key]]))
-      : defaults);
+      : comparisonProfile
+        ? {
+            ...defaults,
+            name: comparisonProfile.name,
+            kind: comparisonProfile.kind,
+            description: comparisonProfile.description,
+            buyerProfile: comparisonProfile.buyerProfile,
+            candidateCountries: [comparisonProfile.country],
+            evidence: comparisonProfile.evidence,
+            adLibraryIds: comparisonProfile.adLibraryIds,
+            serviceProfileId: comparisonProfile.id,
+            researchMode: 'market-comparison',
+          }
+        : defaults);
   const compatibleBrief = (
     physical ? savedBrief.kind !== 'physical-product' : savedBrief.kind === 'physical-product'
   )
@@ -354,39 +385,73 @@ export function ResearchDesk({
   const [campaign, setCampaign] = useState(false);
   const [media, setMedia] = useDraft(
     `adpilot-draft:${data.business.id}:${data.user.id}:campaign-media:${versionId}`,
-    { mediaAssetId: null, thumbnailAssetId: null },
+    {
+      mediaAssetId: serviceProfile?.mediaAssetId || null,
+      thumbnailAssetId: serviceProfile?.thumbnailAssetId || null,
+    },
   );
   const [campaignFields, setCampaignFields] = useDraft(
     `adpilot-draft:${data.business.id}:${data.user.id}:campaign:${versionId}`,
     {
-      goal: 'leads',
-      landingUrl: '',
-      price: '',
-      deliveryCost: '',
-      requiredProfit: '',
-      leadCloseRate: '',
+      goal: serviceProfile?.goal || 'leads',
+      landingUrl: serviceProfile?.landingUrl || '',
+      price:
+        serviceProfile?.currency === (data.integration.currency || 'BDT')
+          ? (serviceProfile?.price ?? '')
+          : '',
+      deliveryCost:
+        serviceProfile?.currency === (data.integration.currency || 'BDT')
+          ? (serviceProfile?.deliveryCost ?? '')
+          : '',
+      requiredProfit:
+        serviceProfile?.currency === (data.integration.currency || 'BDT')
+          ? (serviceProfile?.requiredProfit ?? '')
+          : '',
+      leadCloseRate: serviceProfile?.leadCloseRate ? serviceProfile.leadCloseRate * 100 : '',
       dailyBudget: '',
       durationDays: '7',
       testBudgetCeiling: '',
       budgetPreference: 'starter',
       manualCeiling: false,
       budgetCurrency: data.integration.currency || 'BDT',
-      economicsMode: 'unknown',
+      economicsMode:
+        serviceProfile?.currency === (data.integration.currency || 'BDT') &&
+        serviceProfile?.price != null &&
+        serviceProfile?.deliveryCost != null &&
+        serviceProfile?.requiredProfit != null
+          ? 'known'
+          : 'unknown',
+      economicsCurrency: data.integration.currency || 'BDT',
       acknowledgeUnknownCPA: false,
     },
   );
   const loadProjects = async () => {
     setLocations(await api('/research/locations'));
     const values = (await api('/research')).filter((item) =>
-      physical ? item.kind === 'physical-product' : item.kind !== 'physical-product',
+      focused
+        ? item.serviceProfileId === serviceProfile.id &&
+          item.researchMode === 'single-country-service'
+        : physical
+          ? item.kind === 'physical-product'
+          : item.kind !== 'physical-product' && item.researchMode !== 'single-country-service',
     );
     setProjects(values);
     return values;
   };
   useEffect(() => {
+    const currency = data.integration.currency || 'BDT';
+    setCampaignFields((current) => ({
+      ...current,
+      economicsCurrency: currency,
+      ...((current.economicsCurrency || current.budgetCurrency || currency) !== currency
+        ? { price: '', deliveryCost: '', requiredProfit: '', economicsMode: 'unknown' }
+        : {}),
+    }));
+  }, [data.integration.currency, versionId]);
+  useEffect(() => {
     loadProjects()
       .then((values) => {
-        const saved = sessionStorage.getItem(selectionKey);
+        const saved = initialProjectId || sessionStorage.getItem(selectionKey);
         const selected = values.find((item) => item.id === saved);
         if (selected) return select(selected);
       })
@@ -395,7 +460,17 @@ export function ResearchDesk({
           throw error;
         }),
       );
-  }, [data.business.id]);
+  }, [data.business.id, initialProjectId]);
+  useEffect(() => {
+    if (!physical && !focused)
+      api('/services')
+        .then(setServiceProfiles)
+        .catch((error) =>
+          run(() => {
+            throw error;
+          }),
+        );
+  }, [data.business.id, focused, physical]);
   async function select(selected) {
     setProject(selected);
     sessionStorage.setItem(selectionKey, selected.id);
@@ -415,13 +490,21 @@ export function ResearchDesk({
   const version = versions.find((item) => item.id === versionId);
   useEffect(() => {
     const latest = data.researchProjects.find((item) => item.id === project?.id);
-    if (latest && latest.currentVersionId !== project.currentVersionId)
+    const completed = data.jobs?.find(
+      (job) =>
+        job.type === 'research-task' &&
+        job.targetId === project?.id &&
+        job.status === 'completed' &&
+        job.versionId &&
+        job.versionId !== project?.currentVersionId,
+    );
+    if (project && ((latest && latest.currentVersionId !== project.currentVersionId) || completed))
       reload(project.id).catch((error) =>
         run(() => {
           throw error;
         }),
       );
-  }, [data.researchProjects]);
+  }, [data.researchProjects, data.jobs]);
   const translation = useReportTranslation(
     'research',
     version?.id,
@@ -439,76 +522,106 @@ export function ResearchDesk({
         locationIds: version.report.recommendation.locationIds || [],
         reason: version.report.recommendation.reason,
         note: '',
+        serviceDecision: version.report.serviceAssessment?.decision || 'hold',
       });
     setEditing(true);
   }
   return (
     <>
-      <Heading title={physical ? 'Product research' : 'Research studio'}>
+      <Heading
+        title={
+          focused ? 'Service country workspace' : physical ? 'Product research' : 'Service research'
+        }
+      >
         {physical
           ? 'Validate physical product demand, suppliers and delivery before planning a campaign.'
-          : 'For digital services and software: compare client markets, investigate buyer needs and refine your offer.'}{' '}
+          : focused
+            ? 'One saved service, one country: evaluate buyers, positioning, competitors and a small campaign test.'
+            : 'For digital services and software: compare client markets, investigate buyer needs and refine your offer.'}{' '}
         Research approval and campaign launch approval are separate.
       </Heading>
-      <div className="research-layout">
-        <aside className="panel tools-panel research-projects">
-          {physical && (
-            <button className="button primary full" onClick={onOpenDiscovery}>
-              Discover product opportunities
-            </button>
-          )}
-          <button
-            className="button secondary full"
-            onClick={() => {
-              sessionStorage.removeItem(selectionKey);
-              setProject(null);
-              setBriefDrafts((current) => ({ ...current, new: defaults }));
-              setVersions([]);
-              setBriefEditing(false);
-            }}
-          >
-            <Plus size={16} />
-            {physical ? 'New product research' : 'New research brief'}
-          </button>
-          {projectPagination.items.map((item) => (
-            <div key={item.id} className="research-record-item">
-              <button
-                className={`research-project ${project?.id === item.id ? 'selected' : ''}`}
-                disabled={busy}
-                onClick={() => run(() => select(item))}
-              >
-                <strong>{item.name}</strong>
-                <small>
-                  {item.kind} · {item.status} · {item.candidateCountries.join(', ')}
-                </small>
+      <div className={`research-layout ${focused ? 'service-workspace' : ''}`}>
+        {!focused && (
+          <aside className="panel tools-panel research-projects">
+            {physical && (
+              <button className="button primary full" onClick={onOpenDiscovery}>
+                Discover product opportunities
               </button>
-              <DeleteRecord
-                compact
-                kind="research"
-                id={item.id}
-                name={item.name}
-                onDeleted={async () => {
-                  await loadProjects();
-                  if (project?.id === item.id) {
-                    sessionStorage.removeItem(selectionKey);
-                    setProject(null);
-                    setVersions([]);
-                    setVersionId('');
-                    setEditing(false);
-                    setCampaign(false);
-                    setBriefEditing(false);
-                  }
-                }}
-              />
-            </div>
-          ))}
-          <Pagination
-            pagination={projectPagination}
-            label={physical ? 'Product research briefs' : 'Digital research briefs'}
-            sizes={[8, 16, 32]}
-          />
-        </aside>
+            )}
+            <button
+              className="button secondary full"
+              onClick={() => {
+                sessionStorage.removeItem(selectionKey);
+                setProject(null);
+                setComparisonProfileId('');
+                setBriefDrafts((current) => ({ ...current, new: defaults }));
+                setVersions([]);
+                setBriefEditing(false);
+              }}
+            >
+              <Plus size={16} />
+              {physical ? 'New product research' : 'New research brief'}
+            </button>
+            {projectPagination.items.map((item) => (
+              <div key={item.id} className="research-record-item">
+                <button
+                  className={`research-project ${project?.id === item.id ? 'selected' : ''}`}
+                  disabled={busy}
+                  onClick={() => run(() => select(item))}
+                >
+                  <strong>{item.name}</strong>
+                  <small>
+                    {item.kind} · {item.status} · {item.candidateCountries.join(', ')}
+                  </small>
+                </button>
+                <DeleteRecord
+                  compact
+                  kind="research"
+                  id={item.id}
+                  name={item.name}
+                  onDeleted={async () => {
+                    await loadProjects();
+                    if (project?.id === item.id) {
+                      sessionStorage.removeItem(selectionKey);
+                      setProject(null);
+                      setVersions([]);
+                      setVersionId('');
+                      setEditing(false);
+                      setCampaign(false);
+                      setBriefEditing(false);
+                    }
+                  }}
+                />
+              </div>
+            ))}
+            <Pagination
+              pagination={projectPagination}
+              label={physical ? 'Product research briefs' : 'Digital research briefs'}
+              sizes={[8, 16, 32]}
+            />
+          </aside>
+        )}
         <section className="research-main">
+          {focused && (
+            <div className="notice">
+              <strong>
+                {serviceProfile.name} · {Countries[serviceProfile.country]}
+              </strong>
+              <p>
+                Service facts are saved in your profile. Opening this workspace reuses its existing
+                report; a new research run is your choice.
+              </p>
+              <button className="button secondary" onClick={onEditService}>
+                Edit service profile
+              </button>
+              {serviceProfile.currency !== (data.integration.currency || 'BDT') && (
+                <p>
+                  Service prices and ad account currency differ. Enter campaign economics in the ad
+                  account currency; no conversion is assumed.
+                </p>
+              )}
+            </div>
+          )}
           {project && (
             <ProductFacts
               product={
@@ -534,7 +647,9 @@ export function ResearchDesk({
               refreshKey={`${project.revision}:${version?.id || ''}`}
             />
           )}
-          {!project || briefEditing ? (
+          {focused && !project ? (
+            <p role="status">Loading saved service research…</p>
+          ) : !project || briefEditing ? (
             <article className="panel tools-panel">
               <h2>
                 {physical
@@ -609,6 +724,24 @@ export function ResearchDesk({
                   );
                 }}
               >
+                {!physical && !project && (
+                  <Field
+                    label="Start from a saved service"
+                    hint="Service facts and evidence are reused. Select the countries you want to compare below."
+                  >
+                    <select
+                      value={comparisonProfileId}
+                      onChange={(event) => setComparisonProfileId(event.target.value)}
+                    >
+                      <option value="">Write a separate research brief</option>
+                      {serviceProfiles.map((row) => (
+                        <option key={row.id} value={row.id}>
+                          {row.name}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                )}
                 {!project && !physical && (
                   <Field
                     label="Start with a guided example"
@@ -830,7 +963,7 @@ export function ResearchDesk({
             <>
               <StatusRemark
                 value={
-                  version?.adLibraryInvalidatedAt
+                  version?.adLibraryInvalidatedAt || version?.serviceProfileInvalidatedAt
                     ? 'needs_research'
                     : version?.status ||
                       (project.status === 'draft' ? 'brief_ready' : project.status)
@@ -851,9 +984,11 @@ export function ResearchDesk({
                       </small>
                     )}
                   </div>
-                  <button className="button secondary" onClick={() => setBriefEditing(true)}>
-                    Edit brief & evidence
-                  </button>
+                  {!focused && (
+                    <button className="button secondary" onClick={() => setBriefEditing(true)}>
+                      Edit brief & evidence
+                    </button>
+                  )}
                   <button className="button secondary" type="button" onClick={onOpenLibrary}>
                     Ad Library research
                   </button>
@@ -872,6 +1007,10 @@ export function ResearchDesk({
                           key === 'adLibraryIds' ? adLibraryIds : (project[key] ?? defaults[key]),
                         ]),
                       );
+                      if (project.serviceProfileId) {
+                        input.serviceProfileId = project.serviceProfileId;
+                        input.researchMode = project.researchMode;
+                      }
                       await api(`/research/${project.id}`, 'PUT', input);
                       await reload(project.id);
                     }, 'Competitor ads updated. Run research again and request a fresh review.')
@@ -905,7 +1044,9 @@ export function ResearchDesk({
                       placeholder={
                         physical
                           ? 'Do the saved competitor offers match my product quality and delivery terms? What price and COD risks should I validate before a small sales test?'
-                          : 'Compare US and UK specifically for custom ecommerce clients. What evidence would change the recommendation?'
+                          : focused
+                            ? 'Which buyers need this exact service in the selected country? Which alternatives, trust barriers and evidence should change the decision?'
+                            : 'Compare US and UK specifically for custom ecommerce clients. What evidence would change the recommendation?'
                       }
                     />
                   </Field>
@@ -929,7 +1070,9 @@ export function ResearchDesk({
                       ? 'Research again with this question'
                       : physical
                         ? 'Validate product business potential'
-                        : 'Run country research'}
+                        : focused
+                          ? 'Research this service in this country'
+                          : 'Run country research'}
                   </button>
                 </form>
               </article>
@@ -957,6 +1100,13 @@ export function ResearchDesk({
               {version && (
                 <>
                   <ReportTranslationNotice translation={translation} />
+                  {displayReport?.serviceAssessment && <ServiceAssessment report={displayReport} />}
+                  {version.serviceProfileInvalidatedAt && (
+                    <p className="notice">
+                      Service facts changed. Generate a fresh report and request a new review.
+                      Earlier reports stay in history.
+                    </p>
+                  )}
                   <ResearchReadiness
                     report={displayReport}
                     onQuestion={(question) => {
@@ -1108,11 +1258,12 @@ export function ResearchDesk({
                     </ul>
                   </article>
                   <article className="panel tools-panel">
-                    <h2>Your test-market decision</h2>
+                    <h2>{focused ? 'Your service decision' : 'Your test-market decision'}</h2>
                     {current && !version.report.recommendation.country && (
                       <p className="notice" id="research-review-guidance">
-                        No country is selected. Choose a test country and explain your decision,
-                        save a new version, then request review. You can also continue researching.
+                        {focused
+                          ? 'The target country is saved. Research has not cleared a test yet. Add evidence, refine the offer or record an explicit bounded-test decision for review.'
+                          : 'No country is selected. Choose a test country and explain your decision, save a new version, then request review. You can also continue researching.'}
                       </p>
                     )}
                     {editing ? (
@@ -1129,6 +1280,7 @@ export function ResearchDesk({
                                 reason: decision.reason,
                               },
                               note: decision.note,
+                              ...(focused ? { serviceDecision: decision.serviceDecision } : {}),
                             });
                             await reload(project.id);
                           }, 'Decision edited in a new version. It needs a new review.');
@@ -1143,26 +1295,47 @@ export function ResearchDesk({
                             }
                           />
                         </Field>
-                        <Field label="Test country">
-                          <select
-                            autoFocus={!decision.country}
-                            value={decision.country}
-                            onChange={(event) =>
-                              setDecision({
-                                ...decision,
-                                country: event.target.value,
-                                locationIds: [],
-                              })
-                            }
-                          >
-                            <option value="">Evidence is not sufficient yet</option>
-                            {project.candidateCountries.map((code) => (
-                              <option key={code} value={code}>
-                                {Countries[code]}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
+                        {focused && (
+                          <Field label="Service decision">
+                            <select
+                              value={decision.serviceDecision || 'hold'}
+                              onChange={(event) =>
+                                setDecision({
+                                  ...decision,
+                                  serviceDecision: event.target.value,
+                                  country:
+                                    event.target.value === 'hold' ? '' : serviceProfile.country,
+                                })
+                              }
+                            >
+                              <option value="hold">Hold - collect more evidence</option>
+                              <option value="revise">Revise the offer</option>
+                              <option value="test">Allow a capped validation test</option>
+                            </select>
+                          </Field>
+                        )}
+                        {!focused && (
+                          <Field label="Test country">
+                            <select
+                              autoFocus={!decision.country}
+                              value={decision.country}
+                              onChange={(event) =>
+                                setDecision({
+                                  ...decision,
+                                  country: event.target.value,
+                                  locationIds: [],
+                                })
+                              }
+                            >
+                              <option value="">Evidence is not sufficient yet</option>
+                              {project.candidateCountries.map((code) => (
+                                <option key={code} value={code}>
+                                  {Countries[code]}
+                                </option>
+                              ))}
+                            </select>
+                          </Field>
+                        )}
                         {(project.candidateLocationIds || []).length > 0 && (
                           <section className="region-picker">
                             <h3>Approved targeting areas</h3>
@@ -1237,7 +1410,9 @@ export function ResearchDesk({
                         <h3>
                           {version.report.recommendation.country
                             ? Countries[version.report.recommendation.country]
-                            : 'No country selected yet'}
+                            : focused
+                              ? 'Not cleared for a test yet'
+                              : 'No country selected yet'}
                         </h3>
                         <p>{displayReport.recommendation.reason}</p>
                         {!!version.report.recommendation.locationIds?.length && (
@@ -1265,7 +1440,8 @@ export function ResearchDesk({
                           )}
                           {current &&
                             version.status === 'draft' &&
-                            !version.adLibraryInvalidatedAt && (
+                            !version.adLibraryInvalidatedAt &&
+                            !version.serviceProfileInvalidatedAt && (
                               <button
                                 className="button primary"
                                 disabled={busy}
@@ -1295,6 +1471,7 @@ export function ResearchDesk({
                           {current &&
                             version.status === 'pending' &&
                             !version.adLibraryInvalidatedAt &&
+                            !version.serviceProfileInvalidatedAt &&
                             canApprove &&
                             ['approve', 'reject'].map((action) => (
                               <button
@@ -1329,9 +1506,14 @@ export function ResearchDesk({
                           {current &&
                             version.status === 'approved' &&
                             !version.adLibraryInvalidatedAt &&
+                            !version.serviceProfileInvalidatedAt &&
                             project.kind !== 'physical-product' && (
                               <button
                                 className="button primary"
+                                disabled={Boolean(
+                                  version.report.serviceAssessment &&
+                                  version.report.serviceAssessment.decision !== 'test',
+                                )}
                                 onClick={() => setCampaign(!campaign)}
                               >
                                 <ArrowRight size={16} />
@@ -1361,6 +1543,7 @@ export function ResearchDesk({
                           {current &&
                             version.status === 'approved' &&
                             !version.adLibraryInvalidatedAt &&
+                            !version.serviceProfileInvalidatedAt &&
                             project.kind === 'physical-product' && (
                               <button
                                 className="button primary"
@@ -1400,7 +1583,8 @@ export function ResearchDesk({
                   {campaign &&
                     current &&
                     version.status === 'approved' &&
-                    !version.adLibraryInvalidatedAt && (
+                    !version.adLibraryInvalidatedAt &&
+                    !version.serviceProfileInvalidatedAt && (
                       <CampaignSetup
                         key={version.id}
                         data={data}
@@ -1438,7 +1622,7 @@ export function ResearchDesk({
     </>
   );
 }
-function EvidenceInputs({ brief, setBrief }) {
+export function EvidenceInputs({ brief, setBrief }) {
   const [input, setInput] = useState({
     subject: '',
     finding: '',

@@ -11,6 +11,12 @@ import { cachedResearch } from './cache.js';
 import { marketEvidence, evidenceDigest } from './market-evidence.js';
 import { calculateEconomics } from '../pricing/engine.js';
 import {
+  assertServiceLink,
+  serviceHash,
+  serviceFacts,
+  serviceAssessmentSchema,
+} from '../services/service.js';
+import {
   savedProductResearch,
   invalidateSavedProductResearchPlans,
 } from '../campaigns/product-sources.js';
@@ -33,6 +39,8 @@ export const projectSchema = z
       .optional(),
     kind: z.enum(['physical-product', 'service', 'software']),
     productId: z.string().uuid().nullable().optional(),
+    serviceProfileId: z.string().uuid().nullable().optional(),
+    researchMode: z.enum(['market-comparison', 'single-country-service']).optional(),
     productCategory: z.string().trim().max(150).optional(),
     researchGoal: z
       .enum(['business-decision', 'competitor-positioning', 'pricing-profit', 'small-budget-test'])
@@ -99,10 +107,12 @@ export const comparisonSchema = z
     competitorCandidates: z.array(competitorCandidateSchema).max(10).optional(),
     evidenceGaps: z.array(z.string().max(1000)).max(15).optional(),
     retrieval: retrievalSchema.optional(),
+    serviceAssessment: serviceAssessmentSchema.optional(),
   })
   .strict();
 export const reportEditSchema = z
   .object({
+    serviceDecision: z.enum(['test', 'revise', 'hold']).optional(),
     summary: words,
     recommendation: comparisonSchema.shape.recommendation,
     note: z.string().min(5).max(3000),
@@ -115,6 +125,13 @@ export class ResearchWorkbench {
     this.store = platform.store;
   }
   async assertLinkedProduct(user, project, report) {
+    await assertServiceLink(this.platform, user, project, report);
+    assert(
+      !report.serviceProfileInvalidatedAt,
+      409,
+      'STALE_SERVICE_RESEARCH',
+      'Service facts changed. Generate a new research version.',
+    );
     await assertAdLibraryFresh(this.platform, user, report);
     if (!project.productId || !report.linkedProductHash) return;
     const current = await this.platform.owned('products', project.productId, user);
@@ -126,6 +143,7 @@ export class ResearchWorkbench {
     );
   }
   async create(user, input) {
+    await assertServiceLink(this.platform, user, input);
     await validateAdLibrarySelection(this.platform, user, input.adLibraryIds || []);
     await resolveLocations(
       this.platform,
@@ -150,6 +168,7 @@ export class ResearchWorkbench {
     });
   }
   async update(user, projectId, input) {
+    await assertServiceLink(this.platform, user, input);
     await validateAdLibrarySelection(this.platform, user, input.adLibraryIds || []);
     await resolveLocations(
       this.platform,
@@ -172,6 +191,7 @@ export class ResearchWorkbench {
         approvedVersionId: null,
         adLibraryInvalidatedAt: null,
         staleReason: null,
+        serviceProfileInvalidatedAt: null,
       });
       await this.platform.audit(user, 'research.brief_updated', projectId, {
         revision: updated.revision,
@@ -181,6 +201,15 @@ export class ResearchWorkbench {
     });
   }
   validateReport(project, output) {
+    if (project.researchMode === 'single-country-service') {
+      serviceAssessmentSchema.parse(output.serviceAssessment);
+      assert(
+        output.serviceAssessment.decision !== 'hold' || output.recommendation.country === null,
+        422,
+        'SERVICE_HOLD',
+        'A hold decision must not recommend launching in a country.',
+      );
+    }
     assert(
       regionalCoverage(output, project.candidateLocationIds || []),
       422,
@@ -268,6 +297,7 @@ export class ResearchWorkbench {
         approvedVersionId: null,
         adLibraryInvalidatedAt: null,
         staleReason: null,
+        serviceProfileInvalidatedAt: null,
       });
       for (const plan of await this.store.list('campaign_plans', {
         businessId: user.businessId,
@@ -294,6 +324,15 @@ export class ResearchWorkbench {
     fresh = false,
   ) {
     const project = await this.platform.owned('research_projects', projectId, user);
+    const service = await assertServiceLink(this.platform, user, project);
+    const singleService = project.researchMode === 'single-country-service';
+    if (singleService)
+      assert(
+        project.serviceProfileSnapshotHash === serviceHash(service),
+        409,
+        'SERVICE_WORKSPACE_STALE',
+        'Open this service in Services to load its latest facts before researching.',
+      );
     const previous = project.currentVersionId
       ? await this.store.get('research_versions', project.currentVersionId)
       : null;
@@ -309,7 +348,9 @@ export class ResearchWorkbench {
       : null;
     const visualAnalysis = linkedProduct
       ? await productVisualContext(this.platform, user, linkedProduct, language)
-      : null;
+      : service
+        ? await productVisualContext(this.platform, user, service, language)
+        : null;
     const locations = await resolveLocations(
       this.platform,
       user,
@@ -348,6 +389,19 @@ export class ResearchWorkbench {
       'market-comparison',
       {
         project: { ...briefOf(project), candidateLocations: locations },
+        ...(service
+          ? {
+              serviceProfile: serviceFacts(service),
+              serviceRules:
+                'Owner-supplied service facts are not independent evidence. Evaluate exactly this offer, its deliverables, proof, positioning and sales capacity. Reuse saved comparable ads and dated sources, challenge assumptions and separate market evidence from actual conversion performance.',
+            }
+          : {}),
+        ...(singleService
+          ? {
+              singleCountryRules:
+                'This is a single-country service business decision, not a country ranking. Investigate actual buyer organisations and decision makers, problem urgency, local competitors and substitutes, project versus subscription pricing comparability, offshore-vendor objections, language/time-zone trust, delivery scope, discovery-call and qualified-lead funnel. Produce serviceAssessment: test, revise or hold with rationale, positioning, idealBuyer, buyingProcess, acquisitionApproach, offerTests, validationSteps, stopCriteria and evidenceGaps. Test means a bounded hypothesis, never proven demand. Missing real service costs or measured lead-close rates remain unknown; never fabricate CPC, CAC, sales forecasts, case studies or sources. If hold, recommendation.country must be null. Do not automatically approve the selected country.',
+            }
+          : {}),
         discoveryContext: discoveryCandidate
           ? {
               candidate: discoveryCandidate,
@@ -407,11 +461,15 @@ export class ResearchWorkbench {
         rules:
           'Write human-readable analysis in responseLanguage while preserving country codes and structured field names. Compare only the supplied countries. Investigate actual buyer segments and problem urgency, alternatives and competition, buying readiness, language, payment and sales barriers, delivery capacity and local requirements. Explicitly examine counter-evidence and why this offer could fail in each market. Identify evidence gaps and what would change the recommendation. For B2B services include decision makers, buying cycle, trust signals and a measurable interview/qualified-lead validation plan. For physical products include COD, failed deliveries and fulfillment. Use previousReport and instruction to build on prior analysis. Do not invent demand, CPC, budgets, conversion rates, rankings, verified sources or guaranteed outcomes. A country recommendation is a hypothesis, not approval to publish.',
       },
-      comparisonSchema,
+      singleService
+        ? comparisonSchema.extend({ serviceAssessment: serviceAssessmentSchema })
+        : comparisonSchema,
       { fresh },
     );
     const report = generated || {
-      summary: `${project.name}: compare candidate markets using the supplied business facts. Demo hypotheses need current evidence.`,
+      summary: singleService
+        ? `${project.name}: evaluate this exact service in ${countryNames[project.candidateCountries[0]]}. Demo hypotheses require current evidence.`
+        : `${project.name}: compare candidate markets using the supplied business facts. Demo hypotheses need current evidence.`,
       countries: project.candidateCountries.map((country) => ({
         country,
         opportunity: `Investigate whether the stated offer solves a problem for buyers in ${countryNames[country]}.`,
@@ -448,8 +506,9 @@ export class ResearchWorkbench {
         : {}),
       recommendation: {
         country: null,
-        reason:
-          'Evidence is insufficient to rank countries. Review the comparison and choose a test country explicitly.',
+        reason: singleService
+          ? 'The country is selected, but buyer need, comparable alternatives and acquisition economics still require evidence before a service test.'
+          : 'Evidence is insufficient to rank countries. Review the comparison and choose a test country explicitly.',
         nextSteps: [
           'Add dated sources',
           'Ask a focused follow-up question',
@@ -461,6 +520,30 @@ export class ResearchWorkbench {
       ],
     };
     const allowed = new Set(project.evidence.map((item) => item.source));
+    if (singleService && !report.serviceAssessment && this.platform.config.mode === 'demo')
+      report.serviceAssessment = {
+        decision: 'hold',
+        rationale:
+          'Demo analysis only. Real buyer and competitor evidence is required before a paid test.',
+        offerPositioning: 'Validate the stated scope and outcome against actual buyer problems.',
+        idealBuyer: project.buyerProfile,
+        buyingProcess:
+          'Identify the decision maker, existing stack, budget authority and approval process.',
+        acquisitionApproach:
+          'Validate qualified enquiries before testing one service and one country with a capped budget.',
+        offerTests: ['Test the stated problem with prospective buyers.'],
+        validationSteps: ['Record dated buyer interviews and comparable competitor offers.'],
+        stopCriteria: [
+          'Do not spend if buyer need or delivery capability cannot be substantiated.',
+        ],
+        evidenceGaps: ['No independently verified demand or measured acquisition economics.'],
+      };
+    if (service) {
+      report.linkedServiceHash = serviceHash(service);
+      report.serviceProfileSnapshot = serviceFacts(service);
+    }
+    if (singleService && report.serviceAssessment?.decision === 'hold')
+      report.recommendation = { ...report.recommendation, country: null, locationIds: [] };
     report.adLibraryObservations = adLibraryObservations;
     report.marketEvidence = marketSummary;
     if (reuse) report.researchReuse = reuse;
@@ -490,7 +573,13 @@ export class ResearchWorkbench {
       ),
     });
     report.evidenceAudit = evidenceAudit(report, project.evidence);
-    return this.saveVersion(user, project, report, instruction || 'Initial comparison', previous);
+    return this.saveVersion(
+      user,
+      project,
+      report,
+      instruction || (singleService ? 'Initial service-country assessment' : 'Initial comparison'),
+      previous,
+    );
   }
   async edit(user, versionId, input) {
     const version = await this.platform.owned('research_versions', versionId, user);
@@ -503,6 +592,13 @@ export class ResearchWorkbench {
     );
     const report = { ...version.report, ...input };
     delete report.note;
+    delete report.serviceDecision;
+    if (input.serviceDecision && report.serviceAssessment)
+      report.serviceAssessment = {
+        ...report.serviceAssessment,
+        decision: input.serviceDecision,
+        rationale: input.recommendation.reason,
+      };
     report.countries = report.countries.map((item) => ({ ...item, confidence: 'Low' }));
     return this.saveVersion(user, project, report, `Human edit: ${input.note}`, version);
   }

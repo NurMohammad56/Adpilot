@@ -43,6 +43,13 @@ const proseKeys = new Set([
   'sourcingSteps',
   'validationSteps',
   'adAngle',
+  'rationale',
+  'offerPositioning',
+  'idealBuyer',
+  'buyingProcess',
+  'acquisitionApproach',
+  'offerTests',
+  'stopCriteria',
 ]);
 const opaque = new Set([
   'retrieval',
@@ -58,6 +65,7 @@ const opaque = new Set([
   'contentIds',
   'geoTargets',
   'locationIds',
+  'serviceProfileSnapshot',
 ]);
 export function reportProse(report) {
   const texts = [];

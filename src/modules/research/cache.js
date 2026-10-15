@@ -24,6 +24,7 @@ export async function cachedResearch(
       'aiCircuitUntil',
       'operationsPolicy',
       'jobVersion',
+      'serviceMutationVersion',
     ]);
     context = {
       ...context,

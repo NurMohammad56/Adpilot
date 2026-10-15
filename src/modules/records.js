@@ -5,6 +5,7 @@ import { invalidateAdLibraryReports } from './research/ad-library.js';
 export const recordKinds = {
   'ad-library': ['ad_library_observations', 'Saved competitor ads'],
   products: ['products', 'Products'],
+  services: ['service_profiles', 'Services'],
   media: ['media_assets', 'Media files'],
   plans: ['campaign_plans', 'Campaign plans'],
   approvals: ['approval_requests', 'Approvals'],
@@ -119,6 +120,11 @@ async function prepare(platform, user, kind, id) {
     for (const row of all[name]) if (!row.deletedAt && predicate(row)) marked(name).add(row.id);
   };
   const edges = {
+    service_profiles: {
+      research_projects: ['serviceProfileId'],
+      offers: ['serviceProfileId'],
+      campaign_plans: ['serviceProfileId'],
+    },
     products: {
       product_costs: ['productId'],
       market_research_reports: ['productId', 'productIds'],
@@ -261,8 +267,37 @@ async function prepare(platform, user, kind, id) {
     if (Object.keys(changes).length) changes.revision = (row.revision || 1) + 1;
     patch('products', row, changes);
   }
+  const changedServices = new Set();
+  for (const row of all.service_profiles) {
+    const changes = {};
+    if (marked('media_assets').has(row.mediaAssetId)) changes.mediaAssetId = null;
+    if (marked('media_assets').has(row.thumbnailAssetId)) changes.thumbnailAssetId = null;
+    if (row.adLibraryIds?.some((id) => marked('ad_library_observations').has(id)))
+      changes.adLibraryIds = removeIds(row.adLibraryIds, marked('ad_library_observations'));
+    if (row.candidateLocationIds?.some((id) => marked('targeting_locations').has(id)))
+      changes.candidateLocationIds = removeIds(
+        row.candidateLocationIds,
+        marked('targeting_locations'),
+      );
+    if (Object.keys(changes).length) {
+      changes.revision = (row.revision || 1) + 1;
+      changedServices.add(row.id);
+    }
+    patch('service_profiles', row, changes);
+  }
   for (const row of all.research_projects) {
     const changes = {};
+    if (changedServices.has(row.serviceProfileId)) {
+      changes.status = 'needs_research';
+      changes.approvedVersionId = null;
+      changes.serviceProfileInvalidatedAt = now();
+      const version = all.research_versions.find((version) => version.id === row.currentVersionId);
+      if (version)
+        patch('research_versions', version, {
+          serviceProfileInvalidatedAt: now(),
+          staleReason: 'Saved service inputs were removed.',
+        });
+    }
     if (row.adLibraryIds?.some((id) => marked('ad_library_observations').has(id)))
       changes.adLibraryIds = removeIds(row.adLibraryIds, marked('ad_library_observations'));
     if (marked('product_discoveries').has(row.discoveryReportId)) {
@@ -334,6 +369,7 @@ async function prepare(platform, user, kind, id) {
       continue;
     if (
       contains(plan, changedProducts, ['productId', 'productIds']) ||
+      changedServices.has(plan.serviceProfileId) ||
       plan.audienceRecommendation?.geoTargets?.some((target) =>
         marked('targeting_locations').has(target.id),
       )
@@ -366,6 +402,8 @@ async function prepare(platform, user, kind, id) {
   }
   if (
     marked('products').size ||
+    marked('service_profiles').size ||
+    changedServices.size ||
     marked('research_projects').size ||
     marked('ad_library_observations').size ||
     marked('media_assets').size ||

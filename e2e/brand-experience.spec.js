@@ -38,7 +38,7 @@ test('brand assets load, navigation stays usable and reduced motion is respected
   for (const name of [
     'Products',
     'Product research',
-    'Research studio',
+    'Service research',
     'Ad Library research',
     'Settings',
   ]) {
@@ -74,7 +74,7 @@ test('Bangla login and workspace fit small screens with loaded branding', async 
     'Overview',
     'Products',
     'Product research',
-    'Research studio',
+    'Service research',
     'Ad Library research',
     'Settings',
   ]) {

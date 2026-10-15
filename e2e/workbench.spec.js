@@ -64,7 +64,7 @@ test('own workspace, real image/video uploads, iterative country research and se
   });
   await page.getByRole('button', { name: 'Upload file' }).click();
   await expect(page.getByText('agency-demo.webm', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Research studio', exact: true }).click();
+  await page.getByRole('button', { name: 'Service research', exact: true }).click();
   await page.getByLabel('Offer / project name', { exact: true }).fill('Custom ecommerce QA');
   await page
     .getByLabel('What do you sell, and what problem does it solve?', { exact: true })
@@ -228,7 +228,7 @@ test('own workspace, real image/video uploads, iterative country research and se
   ).toBeDisabled();
   await page
     .getByRole('navigation')
-    .getByRole('button', { name: 'Research studio', exact: true })
+    .getByRole('button', { name: 'Service research', exact: true })
     .click();
   const researchProject = page
     .locator('.research-project')
@@ -246,7 +246,7 @@ test('own workspace, real image/video uploads, iterative country research and se
   await expect(page.locator('.workspace-switch strong')).toHaveText(original);
   await page.getByRole('button', { name: 'Media library', exact: true }).click();
   await expect(page.getByText('agency-cover.png', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Research studio', exact: true }).click();
+  await page.getByRole('button', { name: 'Service research', exact: true }).click();
   await expect(page.getByRole('button', { name: /Custom ecommerce QA/ })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -254,7 +254,7 @@ test('research, media and account pages fit a narrow screen', async ({ page }) =
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Explore demo workspace' }).click();
-  for (const section of ['Accounts', 'Media library', 'Research studio', 'Ad control center']) {
+  for (const section of ['Accounts', 'Media library', 'Service research', 'Ad control center']) {
     await page.getByLabel('Workspace section', { exact: true }).selectOption(section);
     await expect(
       page.getByRole('heading', {

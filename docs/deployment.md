@@ -4,7 +4,7 @@ The AdPilot release is live at `https://fahimstack.tech/adpilot/`. Atlas now all
 
 ## Layout and services
 
-- Current release source: `/srv/adpilot/releases/20261014-carousel-sources-final`; `/srv/adpilot/current` points here. The preceding carousel release and `adpilot-app:carousel-sources-final-previous` image remain available for rollback.
+- Current release source: `/srv/adpilot/releases/20261014-services`; `/srv/adpilot/current` points here. The preceding carousel release and `adpilot-app:services-previous` image remain available for rollback.
 - Runtime secrets: `/srv/adpilot/shared/production.env`, root-only file inside a private directory. Secrets are excluded from release archives and images.
 - Compose definition: `deploy/compose.production.yaml`. API listens on loopback port 4015; worker runs separately. API and worker use the same encrypted Atlas records and private R2 bucket.
 - Authenticated Redis 7.4 uses a private Docker network, AOF persistence and a persistent `/srv/adpilot/shared/redis` volume. It has no public port. BullMQ uses its native connection, independently of the earlier Upstash REST configuration.

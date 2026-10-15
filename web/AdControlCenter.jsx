@@ -126,8 +126,8 @@ export function AdControlCenter({ data, api, run, busy, setPage }) {
           Every launch, resume, targeting, creative or budget change needs its own review.
         </p>
         <div className="tools-actions">
-          <button className="button secondary" onClick={() => setPage('Research studio')}>
-            Research studio
+          <button className="button secondary" onClick={() => setPage('Service research')}>
+            Service research
           </button>
           <button className="button secondary" onClick={() => setPage('Performance')}>
             Campaign operations

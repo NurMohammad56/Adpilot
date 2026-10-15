@@ -60,6 +60,9 @@ const MediaLibrary = lazy(() =>
 const ResearchDesk = lazy(() =>
   import('./WorkspaceTools.jsx').then((m) => ({ default: m.ResearchDesk })),
 );
+const Services = lazy(() =>
+  import('./Services.jsx').then((module) => ({ default: module.Services })),
+);
 import { api, selectApiWorkspace, mediaUrl } from './api.js';
 import { LanguageSwitch, useLanguage, getLanguage, translateText } from './i18n.js';
 import { useDraft } from './use-draft.js';
@@ -120,7 +123,8 @@ const navItems = [
   { label: 'Overview', icon: LayoutDashboard },
   { label: 'Products', icon: Package },
   { label: 'Product research', icon: FlaskConical },
-  { label: 'Research studio', icon: Sparkles },
+  { label: 'Services', icon: Globe2 },
+  { label: 'Service research', icon: Sparkles },
   { label: 'Ad Library research', icon: Search },
   { label: 'Media library', icon: Image },
   { label: 'Accounts', icon: Settings2 },
@@ -1026,6 +1030,14 @@ function PlanReview({
         <LanguageSwitch />
       </div>
       <ReportTranslationNotice translation={translation} />
+      {plan.serviceProfileInvalidatedAt && (
+        <div className="notice">
+          <strong>Service profile changed</strong>
+          <p>
+            Open Services and research the updated offer before preparing a fresh campaign plan.
+          </p>
+        </div>
+      )}
       {plan.productResearchInvalidatedAt && (
         <div className="notice">
           <strong>Linked product research changed</strong>
@@ -1045,7 +1057,7 @@ function PlanReview({
               className="button secondary"
               onClick={() => onResearch(plan.researchProjectId)}
             >
-              Open Research studio
+              Open Service research
             </button>
           </div>
         </div>
@@ -2480,8 +2492,14 @@ function App() {
     `adpilot-product-research-tab:${data?.business?.id || 'signed-out'}`,
     savedPage === 'Product discovery' ? 'discover' : 'research',
   );
-  const page = savedPage === 'Product discovery' ? 'Product research' : savedPage;
+  const page =
+    savedPage === 'Product discovery'
+      ? 'Product research'
+      : savedPage === 'Research studio'
+        ? 'Service research'
+        : savedPage;
   function setPage(next) {
+    if (next === 'Research studio') next = 'Service research';
     if (next === 'Product discovery') {
       setProductTab('discover');
       setSavedPage('Product research');
@@ -3070,7 +3088,7 @@ function App() {
                           refresh={refresh}
                         />
                       )}
-                      {page === 'Research studio' && (
+                      {page === 'Service research' && (
                         <ResearchDesk
                           onOpenDiscovery={() => setPage('Product discovery')}
                           onOpenLibrary={() => setPage('Ad Library research')}
@@ -3080,6 +3098,17 @@ function App() {
                           run={run}
                           refresh={refresh}
                           onPlan={showPlan}
+                        />
+                      )}
+                      {page === 'Services' && (
+                        <Services
+                          key={data.business.id}
+                          {...common}
+                          api={api}
+                          run={run}
+                          refresh={refresh}
+                          onPlan={showPlan}
+                          onOpenLibrary={() => setPage('Ad Library research')}
                         />
                       )}
                       {page === 'Product research' && (
@@ -3242,7 +3271,7 @@ function App() {
                   projectId,
                 );
                 setModal(null);
-                setPage(physical ? 'Product research' : 'Research studio');
+                setPage(physical ? 'Product research' : 'Service research');
               }}
               submit={(plan, launchMode) =>
                 run(async () => {
@@ -3284,7 +3313,7 @@ function App() {
                   video you use in a campaign.
                 </li>
                 <li>
-                  In Research studio, describe your product, service or software, compare candidate
+                  In Service research, describe your product, service or software, compare candidate
                   countries, add dated evidence and ask follow-up questions. Edits and new research
                   preserve previous versions.
                 </li>

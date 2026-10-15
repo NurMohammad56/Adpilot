@@ -108,7 +108,7 @@ test('physical product form has its own editable goal, saved facts and ad reuse;
   expect(projects[0].buyerProfile).toContain('Buyer hypothesis not yet validated:');
   await page
     .locator('.sidebar nav')
-    .getByRole('button', { name: 'Research studio', exact: true })
+    .getByRole('button', { name: 'Service research', exact: true })
     .click();
   await expect(page.getByLabel('Offer type', { exact: true })).toBeEnabled();
   await page.getByLabel('Offer type', { exact: true }).selectOption('software');

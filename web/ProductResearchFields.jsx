@@ -107,8 +107,8 @@ export function ProductResearchFields({
     <div className="product-research-fields">
       <p className="notice">
         {bn
-          ? 'এখানে physical product-এর ব্যবসার সম্ভাবনা যাচাই হবে: buyer need, বাস্তব competitor offer, দাম, delivery/COD risk এবং ছোট sales test। Digital service-এর জন্য Research studio ব্যবহার করুন।'
-          : 'Validate a physical product: buyer needs, actual competitor offers, pricing, delivery/COD risks and a small sales test. Use Research studio for digital services.'}
+          ? 'এখানে physical product-এর ব্যবসার সম্ভাবনা যাচাই হবে: buyer need, বাস্তব competitor offer, দাম, delivery/COD risk এবং ছোট sales test। Digital service-এর জন্য Service research ব্যবহার করুন।'
+          : 'Validate a physical product: buyer needs, actual competitor offers, pricing, delivery/COD risks and a small sales test. Use Service research for digital services.'}
       </p>
       <CampaignField
         label="Choose a saved product"

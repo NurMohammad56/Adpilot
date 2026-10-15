@@ -6,7 +6,7 @@ export function WorkflowGuide({ data, onNavigate }) {
   const steps = [
     ['Accounts', '1. Connect accounts', connected],
     ['Products', '2. Bangladesh product costs', data.products.length > 0],
-    ['Research studio', '3. Research / service markets', researched],
+    ['Services', '3. Service profile & country research', researched],
     ['Campaign plans', '4. Review campaign draft', data.plans.length > 0],
     [
       'Approvals',
@@ -26,8 +26,9 @@ export function WorkflowGuide({ data, onNavigate }) {
       </summary>
       <div className="stepper">
         <span>
-          For Bangladesh products, begin with actual costs. For international services, begin with
-          country research. Both flows require a reviewed campaign and separate launch approval.
+          For Bangladesh products, begin with actual costs. For international services, begin with a
+          saved service and one target country. Use Service research to compare countries. Both
+          flows require a reviewed campaign and separate launch approval.
         </span>
         {steps.map(([page, label, completed]) => (
           <button key={page} className={completed ? 'active' : ''} onClick={() => onNavigate(page)}>

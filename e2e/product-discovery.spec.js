@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-test('discovery, shortlist, ad checking, actual-product prefill and Research studio remain connected', async ({
+test('discovery, shortlist, ad checking, actual-product prefill and Service research remain connected', async ({
   page,
 }) => {
   await page.goto('/');

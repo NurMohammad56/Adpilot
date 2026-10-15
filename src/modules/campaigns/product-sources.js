@@ -14,7 +14,7 @@ export async function resolveProductSource(platform, user, reference) {
       row.kind === 'physical-product',
       422,
       'PRODUCT_SOURCE_KIND',
-      'Choose physical product research. Digital services belong in Research studio.',
+      'Choose physical product research. Digital services belong in Service research.',
     );
   if (reference.kind === 'discovery')
     assert(

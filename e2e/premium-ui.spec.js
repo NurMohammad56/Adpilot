@@ -31,7 +31,7 @@ test('sidebar auto hides, opens on hover/keyboard and can be pinned; human appro
   await expect(page.locator('.sidebar')).toHaveCSS('width', '270px');
   await page.screenshot({ path: '.data/premium-sidebar-expanded.png' });
 });
-test('digital Research studio offers Other and keeps physical briefs in Product research', async ({
+test('digital Service research offers Other and keeps physical briefs in Product research', async ({
   page,
 }) => {
   await start(page);
@@ -66,7 +66,7 @@ test('digital Research studio offers Other and keeps physical briefs in Product 
   await page.reload();
   await page
     .getByRole('navigation')
-    .getByRole('button', { name: 'Research studio', exact: true })
+    .getByRole('button', { name: 'Service research', exact: true })
     .click();
   await expect(
     page.locator('.research-project').filter({ hasText: 'Digital offer QA' }),

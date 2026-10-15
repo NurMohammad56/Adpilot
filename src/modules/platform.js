@@ -842,6 +842,12 @@ export class Platform {
     return this.store.transaction(async () => {
       let plan = await this.owned('campaign_plans', planId, user);
       assert(
+        !plan.serviceProfileInvalidatedAt,
+        409,
+        'STALE_SERVICE_RESEARCH',
+        'Service facts changed. Research the current service and request a fresh review.',
+      );
+      assert(
         !plan.productResearchInvalidatedAt,
         409,
         'PRODUCT_RESEARCH_CHANGED',

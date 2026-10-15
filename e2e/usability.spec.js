@@ -89,11 +89,11 @@ test('research example and unfinished brief survive navigation and mobile Bangla
 }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Explore demo workspace' }).click();
-  await page.getByRole('button', { name: 'Research studio', exact: true }).click();
+  await page.getByRole('button', { name: 'Service research', exact: true }).click();
   await page.getByLabel('Start with a guided example').selectOption('ecommerce');
   await page.getByLabel('Offer / project name').fill('My custom ecommerce offer');
   await page.getByRole('button', { name: 'Products', exact: true }).click();
-  await page.getByRole('button', { name: 'Research studio', exact: true }).click();
+  await page.getByRole('button', { name: 'Service research', exact: true }).click();
   await expect(page.getByLabel('Offer / project name')).toHaveValue('My custom ecommerce offer');
   await expect(page.getByLabel('What do you sell, and what problem does it solve?')).toHaveValue(
     /Custom ecommerce/,

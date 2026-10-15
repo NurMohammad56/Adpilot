@@ -12,6 +12,7 @@ export const collections = [
   'sessions',
   'businesses',
   'products',
+  'service_profiles',
   'product_costs',
   'market_research_reports',
   'competitors',
@@ -236,6 +237,11 @@ export class MongoStore {
         schema.index({ userId: 1, businessId: 1 }, { unique: true });
       if (collection === 'research_versions')
         schema.index({ projectId: 1, number: 1 }, { unique: true });
+      if (collection === 'research_projects')
+        schema.index(
+          { businessId: 1, serviceProfileId: 1, serviceCountry: 1 },
+          { unique: true, partialFilterExpression: { serviceCountry: { $type: 'string' } } },
+        );
       if (collection === 'business_outcomes')
         schema.index({ businessId: 1, campaignId: 1, reference: 1 }, { unique: true });
       if (collection === 'targeting_locations')

@@ -133,7 +133,7 @@ test('queued research status survives page reload and completed result opens aut
     });
   });
   await page.reload();
-  await nav(page, 'Research studio');
+  await nav(page, 'Service research');
   await page
     .locator('.research-record-item .research-project')
     .filter({ hasText: 'Website design queue QA' })
